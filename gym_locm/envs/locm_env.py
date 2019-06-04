@@ -31,11 +31,11 @@ class LoCMEnv(gym.Env):
         self._cards = self._load_cards()
         self._draft = None
 
-        cards_in_state = 33 if use_draft_history else 3
-        card_features = 16
+        self.cards_in_state = 33 if use_draft_history else 3
+        self.card_features = 16
 
         self.cards_in_deck = 30
-        self.state_shape = (cards_in_state, card_features)
+        self.state_shape = (self.cards_in_state, self.card_features)
 
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0,
@@ -46,10 +46,12 @@ class LoCMEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(3)
 
     def reset(self):
-        self.state = np.full(self.state_shape, 0, dtype=np.float32)
         self.turn = 1
 
         self.draft = self._new_draft()
+        self.state = self.draft[self.turn - 1]
+
+        return self._convert_state()
 
     def step(self, action):
         pass
@@ -64,6 +66,29 @@ class LoCMEnv(gym.Env):
             draft.append(np.random.choice(self._cards, 3, replace=False).tolist())
 
         return draft
+
+    def _convert_state(self):
+        converted_state = np.full((3, self.card_features), 0, dtype=np.float32)
+
+        for i, card in enumerate(self.state):
+            card_type = [0.0 if self.card_types[card.type] != j
+                         else 1.0 for j in range(4)]
+            cost = card.cost / 12
+            attack = card.attack / 12
+            defense = max(-12, card.defense) / 12
+            keywords = list(map(int, map(lambda k: k in card.keywords,
+                                         list('BCDGLW'))))
+            player_hp = card.player_hp / 12
+            enemy_hp = card.enemy_hp / 12
+            card_draw = card.card_draw / 2
+
+            converted_state[i] = np.array(
+                card_type +
+                [cost, attack, defense, player_hp, enemy_hp, card_draw] +
+                keywords
+            )
+
+        return converted_state
 
     @staticmethod
     def _load_cards():
