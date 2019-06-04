@@ -22,6 +22,7 @@ class Card:
 
 class LoCMEnv(gym.Env):
     metadata = {'render.modes': ['human']}
+    card_types = {'creature': 0, 'itemGreen': 1, 'itemRed': 2, 'itemBlue': 3}
 
     def __init__(self, use_draft_history=True):
         self.state = None
@@ -72,7 +73,13 @@ class LoCMEnv(gym.Env):
             raw_cards = card_list.readlines()
 
             for card in raw_cards:
-                cards.append(Card(*map(str.strip, card.split(';'))[:-1]))
+                id, name, card_type, cost, attack, defense, \
+                keywords, player_hp, enemy_hp, card_draw, _ = \
+                    map(str.strip, card.split(';'))
+
+                cards.append(Card(int(id), name, card_type, int(cost),
+                                  int(attack), int(defense), keywords,
+                                  int(player_hp), int(enemy_hp), int(card_draw)))
 
         assert len(cards) == 160
 
