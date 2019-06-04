@@ -28,10 +28,12 @@ class LoCMEnv(gym.Env):
         self.turn = 1
 
         self._cards = self._load_cards()
+        self._draft = None
 
         cards_in_state = 33 if use_draft_history else 3
         card_features = 16
 
+        self.cards_in_deck = 30
         self.state_shape = (cards_in_state, card_features)
 
         self.observation_space = gym.spaces.Box(
@@ -53,6 +55,14 @@ class LoCMEnv(gym.Env):
 
     def render(self, mode='human'):
         pass
+
+    def _new_draft(self):
+        draft = []
+
+        for _ in range(self.cards_in_deck):
+            draft.append(np.random.choice(self._cards, 3, replace=False).tolist())
+
+        return draft
 
     @staticmethod
     def _load_cards():
