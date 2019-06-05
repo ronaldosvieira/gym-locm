@@ -105,7 +105,7 @@ class Game:
             card = current_player.hand[action.chosen_card_index]
 
             current_player.deck.append(card)
-            current_player.hand.clear()
+            current_player.hand = []
 
             has_changed_turns = self._next_turn()
 
@@ -140,7 +140,7 @@ class Game:
         current_draft_choices = self._draft_cards[self.turn - 1]
 
         for player in self.players:
-            player.hand.extend(current_draft_choices)
+            player.hand = current_draft_choices
 
     def _prepare_for_battle(self):
         pass  # todo: implement
