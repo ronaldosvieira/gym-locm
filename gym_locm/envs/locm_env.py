@@ -80,8 +80,8 @@ class Game:
         self.cards_in_deck = cards_in_deck
 
         self._cards = self._load_cards()
-        self.players = []
-        self.lanes = []
+        self.players = ()
+        self.lanes = ()
         self.turn = -1
 
         self.reset()
@@ -91,7 +91,7 @@ class Game:
         self.current_player = PlayerOrder.FIRST
         self.turn = 1
 
-        self.players = [Player(), Player()]
+        self.players = (Player(), Player())
 
         self._prepare_for_draft()
 
