@@ -1,5 +1,23 @@
+from typing import List, Any
+
 import gym
 import numpy as np
+
+from enum import Enum
+
+
+class Phase(Enum):
+    DRAFT = 0
+    BATTLE = 1
+
+
+class PlayerOrder(Enum):
+    FIRST = 0
+    SECOND = 1
+
+
+class Player:
+    pass  # todo: implement
 
 
 class Card:
@@ -18,6 +36,63 @@ class Card:
 
     def has_ability(self, keyword):
         return keyword in self.keywords
+
+
+class GameState:
+    pass  # todo: implement
+
+
+class Game:
+    _draft_cards: List[List[Card]]
+    current_player: PlayerOrder
+    current_phase: Phase
+
+    def __init__(self, cards_in_deck=30):
+        self.cards_in_deck = cards_in_deck
+
+        self._cards = self._load_cards()
+
+        self.reset()
+
+    def reset(self) -> GameState:
+        self.current_phase = Phase.DRAFT
+        self.current_player = PlayerOrder.FIRST
+
+        self._draft_cards = self._new_draft()
+
+    def step(self) -> (GameState, float, bool, dict):
+        pass  # todo implement
+
+    def _init_player(self) -> Player:
+        pass
+
+    def _new_draft(self) -> List[List[Card]]:
+        draft = []
+
+        for _ in range(self.cards_in_deck):
+            draft.append(np.random.choice(self._cards, 3, replace=False).tolist())
+
+        return draft
+
+    @staticmethod
+    def _load_cards() -> List[Card]:
+        cards = []
+
+        with open('gym_locm/cardlist.txt', 'r') as card_list:
+            raw_cards = card_list.readlines()
+
+            for card in raw_cards:
+                id, name, card_type, cost, attack, defense, \
+                keywords, player_hp, enemy_hp, card_draw, _ = \
+                    map(str.strip, card.split(';'))
+
+                cards.append(Card(int(id), name, card_type, int(cost),
+                                  int(attack), int(defense), keywords,
+                                  int(player_hp), int(enemy_hp), int(card_draw)))
+
+        assert len(cards) == 160
+
+        return cards
 
 
 class LoCMEnv(gym.Env):
