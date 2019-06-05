@@ -36,6 +36,7 @@ class Player:
         self.bonus_mana = 0
         self.mana = self.base_mana
         self.next_rune = 25
+        self.bonus_draw = 0
         self.draw = 1
 
         self.deck = []
@@ -52,6 +53,13 @@ class Player:
                 raise EmptyDeckError()
 
             self.hand.append(self.deck.pop())
+
+    def damage(self, amount):
+        self.health -= amount
+
+        if self.health <= self.next_rune:
+            self.next_rune -= 5
+            self.bonus_draw += 1
 
 
 class Card:
