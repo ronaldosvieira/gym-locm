@@ -52,7 +52,10 @@ class Card:
 
 
 class GameState:
-    pass  # todo: implement
+    def __init__(self, current_player, players, lanes):
+        self.current_player = current_player
+        self.players = players
+        self.lanes = lanes
 
 
 class Game:
@@ -79,6 +82,9 @@ class Game:
 
     def step(self) -> (GameState, float, bool, dict):
         pass  # todo implement
+
+    def _build_game_state(self) -> GameState:
+        return GameState(self.current_player, self.players, self.lanes)
 
     def _new_draft(self) -> List[List[Card]]:
         draft = []
