@@ -103,7 +103,31 @@ class Game:
         return self._build_game_state()
 
     def step(self, action: Action) -> (GameState, float, bool, dict):
-        pass  # todo implement
+        if self.current_phase == Phase.DRAFT:
+            pass
+        elif self.current_phase == Phase.BATTLE:
+            pass
+
+        self._next_turn()
+
+        if self.turn > 30 and self.current_phase == Phase.DRAFT:
+            self.current_phase = Phase.BATTLE
+            self.turn = 1
+            self._prepare_for_battle()
+
+        info = {'turn': self.turn, 'phase': self.current_phase}
+
+        return self._build_game_state(), 0, False, info
+
+    def _next_turn(self):
+        if self.current_player == PlayerOrder.FIRST:
+            self.current_player = PlayerOrder.SECOND
+        else:
+            self.current_player = PlayerOrder.FIRST
+            self.turn += 1
+
+    def _prepare_for_battle(self):
+        pass  # todo: implement
 
     def _build_game_state(self) -> GameState:
         return GameState(self.current_player, self.players, self.lanes)
