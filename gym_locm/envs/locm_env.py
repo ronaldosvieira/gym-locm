@@ -205,7 +205,26 @@ class Game:
             player.hand = current_draft_choices
 
     def _new_battle_turn(self):
-        pass  # todo: implement
+        current_player = self.players[self.current_player]
+
+        if current_player.base_mana < 12:
+            current_player.base_mana += 1
+
+        current_player.mana = current_player.base_mana \
+            + current_player.bonus_mana
+
+        amount_to_draw = current_player.draw \
+            + current_player.bonus_draw
+        current_player.bonus_draw = 0
+
+        try:
+            current_player.draw(amount_to_draw)
+        except FullHandError:
+            pass
+        except EmptyDeckError:
+            amount_of_damage = current_player.health \
+                               - current_player.next_rune
+            current_player.damage(amount_of_damage)
 
     def _act_on_draft(self, action):
         current_player = self.players[self.current_player]
