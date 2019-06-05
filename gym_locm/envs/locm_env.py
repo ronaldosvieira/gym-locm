@@ -16,6 +16,14 @@ class PlayerOrder(IntEnum):
     SECOND = 1
 
 
+class FullHandError(Exception):
+    pass
+
+
+class EmptyDeckError(Exception):
+    pass
+
+
 class Lane(IntEnum):
     LEFT = 0
     RIGHT = 1
@@ -32,6 +40,18 @@ class Player:
 
         self.deck = []
         self.hand = []
+
+    def draw(self, amount=1):
+        for _ in range(amount):
+            # todo: check which exception should have precedence
+
+            if len(self.hand) >= 8:
+                raise FullHandError()
+
+            if len(self.deck) == 0:
+                raise EmptyDeckError()
+
+            self.hand.append(self.deck.pop())
 
 
 class Card:
@@ -163,11 +183,11 @@ class Game:
 
         for player in self.players:
             np.random.shuffle(player.deck)
-            player.hand = [player.deck.pop() for _ in range(4)]
+            player.draw(4)
             player.base_mana = 0
 
         second_player = self.players[PlayerOrder.FIRST]
-        second_player.hand.append(second_player.deck.pop())
+        second_player.draw()
         second_player.bonus_mana = 1
 
     def _build_game_state(self) -> GameState:
