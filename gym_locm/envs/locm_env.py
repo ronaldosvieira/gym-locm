@@ -87,18 +87,13 @@ class Game:
         self.reset()
 
     def reset(self) -> GameState:
-        self.turn = 1
         self.current_phase = Phase.DRAFT
         self.current_player = PlayerOrder.FIRST
+        self.turn = 1
 
-        self._draft_cards = self._new_draft()
         self.players = [Player(), Player()]
-        self.lanes = (([], []), ([], []))
 
-        current_draft_choices = self._draft_cards[self.turn - 1]
-
-        for player in self.players:
-            player.hand.extend(current_draft_choices)
+        self._prepare_for_draft()
 
         return self._build_game_state()
 
@@ -125,6 +120,15 @@ class Game:
         else:
             self.current_player = PlayerOrder.FIRST
             self.turn += 1
+
+    def _prepare_for_draft(self):
+        self._draft_cards = self._new_draft()
+        self.lanes = (([], []), ([], []))
+
+        current_draft_choices = self._draft_cards[self.turn - 1]
+
+        for player in self.players:
+            player.hand.extend(current_draft_choices)
 
     def _prepare_for_battle(self):
         pass  # todo: implement
