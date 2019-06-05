@@ -25,6 +25,7 @@ class Player:
     def __init__(self):
         self.health = 30
         self.base_mana = 1
+        self.bonus_mana = 0
         self.mana = self.base_mana
         self.next_rune = 25
         self.draw = 1
@@ -118,7 +119,7 @@ class Game:
                     player.hand = current_draft_choices
 
         elif self.current_phase == Phase.BATTLE:
-            pass
+            pass  # todo: implement
 
         new_state = self._build_game_state()
         has_ended = False
@@ -158,7 +159,16 @@ class Game:
             player.hand = current_draft_choices
 
     def _prepare_for_battle(self):
-        pass  # todo: implement
+        self.lanes = (([], []), ([], []))
+
+        for player in self.players:
+            np.random.shuffle(player.deck)
+            player.hand = [player.deck.pop() for _ in range(4)]
+            player.base_mana = 0
+
+        second_player = self.players[PlayerOrder.FIRST]
+        second_player.hand.append(second_player.deck.pop())
+        second_player.bonus_mana = 1
 
     def _build_game_state(self) -> GameState:
         return GameState(self.current_player, self.players, self.lanes)
