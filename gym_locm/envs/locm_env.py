@@ -69,16 +69,25 @@ class Game:
         self._cards = self._load_cards()
         self.players = []
         self.lanes = []
+        self.turn = -1
 
         self.reset()
 
     def reset(self) -> GameState:
+        self.turn = 1
         self.current_phase = Phase.DRAFT
         self.current_player = PlayerOrder.FIRST
 
         self._draft_cards = self._new_draft()
         self.players = [Player(), Player()]
         self.lanes = (([], []), ([], []))
+
+        current_draft_choices = self._draft_cards[self.turn - 1]
+
+        for player in self.players:
+            player.hand.extend(current_draft_choices)
+
+        return self._build_game_state()
 
     def step(self) -> (GameState, float, bool, dict):
         pass  # todo implement
