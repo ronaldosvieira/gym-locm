@@ -99,27 +99,32 @@ class Game:
 
     def step(self, action: Action) -> (GameState, float, bool, dict):
         if self.current_phase == Phase.DRAFT:
-            pass
+            assert type(action) == DraftAction
+            has_changed_turns = self._next_turn()
+
+            if self.current_phase == Phase.BATTLE:
+                self._prepare_for_battle()
         elif self.current_phase == Phase.BATTLE:
             pass
-
-        self._next_turn()
-
-        if self.turn > 30 and self.current_phase == Phase.DRAFT:
-            self.current_phase = Phase.BATTLE
-            self.turn = 1
-            self._prepare_for_battle()
 
         info = {'turn': self.turn, 'phase': self.current_phase}
 
         return self._build_game_state(), 0, False, info
 
-    def _next_turn(self):
+    def _next_turn(self) -> bool:
         if self.current_player == PlayerOrder.FIRST:
             self.current_player = PlayerOrder.SECOND
+
+            return False
         else:
             self.current_player = PlayerOrder.FIRST
             self.turn += 1
+
+            if self.turn > self.cards_in_deck:
+                self.current_phase = Phase.BATTLE
+                self.turn = 1
+
+            return True
 
     def _prepare_for_draft(self):
         self._draft_cards = self._new_draft()
