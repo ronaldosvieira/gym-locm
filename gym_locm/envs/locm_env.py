@@ -120,9 +120,18 @@ class Game:
         elif self.current_phase == Phase.BATTLE:
             pass
 
+        new_state = self._build_game_state()
+        has_ended = False
         info = {'turn': self.turn, 'phase': self.current_phase}
 
-        return self._build_game_state(), 0, False, info
+        if self.players[PlayerOrder.FIRST].health <= 0:
+            info['winner'] = PlayerOrder.SECOND
+            has_ended = True
+        elif self.players[PlayerOrder.SECOND].health <= 0:
+            info['winner'] = PlayerOrder.FIRST
+            has_ended = True
+
+        return new_state, has_ended, info
 
     def _next_turn(self) -> bool:
         if self.current_player == PlayerOrder.FIRST:
