@@ -100,6 +100,13 @@ class Game:
     def step(self, action: Action) -> (GameState, float, bool, dict):
         if self.current_phase == Phase.DRAFT:
             assert type(action) == DraftAction
+
+            current_player = self.players[self.current_player]
+            card = current_player.hand[action.chosen_card_index]
+
+            current_player.deck.append(card)
+            current_player.hand.clear()
+
             has_changed_turns = self._next_turn()
 
             if self.current_phase == Phase.BATTLE:
