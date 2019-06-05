@@ -130,24 +130,24 @@ class Game:
         if self.current_phase == Phase.DRAFT:
             assert type(action) == DraftAction
 
-            current_player = self.players[self.current_player]
-            card = current_player.hand[action.chosen_card_index]
+            self._act_on_draft(action)
 
-            current_player.deck.append(card)
-            current_player.hand = []
+            self._next_turn()
 
-            has_changed_turns = self._next_turn()
-
-            if self.current_phase == Phase.BATTLE:
+            if self.current_phase == Phase.DRAFT:
+                self._new_draft_turn()
+            elif self.current_phase == Phase.BATTLE:
                 self._prepare_for_battle()
-            elif has_changed_turns:
-                current_draft_choices = self._draft_cards[self.turn - 1]
-
-                for player in self.players:
-                    player.hand = current_draft_choices
+                self._new_battle_turn()
 
         elif self.current_phase == Phase.BATTLE:
-            pass  # todo: implement
+            assert type(action) == BattleAction
+
+            self._act_on_battle(action)
+
+            self._next_turn()
+
+            self._new_battle_turn()
 
         new_state = self._build_game_state()
         has_ended = False
@@ -197,6 +197,25 @@ class Game:
         second_player = self.players[PlayerOrder.FIRST]
         second_player.draw()
         second_player.bonus_mana = 1
+
+    def _new_draft_turn(self):
+        current_draft_choices = self._draft_cards[self.turn - 1]
+
+        for player in self.players:
+            player.hand = current_draft_choices
+
+    def _new_battle_turn(self):
+        pass  # todo: implement
+
+    def _act_on_draft(self, action):
+        current_player = self.players[self.current_player]
+
+        card = current_player.hand[action.chosen_card_index]
+
+        current_player.deck.append(card)
+
+    def _act_on_battle(self, action):
+        pass  # todo: implement
 
     def _build_game_state(self) -> GameState:
         return GameState(self.current_player, self.players, self.lanes)
