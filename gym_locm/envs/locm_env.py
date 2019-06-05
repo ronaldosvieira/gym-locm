@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List
 
 import gym
 import numpy as np
@@ -58,6 +58,19 @@ class GameState:
         self.lanes = lanes
 
 
+class Action:
+    pass
+
+
+class DraftAction(Action):
+    def __init__(self, chosen_card_index):
+        self.chosen_card_index = chosen_card_index
+
+
+class BattleAction(Action):
+    pass  # todo: implement
+
+
 class Game:
     _draft_cards: List[List[Card]]
     current_player: PlayerOrder
@@ -89,7 +102,7 @@ class Game:
 
         return self._build_game_state()
 
-    def step(self) -> (GameState, float, bool, dict):
+    def step(self, action: Action) -> (GameState, float, bool, dict):
         pass  # todo implement
 
     def _build_game_state(self) -> GameState:
