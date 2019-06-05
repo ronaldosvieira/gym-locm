@@ -57,7 +57,7 @@ class LoCMEnv(gym.Env):
         pass
 
     def render(self, mode='human'):
-        pass
+        print(self._convert_state())
 
     def _new_draft(self):
         draft = []
