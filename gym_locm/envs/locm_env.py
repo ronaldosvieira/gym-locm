@@ -111,6 +111,12 @@ class Game:
 
             if self.current_phase == Phase.BATTLE:
                 self._prepare_for_battle()
+            elif has_changed_turns:
+                current_draft_choices = self._draft_cards[self.turn - 1]
+
+                for player in self.players:
+                    player.hand = current_draft_choices
+
         elif self.current_phase == Phase.BATTLE:
             pass
 
