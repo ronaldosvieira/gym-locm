@@ -3,7 +3,7 @@ from typing import List, Any
 import gym
 import numpy as np
 
-from enum import Enum
+from enum import Enum, IntEnum
 
 
 class Phase(Enum):
@@ -11,13 +11,26 @@ class Phase(Enum):
     BATTLE = 1
 
 
-class PlayerOrder(Enum):
+class PlayerOrder(IntEnum):
     FIRST = 0
     SECOND = 1
 
 
+class Lane(IntEnum):
+    LEFT = 0
+    RIGHT = 1
+
+
 class Player:
-    pass  # todo: implement
+    def __init__(self):
+        self.health = 30
+        self.base_mana = 1
+        self.mana = self.base_mana
+        self.next_rune = 25
+        self.draw = 1
+
+        self.deck = []
+        self.hand = []
 
 
 class Card:
@@ -51,6 +64,8 @@ class Game:
         self.cards_in_deck = cards_in_deck
 
         self._cards = self._load_cards()
+        self.players = []
+        self.lanes = []
 
         self.reset()
 
@@ -59,12 +74,11 @@ class Game:
         self.current_player = PlayerOrder.FIRST
 
         self._draft_cards = self._new_draft()
+        self.players = [Player(), Player()]
+        self.lanes = (([], []), ([], []))
 
     def step(self) -> (GameState, float, bool, dict):
         pass  # todo implement
-
-    def _init_player(self) -> Player:
-        pass
 
     def _new_draft(self) -> List[List[Card]]:
         draft = []
