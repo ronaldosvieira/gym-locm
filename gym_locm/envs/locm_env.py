@@ -184,7 +184,7 @@ class Game:
 
         return self._build_game_state()
 
-    def step(self, action: Action) -> (GameState, float, bool, dict):
+    def step(self, action: Action) -> (GameState, bool, dict):
         if self.current_phase == Phase.DRAFT:
             assert type(action) == DraftAction
 
