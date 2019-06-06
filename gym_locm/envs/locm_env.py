@@ -44,7 +44,7 @@ class Player:
 
     def draw(self, amount=1):
         for _ in range(amount):
-            # todo: check which exception should have precedence
+            # TODO: check which exception should have precedence
 
             if len(self.hand) >= 8:
                 raise FullHandError()
@@ -97,7 +97,7 @@ class DraftAction(Action):
 
 
 class BattleAction(Action):
-    pass  # todo: implement
+    pass  # TODO: implement
 
 
 class Game:
@@ -178,6 +178,7 @@ class Game:
             return True
 
     def _prepare_for_draft(self):
+        """Prepare all game components for a draft phase"""
         self._draft_cards = self._new_draft()
         self.lanes = (([], []), ([], []))
 
@@ -187,6 +188,7 @@ class Game:
             player.hand = current_draft_choices
 
     def _prepare_for_battle(self):
+        """Prepare all game components for a battle phase"""
         self.lanes = (([], []), ([], []))
 
         for player in self.players:
@@ -199,12 +201,14 @@ class Game:
         second_player.bonus_mana = 1
 
     def _new_draft_turn(self):
+        """Initialize a draft turn"""
         current_draft_choices = self._draft_cards[self.turn - 1]
 
         for player in self.players:
             player.hand = current_draft_choices
 
     def _new_battle_turn(self):
+        """Initialize a battle turn"""
         current_player = self.players[self.current_player]
 
         if current_player.base_mana < 12:
@@ -226,15 +230,17 @@ class Game:
                                - current_player.next_rune
             current_player.damage(amount_of_damage)
 
-    def _act_on_draft(self, action):
+    def _act_on_draft(self, action: DraftAction):
+        """Execute the action intended by the player in this draft turn"""
         current_player = self.players[self.current_player]
 
         card = current_player.hand[action.chosen_card_index]
 
         current_player.deck.append(card)
 
-    def _act_on_battle(self, action):
-        pass  # todo: implement
+    def _act_on_battle(self, action: BattleAction):
+        """Execute the actions intended by the player in this battle turn"""
+        pass  # TODO: implement
 
     def _build_game_state(self) -> GameState:
         return GameState(self.current_player, self.players, self.lanes)
