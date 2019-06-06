@@ -27,6 +27,9 @@ class PlayerOrder(IntEnum):
     FIRST = 0
     SECOND = 1
 
+    def opposing(self):
+        return (self + 1) % 2
+
 
 class Lane(IntEnum):
     LEFT = 0
