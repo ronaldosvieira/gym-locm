@@ -70,7 +70,6 @@ class Player:
         self.mana = self.base_mana
         self.next_rune = 25
         self.bonus_draw = 0
-        self.draw = 1
 
         self.deck = []
         self.hand = []
@@ -289,21 +288,20 @@ class Game:
         """Initialize a battle turn"""
         current_player = self.players[self.current_player]
 
+        for creature in current_player.lanes[Lane.LEFT]:
+            creature.can_attack = True
+
+        for creature in current_player.lanes[Lane.RIGHT]:
+            creature.can_attack = True
+
         if current_player.base_mana < 12:
             current_player.base_mana += 1
 
         current_player.mana = current_player.base_mana \
             + current_player.bonus_mana
 
-        amount_to_draw = current_player.draw \
-            + current_player.bonus_draw
+        amount_to_draw = 1 + current_player.bonus_draw
         current_player.bonus_draw = 0
-
-        for creature in current_player.lanes[Lane.LEFT]:
-            creature.can_attack = True
-
-        for creature in current_player.lanes[Lane.RIGHT]:
-            creature.can_attack = True
 
         try:
             current_player.draw(amount_to_draw)
