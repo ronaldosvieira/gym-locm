@@ -87,12 +87,14 @@ class Player:
 
             self.hand.append(self.deck.pop())
 
-    def damage(self, amount):
+    def damage(self, amount) -> int:
         self.health -= amount
 
         if self.health <= self.next_rune:
             self.next_rune -= 5
             self.bonus_draw += 1
+
+        return amount
 
 
 class Card:
@@ -138,15 +140,17 @@ class Creature(Card):
     def add_ability(self, ability):
         self.keywords.add(ability)
 
-    def damage(self, amount=1, lethal=False):
+    def damage(self, amount=1, lethal=False) -> int:
         if self.has_ability('W'):
             self.remove_ability('W')
-            amount = 0
+            return 0
 
         self.defense -= amount
 
         if lethal or self.defense <= 0:
             self.is_dead = True
+
+        return amount
 
 
 class Item(Card):
@@ -395,17 +399,19 @@ class Game:
                                                "attack.")
 
                 if action.target is None:
-                    opposing_player.damage(action.origin.attack)
+                    damage_dealt = opposing_player.damage(action.origin.attack)
 
                 elif isinstance(action.target, Creature):
-                    action.target.damage(action.origin.attack,
-                                         lethal=action.origin.has_ability('L'))
-                    action.origin.damage(action.target.attack,
-                                         lethal=action.target.has_ability('L'))
+                    damage_dealt = action.target.damage(
+                        action.origin.attack,
+                        lethal=action.origin.has_ability('L'))
 
                 else:
                     raise MalformedActionError("Target is not a creature or "
                                                "a player.")
+
+                if 'D' in action.origin.keywords:
+                    current_player.health += damage_dealt
 
                 action.origin.can_attack = False
 
