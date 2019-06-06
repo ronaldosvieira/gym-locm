@@ -88,12 +88,14 @@ class Player:
 
             self.hand.append(self.deck.pop())
 
-    def damage(self, amount):
+    def damage(self, amount) -> bool:
         self.health -= amount
 
         if self.health <= self.next_rune:
             self.next_rune -= 5
             self.bonus_draw += 1
+
+        return self.health <= 0
 
 
 class Card:
@@ -131,6 +133,11 @@ class Creature(Card):
         super().__init__(*args, **kwargs)
 
         self.can_attack = False
+
+    def damage(self, amount) -> bool:
+        self.defense -= amount
+
+        return self.defense <= 0
 
 
 class Item(Card):
