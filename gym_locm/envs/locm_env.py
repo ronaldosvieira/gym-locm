@@ -361,6 +361,12 @@ class Game:
         except (NotEnoughManaError, MalformedActionError, FullLaneError):
             pass
 
+        for player in self.players:
+            for lane in player.lanes:
+                for creature in lane:
+                    if creature.defense <= 0:
+                        lane.remove(creature)
+
         if current_player.mana == 0:
             current_player.bonus_mana = 0
 
