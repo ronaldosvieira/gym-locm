@@ -359,7 +359,7 @@ class Game:
                 except ValueError:
                     raise MalformedActionError("Card is not in player's hand.")
 
-                action.origin.can_attack = False
+                action.origin.can_attack = 'C' in action.origin.keywords
 
                 current_player.lanes[action.target].append(action.origin)
 
