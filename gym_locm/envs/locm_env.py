@@ -132,6 +132,16 @@ class Creature(Card):
         self.is_dead = False
         self.can_attack = False
 
+    def remove_ability(self, ability):
+        try:
+            self.keywords = self.keywords.remove('W')
+        except ValueError:
+            pass
+
+    def add_ability(self, ability):
+        if ability not in self.keywords:
+            self.keywords += ability
+
     def damage(self, amount=1, lethal=False):
         self.defense -= amount
 
