@@ -105,7 +105,7 @@ class Card:
         self.cost = cost
         self.attack = attack
         self.defense = defense
-        self.keywords = keywords
+        self.keywords = set(list(keywords.replace("-", "")))
         self.player_hp = player_hp
         self.enemy_hp = enemy_hp
         self.card_draw = card_draw
@@ -133,20 +133,16 @@ class Creature(Card):
         self.can_attack = False
 
     def remove_ability(self, ability):
-        try:
-            self.keywords = self.keywords.remove('W')
-        except ValueError:
-            pass
+        self.keywords.discard('W')
 
     def add_ability(self, ability):
-        if ability not in self.keywords:
-            self.keywords += ability
+        self.keywords.add(ability)
 
     def damage(self, amount=1, lethal=False):
         if self.has_ability('W'):
             self.remove_ability('W')
             amount = 0
-            
+
         self.defense -= amount
 
         if lethal or self.defense <= 0:
