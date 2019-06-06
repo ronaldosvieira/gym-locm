@@ -123,7 +123,10 @@ class Card:
 
 
 class Creature(Card):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.can_attack = False
 
 
 class Item(Card):
@@ -285,6 +288,12 @@ class Game:
         amount_to_draw = current_player.draw \
             + current_player.bonus_draw
         current_player.bonus_draw = 0
+
+        for creature in self.lanes[self.current_player][Lane.LEFT]:
+            creature.can_attack = True
+
+        for creature in self.lanes[self.current_player][Lane.RIGHT]:
+            creature.can_attack = True
 
         try:
             current_player.draw(amount_to_draw)
