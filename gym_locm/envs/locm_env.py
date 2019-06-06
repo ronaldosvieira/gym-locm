@@ -1,9 +1,21 @@
 from typing import List
 
 import gym
+import copy
 import numpy as np
 
 from enum import Enum, IntEnum
+
+
+instance_counter = -1
+
+
+def _next_instance_id():
+    global instance_counter
+
+    instance_counter += 1
+
+    return instance_counter
 
 
 class Phase(Enum):
@@ -66,6 +78,7 @@ class Card:
     def __init__(self, id, name, type, cost, attack, defense, keywords,
                  player_hp, enemy_hp, card_draw):
         self.id = id
+        self.instance_id = None
         self.name = name
         self.type = type
         self.cost = cost
@@ -78,6 +91,13 @@ class Card:
 
     def has_ability(self, keyword):
         return keyword in self.keywords
+
+    def make_copy(self):
+        card = copy.copy(self)
+
+        card.instance_id = _next_instance_id()
+
+        return card
 
 
 class GameState:
@@ -236,7 +256,7 @@ class Game:
 
         card = current_player.hand[action.chosen_card_index]
 
-        current_player.deck.append(card)
+        current_player.deck.append(card.make_copy())
 
     def _act_on_battle(self, action: BattleAction):
         """Execute the actions intended by the player in this battle turn"""
