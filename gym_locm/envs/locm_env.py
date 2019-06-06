@@ -305,7 +305,27 @@ class Game:
 
     def _act_on_battle(self, action: BattleAction):
         """Execute the actions intended by the player in this battle turn"""
-        pass  # TODO: implement
+        current_player = self.players[self.current_player]
+
+        try:
+            if action.origin.cost > current_player.mana:
+                raise NotEnoughManaError()
+
+            if action.type == BattleActionType.SUMMON:
+                pass  # TODO: implement
+            elif action.type == BattleActionType.ATTACK:
+                pass  # TODO: implement
+            elif action.type == BattleActionType.USE:
+                pass  # TODO: implement
+            else:
+                raise MalformedActionError("Invalid action type.")
+
+            current_player.mana -= action.origin.cost
+        except (NotEnoughManaError, MalformedActionError, FullLaneError):
+            pass
+
+        if current_player.mana == 0:
+            current_player.bonus_mana = 0
 
     def _build_game_state(self) -> GameState:
         return GameState(self.current_player, self.players, self.lanes)
