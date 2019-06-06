@@ -351,17 +351,34 @@ class Game:
 
                 current_player.lanes[action.target].append(action.origin)
 
+                # TODO: check enter-the-battlefield triggers
+
             elif action.type == BattleActionType.ATTACK:
                 if not isinstance(action.origin, Creature):
                     raise MalformedActionError("Attacking card is not a "
                                                "creature.")
 
-                origin_is_players = any(map(lambda l: action.origin in l,
-                                            current_player.lanes))
-
-                if not origin_is_players:
+                if action.origin in current_player.lanes[Lane.LEFT]:
+                    origin_lane = Lane.LEFT
+                elif action.origin in current_player.lanes[Lane.RIGHT]:
+                    origin_lane = Lane.RIGHT
+                else:
                     raise MalformedActionError("Attacking creature is not "
                                                "owned by player.")
+
+                guard_creatures = [None]
+
+                for creature in opposing_player.lanes[origin_lane]:
+                    if creature.has_ability('G'):
+                        guard_creatures.append(creature)
+
+                if len(guard_creatures) > 0:
+                    valid_targets = guard_creatures
+                else:
+                    valid_targets = [None] + opposing_player.lanes[origin_lane]
+
+                if action.target not in valid_targets:
+                    raise MalformedActionError("Invalid target.")
 
                 if not action.origin.can_attack:
                     raise MalformedActionError("Attacking creature cannot "
@@ -371,15 +388,9 @@ class Game:
                     opposing_player.damage(action.origin.attack)
 
                 elif isinstance(action.target, Creature):
-                    target_is_opponents = any(map(lambda l: action.target in l,
-                                                  opposing_player.lanes))
-
-                    if not target_is_opponents and action.target is not None:
-                        raise MalformedActionError("Defending creature is not "
-                                                   "owned by opponent.")
-
                     action.target.damage(action.origin.attack)
                     action.origin.damage(action.target.attack)
+
                 else:
                     raise MalformedActionError("Target is not a creature or "
                                                "a player.")
