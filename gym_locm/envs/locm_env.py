@@ -143,6 +143,10 @@ class Creature(Card):
             self.keywords += ability
 
     def damage(self, amount=1, lethal=False):
+        if self.has_ability('W'):
+            self.remove_ability('W')
+            amount = 0
+            
         self.defense -= amount
 
         if lethal or self.defense <= 0:
