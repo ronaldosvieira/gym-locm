@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import gym
 import copy
@@ -132,12 +132,26 @@ class Action:
 
 
 class DraftAction(Action):
-    def __init__(self, chosen_card_index):
+    def __init__(self, chosen_card_index: int):
         self.chosen_card_index = chosen_card_index
 
 
 class BattleAction(Action):
-    pass  # TODO: implement
+    def __init__(self, origin: Card, target: Optional[Card]):
+        self.origin = origin
+        self.target = target
+
+
+class SummonAction(BattleAction):
+    pass
+
+
+class AttackAction(BattleAction):
+    pass
+
+
+class UseAction(BattleAction):
+    pass
 
 
 class Game:
