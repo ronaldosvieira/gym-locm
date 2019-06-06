@@ -221,11 +221,12 @@ class Game:
 
         return self._build_game_state()
 
-    def step(self, action: Action) -> (GameState, bool, dict):
+    def step(self, actions: List[Action]) -> (GameState, bool, dict):
         if self.current_phase == Phase.DRAFT:
-            assert type(action) == DraftAction
+            if len(actions) == 0:
+                actions = [DraftAction(0)]
 
-            self._act_on_draft(action)
+            self._act_on_draft(actions[0])
 
             self._next_turn()
 
@@ -233,12 +234,11 @@ class Game:
                 self._new_draft_turn()
             elif self.current_phase == Phase.BATTLE:
                 self._prepare_for_battle()
+
                 self._new_battle_turn()
 
         elif self.current_phase == Phase.BATTLE:
-            assert type(action) == BattleAction
-
-            self._act_on_battle(action)
+            self._act_on_battle(actions)
 
             self._next_turn()
 
@@ -339,111 +339,112 @@ class Game:
 
         current_player.deck.append(card.make_copy())
 
-    def _act_on_battle(self, action: BattleAction):
+    def _act_on_battle(self, actions: List[BattleAction]):
         """Execute the actions intended by the player in this battle turn"""
         current_player = self.players[self.current_player]
         opposing_player = self.players[self.current_player.opposing()]
 
-        try:
-            if action.origin.cost > current_player.mana:
-                raise NotEnoughManaError()
+        for action in actions:
+            try:
+                if action.origin.cost > current_player.mana:
+                    raise NotEnoughManaError()
 
-            if action.type == BattleActionType.SUMMON:
-                if not isinstance(action.origin, Creature):
-                    raise MalformedActionError("Card being summoned is not a "
-                                               "creature.")
+                if action.type == BattleActionType.SUMMON:
+                    if not isinstance(action.origin, Creature):
+                        raise MalformedActionError("Card being summoned is not a "
+                                                   "creature.")
 
-                if not isinstance(action.target, Lane):
-                    raise MalformedActionError("Target is not a lane.")
+                    if not isinstance(action.target, Lane):
+                        raise MalformedActionError("Target is not a lane.")
 
-                if len(current_player.lanes[action.target]) >= 3:
-                    raise FullLaneError()
+                    if len(current_player.lanes[action.target]) >= 3:
+                        raise FullLaneError()
 
-                try:
-                    current_player.hand.remove(action.origin)
-                except ValueError:
-                    raise MalformedActionError("Card is not in player's hand.")
-
-                action.origin.can_attack = 'C' in action.origin.keywords
-
-                current_player.lanes[action.target].append(action.origin)
-
-                current_player.bonus_draw += action.origin.card_draw
-                current_player.health += action.origin.player_hp
-                opposing_player.health += action.origin.enemy_hp
-
-            elif action.type == BattleActionType.ATTACK:
-                if not isinstance(action.origin, Creature):
-                    raise MalformedActionError("Attacking card is not a "
-                                               "creature.")
-
-                if action.origin in current_player.lanes[Lane.LEFT]:
-                    origin_lane = Lane.LEFT
-                elif action.origin in current_player.lanes[Lane.RIGHT]:
-                    origin_lane = Lane.RIGHT
-                else:
-                    raise MalformedActionError("Attacking creature is not "
-                                               "owned by player.")
-
-                guard_creatures = [None]
-
-                for creature in opposing_player.lanes[origin_lane]:
-                    if creature.has_ability('G'):
-                        guard_creatures.append(creature)
-
-                if len(guard_creatures) > 0:
-                    valid_targets = guard_creatures
-                else:
-                    valid_targets = [None] + opposing_player.lanes[origin_lane]
-
-                if action.target not in valid_targets:
-                    raise MalformedActionError("Invalid target.")
-
-                if not action.origin.can_attack:
-                    raise MalformedActionError("Attacking creature cannot "
-                                               "attack.")
-
-                if action.target is None:
-                    damage_dealt = opposing_player.damage(action.origin.attack)
-
-                elif isinstance(action.target, Creature):
                     try:
-                        damage_dealt = action.target.damage(
-                            action.origin.attack,
-                            lethal=action.origin.has_ability('L'))
+                        current_player.hand.remove(action.origin)
+                    except ValueError:
+                        raise MalformedActionError("Card is not in player's hand.")
 
-                        excess_damage = action.origin.attack \
-                            - action.target.defense
+                    action.origin.can_attack = 'C' in action.origin.keywords
 
-                        if 'B' in action.origin.keywords and excess_damage > 0:
-                            opposing_player.damage(excess_damage)
+                    current_player.lanes[action.target].append(action.origin)
 
-                    except WardShieldError:
-                        damage_dealt = 0
+                    current_player.bonus_draw += action.origin.card_draw
+                    current_player.health += action.origin.player_hp
+                    opposing_player.health += action.origin.enemy_hp
 
+                elif action.type == BattleActionType.ATTACK:
+                    if not isinstance(action.origin, Creature):
+                        raise MalformedActionError("Attacking card is not a "
+                                                   "creature.")
+
+                    if action.origin in current_player.lanes[Lane.LEFT]:
+                        origin_lane = Lane.LEFT
+                    elif action.origin in current_player.lanes[Lane.RIGHT]:
+                        origin_lane = Lane.RIGHT
+                    else:
+                        raise MalformedActionError("Attacking creature is not "
+                                                   "owned by player.")
+
+                    guard_creatures = [None]
+
+                    for creature in opposing_player.lanes[origin_lane]:
+                        if creature.has_ability('G'):
+                            guard_creatures.append(creature)
+
+                    if len(guard_creatures) > 0:
+                        valid_targets = guard_creatures
+                    else:
+                        valid_targets = [None] + opposing_player.lanes[origin_lane]
+
+                    if action.target not in valid_targets:
+                        raise MalformedActionError("Invalid target.")
+
+                    if not action.origin.can_attack:
+                        raise MalformedActionError("Attacking creature cannot "
+                                                   "attack.")
+
+                    if action.target is None:
+                        damage_dealt = opposing_player.damage(action.origin.attack)
+
+                    elif isinstance(action.target, Creature):
+                        try:
+                            damage_dealt = action.target.damage(
+                                action.origin.attack,
+                                lethal=action.origin.has_ability('L'))
+
+                            excess_damage = action.origin.attack \
+                                - action.target.defense
+
+                            if 'B' in action.origin.keywords and excess_damage > 0:
+                                opposing_player.damage(excess_damage)
+
+                        except WardShieldError:
+                            damage_dealt = 0
+
+                    else:
+                        raise MalformedActionError("Target is not a creature or "
+                                                   "a player.")
+
+                    if 'D' in action.origin.keywords:
+                        current_player.health += damage_dealt
+
+                    action.origin.can_attack = False
+
+                elif action.type == BattleActionType.USE:
+                    pass  # TODO: implement
                 else:
-                    raise MalformedActionError("Target is not a creature or "
-                                               "a player.")
+                    raise MalformedActionError("Invalid action type.")
 
-                if 'D' in action.origin.keywords:
-                    current_player.health += damage_dealt
+                current_player.mana -= action.origin.cost
+            except (NotEnoughManaError, MalformedActionError, FullLaneError):
+                pass
 
-                action.origin.can_attack = False
-
-            elif action.type == BattleActionType.USE:
-                pass  # TODO: implement
-            else:
-                raise MalformedActionError("Invalid action type.")
-
-            current_player.mana -= action.origin.cost
-        except (NotEnoughManaError, MalformedActionError, FullLaneError):
-            pass
-
-        for player in self.players:
-            for lane in player.lanes:
-                for creature in lane:
-                    if creature.is_dead:
-                        lane.remove(creature)
+            for player in self.players:
+                for lane in player.lanes:
+                    for creature in lane:
+                        if creature.is_dead:
+                            lane.remove(creature)
 
         if current_player.mana == 0:
             current_player.bonus_mana = 0
