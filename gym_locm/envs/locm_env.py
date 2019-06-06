@@ -100,6 +100,26 @@ class Card:
         return card
 
 
+class Creature(Card):
+    pass
+
+
+class Item(Card):
+    pass
+
+
+class GreenItem(Item):
+    pass
+
+
+class RedItem(Item):
+    pass
+
+
+class BlueItem(Item):
+    pass
+
+
 class GameState:
     def __init__(self, current_player, players, lanes):
         self.current_player = current_player
@@ -279,15 +299,20 @@ class Game:
 
         with open('gym_locm/cardlist.txt', 'r') as card_list:
             raw_cards = card_list.readlines()
+            type_mapping = {'creature': Creature, 'itemRed': RedItem,
+                            'itemGreen': GreenItem, 'itemBlue': BlueItem}
 
             for card in raw_cards:
                 id, name, card_type, cost, attack, defense, \
                 keywords, player_hp, enemy_hp, card_draw, _ = \
                     map(str.strip, card.split(';'))
 
-                cards.append(Card(int(id), name, card_type, int(cost),
-                                  int(attack), int(defense), keywords,
-                                  int(player_hp), int(enemy_hp), int(card_draw)))
+                card_class = type_mapping[card_type]
+
+                cards.append(card_class(int(id), name, card_type, int(cost),
+                                        int(attack), int(defense), keywords,
+                                        int(player_hp), int(enemy_hp),
+                                        int(card_draw)))
 
         assert len(cards) == 160
 
