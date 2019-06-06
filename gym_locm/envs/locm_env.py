@@ -321,7 +321,26 @@ class Game:
                 raise NotEnoughManaError()
 
             if action.type == BattleActionType.SUMMON:
-                pass  # TODO: implement
+                if not isinstance(action.origin, Creature):
+                    raise MalformedActionError("Card being summoned is not a "
+                                               "creature.")
+
+                if not isinstance(action.target, Lane):
+                    raise MalformedActionError("Target is not a lane.")
+
+                if len(self.lanes[self.current_player][action.target]) >= 3:
+                    raise FullLaneError()
+
+                try:
+                    current_player.hand.remove(action.origin)
+                except ValueError:
+                    raise MalformedActionError("Card is not in player's hand.")
+
+                action.origin.can_attack = False
+
+                self.lanes[self.current_player][action.target] \
+                    .append(action.origin)
+
             elif action.type == BattleActionType.ATTACK:
                 pass  # TODO: implement
             elif action.type == BattleActionType.USE:
