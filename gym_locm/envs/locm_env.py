@@ -99,6 +99,10 @@ class Card:
 
         return card
 
+    def __eq__(self, other):
+        return self.instance_id is not None \
+               and self.instance_id == other.instance_id
+
 
 class Creature(Card):
     pass
