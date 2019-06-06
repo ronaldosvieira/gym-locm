@@ -325,6 +325,7 @@ class Game:
     def _act_on_battle(self, action: BattleAction):
         """Execute the actions intended by the player in this battle turn"""
         current_player = self.players[self.current_player]
+        opposing_player = self.players[self.current_player.opposing()]
 
         try:
             if action.origin.cost > current_player.mana:
@@ -351,7 +352,40 @@ class Game:
                 current_player.lanes[action.target].append(action.origin)
 
             elif action.type == BattleActionType.ATTACK:
-                pass  # TODO: implement
+                if not isinstance(action.origin, Creature):
+                    raise MalformedActionError("Attacking card is not a "
+                                               "creature.")
+
+                origin_is_players = any(map(lambda l: action.origin in l,
+                                            current_player.lanes))
+
+                if not origin_is_players:
+                    raise MalformedActionError("Attacking creature is not "
+                                               "owned by player.")
+
+                if not action.origin.can_attack:
+                    raise MalformedActionError("Attacking creature cannot "
+                                               "attack.")
+
+                if action.target is None:
+                    opposing_player.damage(action.origin.attack)
+
+                elif isinstance(action.target, Creature):
+                    target_is_opponents = any(map(lambda l: action.target in l,
+                                                  opposing_player.lanes))
+
+                    if not target_is_opponents and action.target is not None:
+                        raise MalformedActionError("Defending creature is not "
+                                                   "owned by opponent.")
+
+                    action.target.damage(action.origin.attack)
+                    action.origin.damage(action.target.attack)
+                else:
+                    raise MalformedActionError("Target is not a creature or "
+                                               "a player.")
+
+                action.origin.can_attack = False
+
             elif action.type == BattleActionType.USE:
                 pass  # TODO: implement
             else:
