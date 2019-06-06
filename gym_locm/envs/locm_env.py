@@ -62,6 +62,10 @@ class FullLaneError(Exception):
     pass
 
 
+class WardShieldError(Exception):
+    pass
+
+
 class Player:
     def __init__(self):
         self.health = 30
@@ -143,7 +147,8 @@ class Creature(Card):
     def damage(self, amount=1, lethal=False) -> int:
         if self.has_ability('W'):
             self.remove_ability('W')
-            return 0
+
+            raise WardShieldError()
 
         self.defense -= amount
 
@@ -402,9 +407,19 @@ class Game:
                     damage_dealt = opposing_player.damage(action.origin.attack)
 
                 elif isinstance(action.target, Creature):
-                    damage_dealt = action.target.damage(
-                        action.origin.attack,
-                        lethal=action.origin.has_ability('L'))
+                    try:
+                        damage_dealt = action.target.damage(
+                            action.origin.attack,
+                            lethal=action.origin.has_ability('L'))
+
+                        excess_damage = action.origin.attack \
+                            - action.target.defense
+
+                        if 'B' in action.origin.keywords and excess_damage > 0:
+                            opposing_player.damage(excess_damage)
+
+                    except WardShieldError:
+                        damage_dealt = 0
 
                 else:
                     raise MalformedActionError("Target is not a creature or "
