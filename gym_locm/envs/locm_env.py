@@ -28,6 +28,17 @@ class PlayerOrder(IntEnum):
     SECOND = 1
 
 
+class Lane(IntEnum):
+    LEFT = 0
+    RIGHT = 1
+
+
+class BattleActionType(Enum):
+    SUMMON = 0
+    ATTACK = 1
+    USE = 2
+
+
 class FullHandError(Exception):
     pass
 
@@ -36,9 +47,16 @@ class EmptyDeckError(Exception):
     pass
 
 
-class Lane(IntEnum):
-    LEFT = 0
-    RIGHT = 1
+class NotEnoughManaError(Exception):
+    pass
+
+
+class MalformedActionError(Exception):
+    pass
+
+
+class FullLaneError(Exception):
+    pass
 
 
 class Player:
@@ -136,26 +154,15 @@ class Action:
 
 
 class DraftAction(Action):
-    def __init__(self, chosen_card_index: int):
+    def __init__(self, chosen_card_index):
         self.chosen_card_index = chosen_card_index
 
 
 class BattleAction(Action):
-    def __init__(self, origin: Card, target: Optional[Card]):
+    def __init__(self, type, origin, target):
+        self.type = type
         self.origin = origin
         self.target = target
-
-
-class SummonAction(BattleAction):
-    pass
-
-
-class AttackAction(BattleAction):
-    pass
-
-
-class UseAction(BattleAction):
-    pass
 
 
 class Game:
