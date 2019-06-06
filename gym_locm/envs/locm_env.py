@@ -349,7 +349,9 @@ class Game:
 
                 current_player.lanes[action.target].append(action.origin)
 
-                # TODO: check enter-the-battlefield triggers
+                current_player.bonus_draw += action.origin.card_draw
+                current_player.health += action.origin.player_hp
+                opposing_player.health += action.origin.enemy_hp
 
             elif action.type == BattleActionType.ATTACK:
                 if not isinstance(action.origin, Creature):
