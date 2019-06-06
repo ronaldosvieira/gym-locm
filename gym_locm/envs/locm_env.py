@@ -74,6 +74,7 @@ class Player:
 
         self.deck = []
         self.hand = []
+        self.lanes = ([], [])
 
     def draw(self, amount=1):
         for _ in range(amount):
@@ -149,10 +150,9 @@ class BlueItem(Item):
 
 
 class GameState:
-    def __init__(self, current_player, players, lanes):
+    def __init__(self, current_player, players):
         self.current_player = current_player
         self.players = players
-        self.lanes = lanes
 
 
 class Action:
@@ -181,7 +181,6 @@ class Game:
 
         self._cards = self._load_cards()
         self.players = ()
-        self.lanes = ()
         self.turn = -1
 
         self.reset()
@@ -251,18 +250,19 @@ class Game:
     def _prepare_for_draft(self):
         """Prepare all game components for a draft phase"""
         self._draft_cards = self._new_draft()
-        self.lanes = (([], []), ([], []))
 
         current_draft_choices = self._draft_cards[self.turn - 1]
 
         for player in self.players:
+            player.lanes = ([], [])
             player.hand = current_draft_choices
 
     def _prepare_for_battle(self):
         """Prepare all game components for a battle phase"""
-        self.lanes = (([], []), ([], []))
-
         for player in self.players:
+            player.hand = []
+            player.lanes = ([], [])
+
             np.random.shuffle(player.deck)
             player.draw(4)
             player.base_mana = 0
@@ -292,10 +292,10 @@ class Game:
             + current_player.bonus_draw
         current_player.bonus_draw = 0
 
-        for creature in self.lanes[self.current_player][Lane.LEFT]:
+        for creature in current_player.lanes[Lane.LEFT]:
             creature.can_attack = True
 
-        for creature in self.lanes[self.current_player][Lane.RIGHT]:
+        for creature in current_player.lanes[Lane.RIGHT]:
             creature.can_attack = True
 
         try:
@@ -331,7 +331,7 @@ class Game:
                 if not isinstance(action.target, Lane):
                     raise MalformedActionError("Target is not a lane.")
 
-                if len(self.lanes[self.current_player][action.target]) >= 3:
+                if len(current_player.lanes[action.target]) >= 3:
                     raise FullLaneError()
 
                 try:
@@ -341,8 +341,7 @@ class Game:
 
                 action.origin.can_attack = False
 
-                self.lanes[self.current_player][action.target] \
-                    .append(action.origin)
+                current_player.lanes[action.target].append(action.origin)
 
             elif action.type == BattleActionType.ATTACK:
                 pass  # TODO: implement
@@ -359,7 +358,7 @@ class Game:
             current_player.bonus_mana = 0
 
     def _build_game_state(self) -> GameState:
-        return GameState(self.current_player, self.players, self.lanes)
+        return GameState(self.current_player, self.players)
 
     def _new_draft(self) -> List[List[Card]]:
         draft = []
