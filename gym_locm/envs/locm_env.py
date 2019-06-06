@@ -87,14 +87,12 @@ class Player:
 
             self.hand.append(self.deck.pop())
 
-    def damage(self, amount) -> bool:
+    def damage(self, amount):
         self.health -= amount
 
         if self.health <= self.next_rune:
             self.next_rune -= 5
             self.bonus_draw += 1
-
-        return self.health <= 0
 
 
 class Card:
@@ -131,12 +129,14 @@ class Creature(Card):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.is_dead = False
         self.can_attack = False
 
-    def damage(self, amount) -> bool:
+    def damage(self, amount=1, lethal=False):
         self.defense -= amount
 
-        return self.defense <= 0
+        if lethal or self.defense <= 0:
+            self.is_dead = True
 
 
 class Item(Card):
@@ -388,8 +388,10 @@ class Game:
                     opposing_player.damage(action.origin.attack)
 
                 elif isinstance(action.target, Creature):
-                    action.target.damage(action.origin.attack)
-                    action.origin.damage(action.target.attack)
+                    action.target.damage(action.origin.attack,
+                                         lethal=action.origin.has_ability('L'))
+                    action.origin.damage(action.target.attack,
+                                         lethal=action.target.has_ability('L'))
 
                 else:
                     raise MalformedActionError("Target is not a creature or "
@@ -409,7 +411,7 @@ class Game:
         for player in self.players:
             for lane in player.lanes:
                 for creature in lane:
-                    if creature.defense <= 0:
+                    if creature.is_dead:
                         lane.remove(creature)
 
         if current_player.mana == 0:
