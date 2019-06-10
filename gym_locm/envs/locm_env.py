@@ -577,7 +577,7 @@ class LoCMEnv(gym.Env):
         self.state = None
         self.turn = 1
 
-        # self._draft = None
+        self.game = Game()
 
         self.cards_in_state = 33 if use_draft_history else 3
         self.card_features = 16
