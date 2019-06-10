@@ -401,7 +401,8 @@ class Game:
                     if action.target not in valid_targets:
                         raise MalformedActionError("Invalid target.")
 
-                    if not action.origin.can_attack:
+                    if not action.origin.can_attack and \
+                            not action.origin.has_ability('C'):
                         raise MalformedActionError("Attacking creature cannot "
                                                    "attack.")
 
@@ -453,7 +454,14 @@ class Game:
                                     "creatures."
                             raise MalformedActionError(error)
 
-                        pass  # TODO: implement green item
+                        action.target.attack += action.origin.attack
+                        action.target.defense += action.origin.defense
+                        action.target.keywords = \
+                            action.target.keywords.union(action.origin.keywords)
+
+                        current_player.bonus_draw += action.target.card_draw
+                        current_player.health += action.target.player_hp
+                        opposing_player.health += action.target.enemy_hp
 
                     elif isinstance(action.origin, RedItem):
                         is_opp_creature = \
