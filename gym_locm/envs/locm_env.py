@@ -177,7 +177,8 @@ class BlueItem(Item):
 
 
 class GameState:
-    def __init__(self, current_player, players):
+    def __init__(self, current_phase, current_player, players):
+        self.current_phase = current_phase
         self.current_player = current_player
         self.players = players
 
@@ -533,7 +534,7 @@ class Game:
             current_player.bonus_mana = 0
 
     def _build_game_state(self) -> GameState:
-        return GameState(self.current_player, self.players)
+        return GameState(self.current_phase, self.current_player, self.players)
 
     def _new_draft(self) -> List[List[Card]]:
         draft = []
