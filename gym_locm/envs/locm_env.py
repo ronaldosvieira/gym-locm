@@ -433,7 +433,53 @@ class Game:
                     action.origin.can_attack = False
 
                 elif action.type == BattleActionType.USE:
-                    pass  # TODO: implement
+                    if action.target is not None or \
+                            not isinstance(action.target, Creature):
+                        error = "Target is not a creature or a player."
+                        raise MalformedActionError(error)
+
+                    try:
+                        current_player.hand.remove(action.origin)
+                    except ValueError:
+                        raise MalformedActionError("Card is not in player's hand.")
+
+                    if isinstance(action.origin, GreenItem):
+                        is_own_creature = \
+                            action.target in current_player.lanes[Lane.LEFT] or \
+                            action.target in current_player.lanes[Lane.RIGHT]
+
+                        if action.target is None or not is_own_creature:
+                            error = "Green items should be used on friendly " \
+                                    "creatures."
+                            raise MalformedActionError(error)
+
+                        pass  # TODO: implement green item
+
+                    elif isinstance(action.origin, RedItem):
+                        is_opp_creature = \
+                            action.target in opposing_player.lanes[Lane.LEFT] or \
+                            action.target in opposing_player.lanes[Lane.RIGHT]
+
+                        if action.target is None or not is_opp_creature:
+                            error = "Red items should be used on enemy " \
+                                    "creatures."
+                            raise MalformedActionError(error)
+
+                        pass  # TODO: implement red item
+
+                    elif isinstance(action.origin, BlueItem):
+                        if action.origin.defense != 0 and \
+                                isinstance(action.target, Creature):
+                            pass  # TODO: implement blue item on creature
+                        elif action.origin.defense == 0 and \
+                                action.target is None:
+                            pass  # TODO: implement blue item on player
+                        else:
+                            raise MalformedActionError("Invalid target.")
+
+                    else:
+                        error = "Card being used is not an item."
+                        raise MalformedActionError(error)
                 else:
                     raise MalformedActionError("Invalid action type.")
 
