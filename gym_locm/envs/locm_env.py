@@ -135,6 +135,7 @@ class Creature(Card):
 
         self.is_dead = False
         self.can_attack = False
+        self.has_attacked_this_turn = False
 
     def remove_ability(self, ability):
         self.keywords.discard('W')
@@ -310,9 +311,11 @@ class Game:
 
         for creature in current_player.lanes[Lane.LEFT]:
             creature.can_attack = True
+            creature.has_attacked_this_turn = False
 
         for creature in current_player.lanes[Lane.RIGHT]:
             creature.can_attack = True
+            creature.has_attacked_this_turn = False
 
         if current_player.base_mana < 12:
             current_player.base_mana += 1
@@ -366,7 +369,7 @@ class Game:
                     except ValueError:
                         raise MalformedActionError("Card is not in player's hand.")
 
-                    action.origin.can_attack = 'C' in action.origin.keywords
+                    action.origin.can_attack = False
 
                     current_player.lanes[action.target].append(action.origin)
 
@@ -401,8 +404,9 @@ class Game:
                     if action.target not in valid_targets:
                         raise MalformedActionError("Invalid target.")
 
-                    if not action.origin.can_attack and \
-                            not action.origin.has_ability('C'):
+                    if action.origin.has_attacked_this_turn or \
+                            (not action.origin.can_attack and
+                             not action.origin.has_ability('C')):
                         raise MalformedActionError("Attacking creature cannot "
                                                    "attack.")
 
@@ -431,7 +435,7 @@ class Game:
                     if 'D' in action.origin.keywords:
                         current_player.health += damage_dealt
 
-                    action.origin.can_attack = False
+                    action.origin.has_attacked_this_turn = True
 
                 elif action.type == BattleActionType.USE:
                     if action.target is not None or \
@@ -511,6 +515,7 @@ class Game:
                     else:
                         error = "Card being used is not an item."
                         raise MalformedActionError(error)
+
                 else:
                     raise MalformedActionError("Invalid action type.")
 
