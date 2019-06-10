@@ -572,7 +572,7 @@ class Game:
 
 class LoCMEnv(gym.Env):
     metadata = {'render.modes': ['human']}
-    card_types = {'creature': 0, 'itemGreen': 1, 'itemRed': 2, 'itemBlue': 3}
+    card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self, use_draft_history=True, cards_in_deck=30):
         self.state = None
@@ -584,6 +584,8 @@ class LoCMEnv(gym.Env):
         self.card_features = 16
 
         self.cards_in_deck = cards_in_deck
+
+        # (30 cards already chosen + 3 current choices) x (16 card features)
         self.state_shape = (self.cards_in_state, self.card_features)
 
         self.observation_space = gym.spaces.Box(
@@ -597,7 +599,7 @@ class LoCMEnv(gym.Env):
     def reset(self):
         self.turn = 1
 
-        # self.state = self.draft[self.turn - 1]
+        self.state = self.game.reset()
 
         return self._convert_state()
 
@@ -608,24 +610,33 @@ class LoCMEnv(gym.Env):
         print(self._convert_state())
 
     def _convert_state(self):
-        converted_state = np.full((3, self.card_features), 0, dtype=np.float32)
+        if self.state.current_phase == Phase.DRAFT:
+            return self._convert_state_draft()
+        elif self.state.current_phase == Phase.BATTLE:
+            return self._convert_state_battle()
 
-        for i, card in enumerate(self.state):
-            card_type = [0.0 if self.card_types[card.type] != j
-                         else 1.0 for j in range(4)]
+    def _convert_state_draft(self):
+        card_choices = self.state.players[self.state.current_player].hand
+
+        converted_state = np.full(self.state_shape, 0, dtype=np.float32)
+
+        for i, card in enumerate(card_choices):
+            card_type = [1.0 if isinstance(card, card_type) else 0.0
+                         for card_type in self.card_types]
             cost = card.cost / 12
             attack = card.attack / 12
             defense = max(-12, card.defense) / 12
-            keywords = list(map(int, map(lambda k: k in card.keywords,
-                                         list('BCDGLW'))))
+            keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
             player_hp = card.player_hp / 12
             enemy_hp = card.enemy_hp / 12
             card_draw = card.card_draw / 2
 
-            converted_state[i] = np.array(
-                card_type +
-                [cost, attack, defense, player_hp, enemy_hp, card_draw] +
-                keywords
-            )
+            card = card_type + [cost, attack, defense, player_hp,
+                                enemy_hp, card_draw] + keywords
+
+            converted_state[-(3 - i):] = card
 
         return converted_state
+
+    def _convert_state_battle(self):
+        pass  # TODO: implement battle state conversion
