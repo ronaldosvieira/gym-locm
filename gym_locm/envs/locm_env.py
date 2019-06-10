@@ -81,13 +81,11 @@ class Player:
 
     def draw(self, amount=1):
         for _ in range(amount):
-            # TODO: check which exception should have precedence
+            if len(self.deck) == 0:
+                raise EmptyDeckError()
 
             if len(self.hand) >= 8:
                 raise FullHandError()
-
-            if len(self.deck) == 0:
-                raise EmptyDeckError()
 
             self.hand.append(self.deck.pop())
 
