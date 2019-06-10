@@ -92,7 +92,7 @@ class Player:
     def damage(self, amount) -> int:
         self.health -= amount
 
-        if self.health <= self.next_rune:
+        while self.health <= self.next_rune:
             self.next_rune -= 5
             self.bonus_draw += 1
 
