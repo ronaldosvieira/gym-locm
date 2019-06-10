@@ -484,12 +484,27 @@ class Game:
                         opposing_player.health += action.target.enemy_hp
 
                     elif isinstance(action.origin, BlueItem):
-                        if action.origin.defense != 0 and \
+                        affect_creatures = action.origin.attack != 0 or \
+                            action.origin.defense != 0 or \
+                            len(action.origin.keywords) > 0
+
+                        if affect_creatures and \
                                 isinstance(action.target, Creature):
-                            pass  # TODO: implement blue item on creature
+                            action.target.attack += action.origin.attack
+                            action.target.defense += action.origin.defense
+                            action.target.keywords = \
+                                action.target.keywords.difference(
+                                    action.origin.keywords)
+
+                            current_player.bonus_draw += action.origin.card_draw
+                            current_player.health += action.origin.player_hp
+                            opposing_player.health += action.origin.enemy_hp
+
                         elif action.origin.defense == 0 and \
                                 action.target is None:
-                            pass  # TODO: implement blue item on player
+                            current_player.bonus_draw += action.origin.card_draw
+                            current_player.health += action.origin.player_hp
+                            opposing_player.health += action.origin.enemy_hp
                         else:
                             raise MalformedActionError("Invalid target.")
 
