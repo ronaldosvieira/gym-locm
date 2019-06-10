@@ -145,6 +145,9 @@ class Creature(Card):
         self.keywords.add(ability)
 
     def damage(self, amount=1, lethal=False) -> int:
+        if amount <= 0:
+            return 0
+
         if self.has_ability('W'):
             self.remove_ability('W')
 
