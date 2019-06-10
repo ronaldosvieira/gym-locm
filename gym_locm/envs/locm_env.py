@@ -473,7 +473,15 @@ class Game:
                                     "creatures."
                             raise MalformedActionError(error)
 
-                        pass  # TODO: implement red item
+                        action.target.attack += action.origin.attack
+                        action.target.defense += action.origin.defense
+                        action.target.keywords = \
+                            action.target.keywords.difference(
+                                action.origin.keywords)
+
+                        current_player.bonus_draw += action.target.card_draw
+                        current_player.health += action.target.player_hp
+                        opposing_player.health += action.target.enemy_hp
 
                     elif isinstance(action.origin, BlueItem):
                         if action.origin.defense != 0 and \
