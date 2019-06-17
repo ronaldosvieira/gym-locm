@@ -138,7 +138,7 @@ class Creature(Card):
         self.has_attacked_this_turn = False
 
     def remove_ability(self, ability):
-        self.keywords.discard('W')
+        self.keywords.discard(ability)
 
     def add_ability(self, ability):
         self.keywords.add(ability)
