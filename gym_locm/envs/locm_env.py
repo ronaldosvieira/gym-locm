@@ -597,6 +597,8 @@ class LoCMDraftEnv(gym.Env):
 
         self.action_space = gym.spaces.Discrete(3)
 
+        self.reset()
+
     def reset(self):
         self.turn = 1
 
