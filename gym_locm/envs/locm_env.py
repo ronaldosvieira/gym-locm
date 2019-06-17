@@ -296,7 +296,7 @@ class Game:
             player.draw(4)
             player.base_mana = 0
 
-        second_player = self.players[PlayerOrder.FIRST]
+        second_player = self.players[PlayerOrder.SECOND]
         second_player.draw()
         second_player.bonus_mana = 1
 
