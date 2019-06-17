@@ -610,7 +610,21 @@ class LoCMDraftEnv(gym.Env):
         pass
 
     def render(self, mode='human'):
-        print(self._convert_state())
+        for i, player in enumerate(self.state.players):
+            print(f"Player #{i + 1}")
+            print(f"{player.health} health, {player.mana} mana")
+            print("Hand:")
+
+            for card in player.hand:
+                print(f"{card.name} (#{card.instance_id})")
+
+            print("Lanes:")
+
+            for j, lane in enumerate(player.lanes):
+                for card in lane:
+                    print(f"{j + 1} {card.name} (#{card.instance_id})")
+
+            print()
 
     def _convert_state(self):
         if self.state.current_phase == Phase.DRAFT:
