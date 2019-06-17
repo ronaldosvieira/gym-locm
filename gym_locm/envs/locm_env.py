@@ -626,12 +626,6 @@ class LoCMDraftEnv(gym.Env):
             print()
 
     def _convert_state(self):
-        if self.state.current_phase == Phase.DRAFT:
-            return self._convert_state_draft()
-        elif self.state.current_phase == Phase.BATTLE:
-            return self._convert_state_battle()
-
-    def _convert_state_draft(self):
         card_choices = self.state.players[self.state.current_player].hand
 
         converted_state = np.full(self.state_shape, 0, dtype=np.float32)
@@ -653,6 +647,3 @@ class LoCMDraftEnv(gym.Env):
             converted_state[-(3 - i):] = card
 
         return converted_state
-
-    def _convert_state_battle(self):
-        pass  # TODO: implement battle state conversion
