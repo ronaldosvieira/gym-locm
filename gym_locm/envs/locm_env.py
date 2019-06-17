@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 import gym
 import copy
@@ -571,7 +571,7 @@ class Game:
         return cards
 
 
-class LoCMEnv(gym.Env):
+class LoCMDraftEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
@@ -579,12 +579,12 @@ class LoCMEnv(gym.Env):
         self.state = None
         self.turn = 1
 
+        self.cards_in_deck = cards_in_deck
+
         self.game = Game()
 
         self.cards_in_state = 33 if use_draft_history else 3
         self.card_features = 16
-
-        self.cards_in_deck = cards_in_deck
 
         # (30 cards already chosen + 3 current choices) x (16 card features)
         self.state_shape = (self.cards_in_state, self.card_features)
