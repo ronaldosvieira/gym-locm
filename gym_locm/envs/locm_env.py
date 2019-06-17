@@ -269,7 +269,8 @@ class Game:
             self.current_player = PlayerOrder.FIRST
             self.turn += 1
 
-            if self.turn > self.cards_in_deck:
+            if self.turn > self.cards_in_deck \
+                    and self.current_phase == Phase.DRAFT:
                 self.current_phase = Phase.BATTLE
                 self.turn = 1
 
