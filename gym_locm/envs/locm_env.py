@@ -69,9 +69,9 @@ class WardShieldError(Exception):
 class Player:
     def __init__(self):
         self.health = 30
-        self.base_mana = 1
+        self.base_mana = 0
         self.bonus_mana = 0
-        self.mana = self.base_mana
+        self.mana = 0
         self.next_rune = 25
         self.bonus_draw = 0
 
@@ -218,8 +218,6 @@ class Game:
         self.current_player = PlayerOrder.FIRST
         self.turn = 1
 
-        self.players = (Player(), Player())
-
         self._prepare_for_draft()
 
         return self._build_game_state()
@@ -282,8 +280,9 @@ class Game:
 
         current_draft_choices = self._draft_cards[self.turn - 1]
 
+        self.players = (Player(), Player())
+
         for player in self.players:
-            player.lanes = ([], [])
             player.hand = current_draft_choices
 
     def _prepare_for_battle(self):
