@@ -18,9 +18,10 @@ def _next_instance_id():
     return instance_counter
 
 
-class Phase(Enum):
+class Phase(IntEnum):
     DRAFT = 0
     BATTLE = 1
+    ENDED = 2
 
 
 class PlayerOrder(IntEnum):
@@ -249,9 +250,11 @@ class Game:
         info = {'turn': self.turn, 'phase': self.current_phase}
 
         if self.players[PlayerOrder.FIRST].health <= 0:
+            self.current_phase = Phase.ENDED
             info['winner'] = PlayerOrder.SECOND
             has_ended = True
         elif self.players[PlayerOrder.SECOND].health <= 0:
+            self.current_phase = Phase.ENDED
             info['winner'] = PlayerOrder.FIRST
             has_ended = True
 
