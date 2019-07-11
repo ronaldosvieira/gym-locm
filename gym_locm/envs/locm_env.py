@@ -195,7 +195,7 @@ class DraftAction(Action):
 
 
 class BattleAction(Action):
-    def __init__(self, type, origin, target):
+    def __init__(self, type, origin=None, target=None):
         self.type = type
         self.origin = origin
         self.target = target
