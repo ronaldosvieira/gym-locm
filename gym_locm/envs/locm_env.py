@@ -622,7 +622,7 @@ class LoCMDraftEnv(gym.Env):
 
         self.state = self.game.reset()
 
-        return self._convert_state()
+        return self._encode_state()
 
     def step(self, action):
         pass
@@ -644,25 +644,30 @@ class LoCMDraftEnv(gym.Env):
 
             print()
 
-    def _convert_state(self):
-        card_choices = self.state.players[self.state.current_player].hand
+    def _encode_card(self, card):
+        card_type = [1.0 if isinstance(card, card_type) else 0.0
+                     for card_type in self.card_types]
+        cost = card.cost / 12
+        attack = card.attack / 12
+        defense = max(-12, card.defense) / 12
+        keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
+        player_hp = card.player_hp / 12
+        enemy_hp = card.enemy_hp / 12
+        card_draw = card.card_draw / 2
 
-        converted_state = np.full(self.state_shape, 0, dtype=np.float32)
+        return card_type + [cost, attack, defense, player_hp,
+                            enemy_hp, card_draw] + keywords
+
+    def _encode_state(self):
+        encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
+
+        card_choices = self.state.players[self.state.current_player].hand[0:3]
+        chosen_cards = self.state.players[self.state.current_player].deck
 
         for i, card in enumerate(card_choices):
-            card_type = [1.0 if isinstance(card, card_type) else 0.0
-                         for card_type in self.card_types]
-            cost = card.cost / 12
-            attack = card.attack / 12
-            defense = max(-12, card.defense) / 12
-            keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
-            player_hp = card.player_hp / 12
-            enemy_hp = card.enemy_hp / 12
-            card_draw = card.card_draw / 2
+            encoded_state[-(3 - i)] = self._encode_card(card)
 
-            card = card_type + [cost, attack, defense, player_hp,
-                                enemy_hp, card_draw] + keywords
+        for j, card in enumerate(chosen_cards):
+            encoded_state[j] = self._encode_card(card)
 
-            converted_state[-(3 - i):] = card
-
-        return converted_state
+        return encoded_state
