@@ -248,7 +248,7 @@ class Game:
 
         new_state = self._build_game_state()
         has_ended = False
-        info = {'turn': self.turn, 'phase': self.current_phase}
+        info = {'turn': self.turn}
 
         if self.players[PlayerOrder.FIRST].health <= 0:
             self.current_phase = Phase.ENDED
@@ -258,6 +258,8 @@ class Game:
             self.current_phase = Phase.ENDED
             info['winner'] = PlayerOrder.FIRST
             has_ended = True
+
+        info['phase'] = self.current_phase
 
         return new_state, has_ended, info
 
