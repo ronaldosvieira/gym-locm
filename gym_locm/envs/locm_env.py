@@ -574,13 +574,25 @@ class Game:
         return cards
 
 
+class BattleAgent:
+    def act(self, state):
+        pass
+
+
+class PassBattleAgent(BattleAgent):
+    def act(self, state):
+        return BattleAction(BattleActionType.PASS)
+
+
 class LoCMDraftEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
-    def __init__(self, use_draft_history=True, cards_in_deck=30):
+    def __init__(self, battle_agent=PassBattleAgent(), use_draft_history=True,
+                 cards_in_deck=30):
         self.state = None
         self.turn = 1
+        self.battle_agent = battle_agent
 
         self.cards_in_deck = cards_in_deck
 
