@@ -326,6 +326,9 @@ class Game:
         amount_to_draw = 1 + current_player.bonus_draw
         current_player.bonus_draw = 0
 
+        if self.turn > 50:
+            current_player.deck = []
+
         try:
             current_player.draw(amount_to_draw)
         except FullHandError:
