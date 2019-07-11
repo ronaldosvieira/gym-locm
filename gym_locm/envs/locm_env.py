@@ -625,7 +625,39 @@ class LoCMDraftEnv(gym.Env):
         return self._encode_state()
 
     def step(self, action):
-        pass
+        action = DraftAction(action)
+
+        new_state, done, info = self.game.step(action)
+
+        reward = 0
+
+        if info['phase'] == Phase.DRAFT:
+            self.turn = info['turn']
+
+            self.state = new_state
+        elif info['phase'] == Phase.BATTLE:
+            current_player = self.state.players[self.state.current_player]
+
+            chosen_card = current_player.hand[action.chosen_card_index]
+            current_player.deck.append(chosen_card)
+
+            for player in self.state.players:
+                player.hand = []
+
+            while not done:
+                action = self.battle_agent.act(new_state)
+
+                new_state, done, info = self.game.step(action)
+
+        if info['phase'] >= Phase.BATTLE:
+            if info['winner'] == PlayerOrder.FIRST:
+                reward = 1
+            elif info['winner'] == PlayerOrder.SECOND:
+                reward = -1
+
+            self.state.current_phase = Phase.ENDED
+
+        return self._encode_state(), reward, done, info
 
     def render(self, mode='human'):
         for i, player in enumerate(self.state.players):
