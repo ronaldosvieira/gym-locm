@@ -4,6 +4,7 @@ import gym
 import copy
 import numpy as np
 
+from copy import deepcopy
 from enum import Enum, IntEnum
 
 
@@ -182,7 +183,7 @@ class GameState:
     def __init__(self, current_phase, current_player, players):
         self.current_phase = current_phase
         self.current_player = current_player
-        self.players = players
+        self.players = deepcopy(players)
 
 
 class Action:
