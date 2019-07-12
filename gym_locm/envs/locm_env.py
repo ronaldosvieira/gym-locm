@@ -130,6 +130,9 @@ class Card:
         return self.instance_id is not None \
                and self.instance_id == other.instance_id
 
+    def __repr__(self):
+        return f"({self.instance_id}: {self.name})"
+
 
 class Creature(Card):
     def __init__(self, *args, **kwargs):
