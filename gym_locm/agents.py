@@ -38,13 +38,19 @@ class RuleBasedBattleAgent(BattleAgent):
 
         if summonable:
             creature = np.random.choice(summonable)
+            lane = Lane.LEFT if np.random.choice([0, 1]) == 0 else Lane.RIGHT
 
             action = BattleAction(BattleActionType.SUMMON,
                                   creature,
-                                  np.random.choice([0, 1]))
-        elif can_attack:
+                                  lane)
+
+            if self.last_action != action:
+                self.last_action = action
+                return action
+
+        if can_attack:
             creature = np.random.choice(can_attack)
-            lane = 0 if creature in current_player.lanes[0] else 1
+            lane = Lane.LEFT if creature in current_player.lanes[0] else Lane.RIGHT
 
             opp_creatures = opposing_player.lanes[lane]
             guards = list(filter(lambda c: c.has_ability('G'), opp_creatures))
@@ -52,22 +58,38 @@ class RuleBasedBattleAgent(BattleAgent):
             action = BattleAction(BattleActionType.ATTACK,
                                   creature,
                                   np.random.choice(guards) if guards else None)
-        elif creatures and green_items:
+
+            if self.last_action != action:
+                self.last_action = action
+                return action
+
+        if creatures and green_items:
             action = BattleAction(BattleActionType.USE,
                                   np.random.choice(green_items),
                                   np.random.choice(creatures))
-        elif opp_creatures and red_items:
+
+            if self.last_action != action:
+                self.last_action = action
+                return action
+
+        if opp_creatures and red_items:
             action = BattleAction(BattleActionType.USE,
                                   np.random.choice(red_items),
                                   np.random.choice(opp_creatures))
-        elif blue_items:
+
+            if self.last_action != action:
+                self.last_action = action
+                return action
+
+        if blue_items:
             action = BattleAction(BattleActionType.USE,
                                   np.random.choice(blue_items))
-        else:
-            action = BattleAction(BattleActionType.PASS)
 
-        if self.last_action is not None and self.last_action == action:
-            action = BattleAction(BattleActionType.PASS)
+            if self.last_action != action:
+                self.last_action = action
+                return action
+
+        action = BattleAction(BattleActionType.PASS)
 
         self.last_action = action
 
