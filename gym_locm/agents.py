@@ -1,4 +1,5 @@
 from gym_locm.engine import *
+from gym_locm.helpers import *
 
 
 class BattleAgent:
@@ -19,22 +20,17 @@ class RuleBasedBattleAgent(BattleAgent):
         current_player = state.players[state.current_player]
         opposing_player = state.players[state.current_player.opposing()]
 
-        is_creature = lambda c: isinstance(c, Creature)
-        is_green_item = lambda c: isinstance(c, GreenItem)
-        is_red_item = lambda c: isinstance(c, RedItem)
-        is_blue_item = lambda c: isinstance(c, BlueItem)
-        has_enough_mana = lambda c: c.cost <= current_player.mana
-
-        castable = list(filter(has_enough_mana, current_player.hand))
-        summonable = list(filter(is_creature, castable))
+        castable = list(filter(has_enough_mana(current_player.mana),
+                               current_player.hand))
+        summonable = list(filter(is_it(Creature), castable))
 
         creatures = [c for lane in current_player.lanes for c in lane]
         opp_creatures = [c for lane in opposing_player.lanes for c in lane]
         can_attack = list(filter(Creature.able_to_attack, creatures))
 
-        green_items = list(filter(is_green_item, castable))
-        red_items = list(filter(is_red_item, castable))
-        blue_items = list(filter(is_blue_item, castable))
+        green_items = list(filter(is_it(GreenItem), castable))
+        red_items = list(filter(is_it(RedItem), castable))
+        blue_items = list(filter(is_it(BlueItem), castable))
 
         if summonable:
             creature = np.random.choice(summonable)
