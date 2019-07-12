@@ -102,7 +102,9 @@ class Card:
         return card
 
     def __eq__(self, other):
-        return self.instance_id is not None \
+        return other is not None \
+               and self.instance_id is not None \
+               and other.instance_id is not None \
                and self.instance_id == other.instance_id
 
     def __repr__(self):
