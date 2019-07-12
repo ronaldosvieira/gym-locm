@@ -148,6 +148,10 @@ class Creature(Card):
     def add_ability(self, ability):
         self.keywords.add(ability)
 
+    def able_to_attack(self):
+        return not self.has_attacked_this_turn and \
+               (self.can_attack or self.has_ability('C'))
+
     def damage(self, amount=1, lethal=False) -> int:
         if amount <= 0:
             return 0
@@ -414,9 +418,7 @@ class Game:
                 if action.target not in valid_targets:
                     raise MalformedActionError("Invalid target.")
 
-                if action.origin.has_attacked_this_turn or \
-                        (not action.origin.can_attack and
-                         not action.origin.has_ability('C')):
+                if not action.origin.able_to_attack():
                     raise MalformedActionError("Attacking creature cannot "
                                                "attack.")
 
