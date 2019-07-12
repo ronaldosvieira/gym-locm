@@ -437,7 +437,7 @@ class Game:
                 action.origin.has_attacked_this_turn = True
 
             elif action.type == BattleActionType.USE:
-                if action.target is not None or \
+                if action.target is not None and \
                         not isinstance(action.target, Creature):
                     error = "Target is not a creature or a player."
                     raise MalformedActionError(error)
