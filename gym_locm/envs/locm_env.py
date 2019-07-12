@@ -200,12 +200,22 @@ class DraftAction(Action):
     def __init__(self, chosen_card_index):
         self.chosen_card_index = chosen_card_index
 
+    def __eq__(self, other):
+        return other is not None and \
+               self.chosen_card_index == other.chosen_card_index
+
 
 class BattleAction(Action):
     def __init__(self, type, origin=None, target=None):
         self.type = type
         self.origin = origin
         self.target = target
+
+    def __eq__(self, other):
+        return other is not None and \
+               self.type == other.type and \
+               self.origin == other.origin and \
+               self.target == other.target
 
 
 class Game:
