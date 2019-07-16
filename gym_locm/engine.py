@@ -4,7 +4,7 @@ import numpy as np
 from typing import List
 from enum import Enum, IntEnum
 from gym_locm.exceptions import *
-
+from gym_locm.helpers import is_it
 
 instance_counter = -1
 
@@ -167,6 +167,79 @@ class GameState:
         self.current_phase = current_phase
         self.current_player = current_player
         self.players = copy.deepcopy(players)
+
+    def available_actions(self):
+        if self.current_phase == Phase.DRAFT:
+            return [0, 1, 2]
+        elif self.current_phase == Phase.ENDED:
+            return []
+
+        actions = {
+            BattleActionType.SUMMON: [],
+            BattleActionType.ATTACK: [],
+            BattleActionType.USE: [],
+            BattleActionType.PASS: True
+        }
+
+        current_player = self.players[self.current_player]
+        opposing_player = self.players[self.current_player.opposing()]
+
+        lanes = list(map(lambda l: len(l) < 3, current_player.lanes))
+        lanes = lanes if any(lanes) else False
+
+        creatures_in_hand = list(map(is_it(Creature), current_player.hand))
+        summon = [lanes if creature else False for creature in creatures_in_hand]
+        summon = summon if any(summon) else False
+
+        actions[BattleActionType.SUMMON] = summon
+
+        cards_in_hand = list(map(type, current_player.hand))
+        friendly_creatures = [False for _ in range(6)]
+        able_to_attack = [False for _ in range(6)]
+
+        for i, creature in enumerate(current_player.lanes[Lane.LEFT]):
+            friendly_creatures[i] = True
+            able_to_attack[i] = creature.able_to_attack()
+
+        for i, creature in enumerate(current_player.lanes[Lane.RIGHT]):
+            friendly_creatures[3 + i] = True
+            able_to_attack[3 + i] = creature.able_to_attack()
+
+        enemy_creatures = [False for _ in range(6)]
+        has_guard = [False for _ in range(6)]
+
+        for i, creature in enumerate(opposing_player.lanes[Lane.LEFT]):
+            enemy_creatures[i] = True
+            has_guard[i] = creature.has_ability('G')
+
+        for i, creature in enumerate(opposing_player.lanes[Lane.RIGHT]):
+            enemy_creatures[3 + i] = True
+            has_guard[3 + i] = creature.has_ability('G')
+
+        attack_targets = has_guard + [False] if any(has_guard) else enemy_creatures + [True]
+        attack = [attack_targets if creature else False for creature in able_to_attack]
+        attack = attack if any(attack) else False
+
+        actions[BattleActionType.ATTACK] = attack
+
+        use = []
+
+        for i, card in enumerate(cards_in_hand):
+            if card == GreenItem:
+                item = friendly_creatures + [False for _ in range(6)] + [False]
+            elif card == RedItem:
+                item = [False for _ in range(6)] + enemy_creatures + [False]
+            elif card == BlueItem:
+                item = [False for _ in range(6)] + enemy_creatures + [True]
+            else:
+                item = [False for _ in range(13)]
+
+            use.append(item if any(item) else False)
+
+        use = use if any(use) else False
+        actions[BattleActionType.USE] = use
+
+        return actions
 
 
 class Action:
