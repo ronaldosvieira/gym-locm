@@ -424,10 +424,10 @@ class Game:
         opposing_player = self.players[self.current_player.opposing()]
 
         try:
-            if action.origin.cost > current_player.mana:
-                raise NotEnoughManaError()
-
             if action.type == BattleActionType.SUMMON:
+                if action.origin.cost > current_player.mana:
+                    raise NotEnoughManaError()
+
                 if not isinstance(action.origin, Creature):
                     raise MalformedActionError("Card being summoned is not a "
                                                "creature.")
@@ -510,6 +510,9 @@ class Game:
                 action.origin.has_attacked_this_turn = True
 
             elif action.type == BattleActionType.USE:
+                if action.origin.cost > current_player.mana:
+                    raise NotEnoughManaError()
+
                 if action.target is not None and \
                         not isinstance(action.target, Creature):
                     error = "Target is not a creature or a player."
