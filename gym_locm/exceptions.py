@@ -1,22 +1,34 @@
-class FullHandError(Exception):
+class GameError(Exception):
     pass
 
 
-class EmptyDeckError(Exception):
+class ActionError(Exception):
+    def __init__(self, message):
+        self.message = message
+
+    def __str__(self):
+        return self.message
+
+
+class FullHandError(GameError):
     pass
 
 
-class NotEnoughManaError(Exception):
+class EmptyDeckError(GameError):
     pass
 
 
-class MalformedActionError(Exception):
+class WardShieldError(GameError):
     pass
 
 
-class FullLaneError(Exception):
+class NotEnoughManaError(ActionError):
     pass
 
 
-class WardShieldError(Exception):
+class FullLaneError(ActionError):
+    pass
+
+
+class MalformedActionError(ActionError):
     pass

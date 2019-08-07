@@ -1,4 +1,5 @@
 import copy
+import sys
 import numpy as np
 
 from typing import List
@@ -7,6 +8,10 @@ from gym_locm.exceptions import *
 from gym_locm.helpers import is_it
 
 instance_counter = -1
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 
 def _next_instance_id():
@@ -429,8 +434,8 @@ class Game:
                 self._do_use(action)
             else:
                 raise MalformedActionError("Invalid action type.")
-        except (NotEnoughManaError, MalformedActionError, FullLaneError):
-            pass
+        except (NotEnoughManaError, MalformedActionError, FullLaneError) as e:
+            eprint("Action error:", e.message)
 
         for player in self.players:
             for lane in player.lanes:
