@@ -451,6 +451,8 @@ class Game:
                 current_player.health += action.origin.player_hp
                 opposing_player.health += action.origin.enemy_hp
 
+                current_player.mana -= action.origin.cost
+
             elif action.type == BattleActionType.ATTACK:
                 if not isinstance(action.origin, Creature):
                     raise MalformedActionError("Attacking card is not a "
@@ -591,10 +593,10 @@ class Game:
                     error = "Card being used is not an item."
                     raise MalformedActionError(error)
 
+                current_player.mana -= action.origin.cost
+
             else:
                 raise MalformedActionError("Invalid action type.")
-
-            current_player.mana -= action.origin.cost
         except (NotEnoughManaError, MalformedActionError, FullLaneError):
             pass
 
