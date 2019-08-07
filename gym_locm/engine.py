@@ -601,29 +601,20 @@ class Game:
             opposing_player.health += action.target.enemy_hp
 
         elif isinstance(action.origin, BlueItem):
-            affect_creatures = action.origin.attack != 0 or \
-                               action.origin.defense != 0 or \
-                               len(action.origin.keywords) > 0
-
-            if affect_creatures and \
-                    isinstance(action.target, Creature):
+            if isinstance(action.target, Creature):
                 action.target.attack += action.origin.attack
                 action.target.defense += action.origin.defense
                 action.target.keywords = \
                     action.target.keywords.difference(
                         action.origin.keywords)
-
-                current_player.bonus_draw += action.origin.card_draw
-                current_player.health += action.origin.player_hp
-                opposing_player.health += action.origin.enemy_hp
-
-            elif action.origin.defense == 0 and \
-                    action.target is None:
-                current_player.bonus_draw += action.origin.card_draw
-                current_player.health += action.origin.player_hp
-                opposing_player.health += action.origin.enemy_hp
+            elif action.target is None:
+                opposing_player.damage(-action.origin.defense)
             else:
                 raise MalformedActionError("Invalid target.")
+
+            current_player.bonus_draw += action.origin.card_draw
+            current_player.health += action.origin.player_hp
+            opposing_player.health += action.origin.enemy_hp
 
         else:
             error = "Card being used is not an item."
