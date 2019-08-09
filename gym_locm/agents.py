@@ -6,10 +6,10 @@ def parse_action(state, action_type, origin, target):
     current_player = state.players[state.current_player]
     opposing_player = state.players[state.current_player.opposing()]
 
-    if action_type == BattleActionType.SUMMON:
+    if action_type == ActionType.SUMMON:
         origin = current_player.hand[origin]
         target = Lane.LEFT if target == 0 else Lane.RIGHT
-    elif action_type == BattleActionType.ATTACK:
+    elif action_type == ActionType.ATTACK:
         lane = Lane.LEFT if origin < 3 else Lane.RIGHT
         creature = origin if lane == Lane.LEFT else origin - 3
 
@@ -19,7 +19,7 @@ def parse_action(state, action_type, origin, target):
         creature = target if lane == Lane.LEFT else target - 3
 
         target = None if target == 6 else opposing_player.lanes[lane][creature]
-    elif action_type == BattleActionType.USE:
+    elif action_type == ActionType.USE:
         origin = current_player.hand[origin]
 
         player = current_player if target < 6 else opposing_player
@@ -38,23 +38,23 @@ class BattleAgent:
 
 class PassBattleAgent(BattleAgent):
     def act(self, state):
-        return BattleAction(BattleActionType.PASS)
+        return BattleAction(ActionType.PASS)
 
 
 class RandomBattleAgent(BattleAgent):
     def act(self, state):
         available_actions = state.available_actions()
 
-        available_actions[BattleActionType.PASS] = False
+        available_actions[ActionType.PASS] = False
 
         if not any(available_actions.values()):
-            return BattleAction(BattleActionType.PASS)
+            return BattleAction(ActionType.PASS)
 
         probabilities = np.array([1 if action else 0 for action in available_actions.values()])
         probabilities[-1] = 0
 
         probabilities = probabilities / sum(probabilities)
-        action_type = np.random.choice(BattleActionType, p=probabilities)
+        action_type = np.random.choice(ActionType, p=probabilities)
 
         origin, target = None, None
 
@@ -97,7 +97,7 @@ class RuleBasedBattleAgent(BattleAgent):
             creature = np.random.choice(summonable)
             lane = Lane.LEFT if np.random.choice([0, 1]) == 0 else Lane.RIGHT
 
-            action = BattleAction(BattleActionType.SUMMON,
+            action = BattleAction(ActionType.SUMMON,
                                   creature,
                                   lane)
 
@@ -112,7 +112,7 @@ class RuleBasedBattleAgent(BattleAgent):
             opp_creatures = opposing_player.lanes[lane]
             guards = list(filter(lambda c: c.has_ability('G'), opp_creatures))
 
-            action = BattleAction(BattleActionType.ATTACK,
+            action = BattleAction(ActionType.ATTACK,
                                   creature,
                                   np.random.choice(guards) if guards else None)
 
@@ -121,7 +121,7 @@ class RuleBasedBattleAgent(BattleAgent):
                 return action
 
         if creatures and green_items:
-            action = BattleAction(BattleActionType.USE,
+            action = BattleAction(ActionType.USE,
                                   np.random.choice(green_items),
                                   np.random.choice(creatures))
 
@@ -130,7 +130,7 @@ class RuleBasedBattleAgent(BattleAgent):
                 return action
 
         if opp_creatures and red_items:
-            action = BattleAction(BattleActionType.USE,
+            action = BattleAction(ActionType.USE,
                                   np.random.choice(red_items),
                                   np.random.choice(opp_creatures))
 
@@ -139,14 +139,14 @@ class RuleBasedBattleAgent(BattleAgent):
                 return action
 
         if blue_items:
-            action = BattleAction(BattleActionType.USE,
+            action = BattleAction(ActionType.USE,
                                   np.random.choice(blue_items))
 
             if self.last_action != action:
                 self.last_action = action
                 return action
 
-        action = BattleAction(BattleActionType.PASS)
+        action = BattleAction(ActionType.PASS)
 
         self.last_action = action
 

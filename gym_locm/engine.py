@@ -41,7 +41,7 @@ class Lane(IntEnum):
     RIGHT = 1
 
 
-class BattleActionType(Enum):
+class ActionType(Enum):
     SUMMON = 0
     ATTACK = 1
     USE = 2
@@ -180,10 +180,10 @@ class GameState:
             return []
 
         actions = {
-            BattleActionType.SUMMON: [],
-            BattleActionType.ATTACK: [],
-            BattleActionType.USE: [],
-            BattleActionType.PASS: True
+            ActionType.SUMMON: [],
+            ActionType.ATTACK: [],
+            ActionType.USE: [],
+            ActionType.PASS: True
         }
 
         current_player = self.players[self.current_player]
@@ -198,7 +198,7 @@ class GameState:
         summon = [lanes if all(conditions) else False for conditions in zip(can_cast, creatures_in_hand)]
         summon = summon if any(summon) else False
 
-        actions[BattleActionType.SUMMON] = summon
+        actions[ActionType.SUMMON] = summon
 
         cards_in_hand = list(map(type, current_player.hand))
         friendly_creatures = [False for _ in range(6)]
@@ -227,7 +227,7 @@ class GameState:
         attack = [attack_targets if creature else False for creature in able_to_attack]
         attack = attack if any(attack) else False
 
-        actions[BattleActionType.ATTACK] = attack
+        actions[ActionType.ATTACK] = attack
 
         use = []
 
@@ -244,7 +244,7 @@ class GameState:
             use.append(item if any(item) and can_cast[i] else False)
 
         use = use if any(use) else False
-        actions[BattleActionType.USE] = use
+        actions[ActionType.USE] = use
 
         return actions
 
@@ -312,7 +312,7 @@ class Game:
                 self._new_battle_turn()
 
         elif self.current_phase == Phase.BATTLE:
-            if action.type != BattleActionType.PASS:
+            if action.type != ActionType.PASS:
                 self._act_on_battle(action)
             else:
                 self._next_turn()
@@ -428,11 +428,11 @@ class Game:
     def _act_on_battle(self, action: BattleAction):
         """Execute the actions intended by the player in this battle turn"""
         try:
-            if action.type == BattleActionType.SUMMON:
+            if action.type == ActionType.SUMMON:
                 self._do_summon(action)
-            elif action.type == BattleActionType.ATTACK:
+            elif action.type == ActionType.ATTACK:
                 self._do_attack(action)
-            elif action.type == BattleActionType.USE:
+            elif action.type == ActionType.USE:
                 self._do_use(action)
             else:
                 raise MalformedActionError("Invalid action type.")
