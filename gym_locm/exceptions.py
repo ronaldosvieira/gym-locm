@@ -23,12 +23,12 @@ class WardShieldError(GameError):
 
 
 class NotEnoughManaError(ActionError):
-    def __init__(self, message="Not enough mana."):
+    def __init__(self, message="Not enough mana"):
         super().__init__(message)
 
 
 class FullLaneError(ActionError):
-    def __init__(self, message="Lane is full."):
+    def __init__(self, message="Lane is full"):
         super().__init__(message)
 
 

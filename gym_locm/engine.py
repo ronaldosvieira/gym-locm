@@ -491,7 +491,7 @@ class Game:
             elif action.type == ActionType.USE:
                 self._do_use(action)
             else:
-                raise MalformedActionError("Invalid action type.")
+                raise MalformedActionError("Invalid action type")
         except (NotEnoughManaError, MalformedActionError, FullLaneError) as e:
             eprint("Action error:", e.message)
 
@@ -515,10 +515,10 @@ class Game:
 
         if not isinstance(action.origin, Creature):
             raise MalformedActionError("Card being summoned is not a "
-                                       "creature.")
+                                       "creature")
 
         if not isinstance(action.target, Lane):
-            raise MalformedActionError("Target is not a lane.")
+            raise MalformedActionError("Target is not a lane")
 
         if len(current_player.lanes[action.target]) >= 3:
             raise FullLaneError()
@@ -526,7 +526,7 @@ class Game:
         try:
             current_player.hand.remove(action.origin)
         except ValueError:
-            raise MalformedActionError("Card is not in player's hand.")
+            raise MalformedActionError("Card is not in player's hand")
 
         action.origin.can_attack = False
 
@@ -544,7 +544,7 @@ class Game:
 
         if not isinstance(action.origin, Creature):
             raise MalformedActionError("Attacking card is not a "
-                                       "creature.")
+                                       "creature")
 
         if action.origin in current_player.lanes[Lane.LEFT]:
             origin_lane = Lane.LEFT
@@ -552,7 +552,7 @@ class Game:
             origin_lane = Lane.RIGHT
         else:
             raise MalformedActionError("Attacking creature is not "
-                                       "owned by player.")
+                                       "owned by player")
 
         guard_creatures = []
 
@@ -566,11 +566,11 @@ class Game:
             valid_targets = [None] + opposing_player.lanes[origin_lane]
 
         if action.target not in valid_targets:
-            raise MalformedActionError("Invalid target.")
+            raise MalformedActionError("Invalid target")
 
         if not action.origin.able_to_attack():
             raise MalformedActionError("Attacking creature cannot "
-                                       "attack.")
+                                       "attack")
 
         if action.target is None:
             damage_dealt = opposing_player.damage(action.origin.attack)
@@ -592,7 +592,7 @@ class Game:
 
         else:
             raise MalformedActionError("Target is not a creature or "
-                                       "a player.")
+                                       "a player")
 
         if 'D' in action.origin.keywords:
             current_player.health += damage_dealt
@@ -608,13 +608,13 @@ class Game:
 
         if action.target is not None and \
                 not isinstance(action.target, Creature):
-            error = "Target is not a creature or a player."
+            error = "Target is not a creature or a player"
             raise MalformedActionError(error)
 
         try:
             current_player.hand.remove(action.origin)
         except ValueError:
-            raise MalformedActionError("Card is not in player's hand.")
+            raise MalformedActionError("Card is not in player's hand")
 
         if isinstance(action.origin, GreenItem):
             is_own_creature = \
@@ -623,7 +623,7 @@ class Game:
 
             if action.target is None or not is_own_creature:
                 error = "Green items should be used on friendly " \
-                        "creatures."
+                        "creatures"
                 raise MalformedActionError(error)
 
             action.target.attack += action.origin.attack
@@ -642,7 +642,7 @@ class Game:
 
             if action.target is None or not is_opp_creature:
                 error = "Red items should be used on enemy " \
-                        "creatures."
+                        "creatures"
                 raise MalformedActionError(error)
 
             action.target.attack += action.origin.attack
@@ -665,14 +665,14 @@ class Game:
             elif action.target is None:
                 opposing_player.damage(-action.origin.defense)
             else:
-                raise MalformedActionError("Invalid target.")
+                raise MalformedActionError("Invalid target")
 
             current_player.bonus_draw += action.origin.card_draw
             current_player.health += action.origin.player_hp
             opposing_player.health += action.origin.enemy_hp
 
         else:
-            error = "Card being used is not an item."
+            error = "Card being used is not an item"
             raise MalformedActionError(error)
 
         current_player.mana -= action.origin.cost
