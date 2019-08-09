@@ -5,7 +5,7 @@ import numpy as np
 from typing import List
 from enum import Enum, IntEnum
 from gym_locm.exceptions import *
-from gym_locm.helpers import is_it
+from gym_locm.helpers import *
 
 instance_counter = -1
 
@@ -189,11 +189,13 @@ class GameState:
         current_player = self.players[self.current_player]
         opposing_player = self.players[self.current_player.opposing()]
 
+        can_cast = list(map(has_enough_mana(current_player.mana), current_player.hand))
+
         lanes = list(map(lambda l: len(l) < 3, current_player.lanes))
         lanes = lanes if any(lanes) else False
 
         creatures_in_hand = list(map(is_it(Creature), current_player.hand))
-        summon = [lanes if creature else False for creature in creatures_in_hand]
+        summon = [lanes if all(conditions) else False for conditions in zip(can_cast, creatures_in_hand)]
         summon = summon if any(summon) else False
 
         actions[BattleActionType.SUMMON] = summon
@@ -239,7 +241,7 @@ class GameState:
             else:
                 item = [False for _ in range(13)]
 
-            use.append(item if any(item) else False)
+            use.append(item if any(item) and can_cast[i] else False)
 
         use = use if any(use) else False
         actions[BattleActionType.USE] = use
