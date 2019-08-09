@@ -698,13 +698,13 @@ class Game:
                             'itemGreen': GreenItem, 'itemBlue': BlueItem}
 
             for card in raw_cards:
-                id, name, card_type, cost, attack, defense, \
-                keywords, player_hp, enemy_hp, card_draw, _ = \
+                card_id, name, card_type, cost, attack, defense, \
+                    keywords, player_hp, enemy_hp, card_draw, _ = \
                     map(str.strip, card.split(';'))
 
                 card_class = type_mapping[card_type]
 
-                cards.append(card_class(int(id), name, card_type, int(cost),
+                cards.append(card_class(int(card_id), name, card_type, int(cost),
                                         int(attack), int(defense), keywords,
                                         int(player_hp), int(enemy_hp),
                                         int(card_draw)))
