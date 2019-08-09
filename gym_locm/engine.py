@@ -498,7 +498,7 @@ class Game:
             raise MalformedActionError("Attacking creature is not "
                                        "owned by player.")
 
-        guard_creatures = [None]
+        guard_creatures = []
 
         for creature in opposing_player.lanes[origin_lane]:
             if creature.has_ability('G'):
