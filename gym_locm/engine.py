@@ -42,10 +42,11 @@ class Lane(IntEnum):
 
 
 class ActionType(Enum):
-    SUMMON = 0
-    ATTACK = 1
-    USE = 2
-    PASS = 3
+    DRAFT = 0
+    SUMMON = 1
+    ATTACK = 2
+    USE = 3
+    PASS = 4
 
 
 class Player:
@@ -255,7 +256,11 @@ class GameState:
             return self.__available_actions
 
         if self.current_phase == Phase.DRAFT:
-            self.__available_actions = [DraftAction(0), DraftAction(1), DraftAction(2)]
+            self.__available_actions = [
+                Action(ActionType.DRAFT, 0),
+                Action(ActionType.DRAFT, 1),
+                Action(ActionType.DRAFT, 2)
+            ]
         elif self.current_phase == Phase.ENDED:
             self.__available_actions = []
         else:
@@ -268,24 +273,24 @@ class GameState:
                 if isinstance(card, Creature):
                     for lane in Lane:
                         if len(current_player.lanes[lane]) < 3:
-                            summon.append(BattleAction(ActionType.SUMMON, card, lane))
+                            summon.append(Action(ActionType.SUMMON, card, lane))
                 elif isinstance(card, GreenItem):
                     for lane in Lane:
                         for friendly_creature in current_player.lanes[lane]:
-                            use.append(BattleAction(ActionType.USE, card, friendly_creature))
+                            use.append(Action(ActionType.USE, card, friendly_creature))
                 elif isinstance(card, RedItem):
                     for lane in Lane:
                         for enemy_creature in opposing_player.lanes[lane]:
-                            use.append(BattleAction(ActionType.USE, card, enemy_creature))
+                            use.append(Action(ActionType.USE, card, enemy_creature))
                 elif isinstance(card, BlueItem):
                     for lane in Lane:
                         for friendly_creature in current_player.lanes[lane]:
-                            use.append(BattleAction(ActionType.USE, card, friendly_creature))
+                            use.append(Action(ActionType.USE, card, friendly_creature))
 
                         for enemy_creature in opposing_player.lanes[lane]:
-                            use.append(BattleAction(ActionType.USE, card, enemy_creature))
+                            use.append(Action(ActionType.USE, card, enemy_creature))
 
-                        use.append(BattleAction(ActionType.USE, card, None))
+                        use.append(Action(ActionType.USE, card, None))
 
             for lane in Lane:
                 guard_creatures = []
@@ -301,12 +306,12 @@ class GameState:
 
                 for friendly_creature in filter(Creature.able_to_attack, current_player.lanes[lane]):
                     for valid_target in valid_targets:
-                        attack.append(BattleAction(ActionType.ATTACK, friendly_creature, valid_target))
+                        attack.append(Action(ActionType.ATTACK, friendly_creature, valid_target))
 
             available_actions = summon + attack + use
 
             if not available_actions:
-                available_actions = [BattleAction(ActionType.PASS)]
+                available_actions = [Action(ActionType.PASS)]
 
             self.__available_actions = available_actions
 
@@ -314,21 +319,8 @@ class GameState:
 
 
 class Action:
-    pass
-
-
-class DraftAction(Action):
-    def __init__(self, chosen_card_index):
-        self.chosen_card_index = chosen_card_index
-
-    def __eq__(self, other):
-        return other is not None and \
-               self.chosen_card_index == other.chosen_card_index
-
-
-class BattleAction(Action):
-    def __init__(self, type, origin=None, target=None):
-        self.type = type
+    def __init__(self, action_type, origin=None, target=None):
+        self.type = action_type
         self.origin = origin
         self.target = target
 
@@ -362,7 +354,7 @@ class Game:
 
         return self._build_game_state()
 
-    def step(self, action: Action) -> (GameState, bool, dict):
+    def step(self, action) -> (GameState, bool, dict):
         if self.current_phase == Phase.DRAFT:
             self._act_on_draft(action)
 
@@ -481,15 +473,15 @@ class Game:
                                - current_player.next_rune
             current_player.damage(amount_of_damage)
 
-    def _act_on_draft(self, action: DraftAction):
+    def _act_on_draft(self, action):
         """Execute the action intended by the player in this draft turn"""
         current_player = self.players[self.current_player]
 
-        card = current_player.hand[action.chosen_card_index]
+        card = current_player.hand[action.origin]
 
         current_player.deck.append(card.make_copy())
 
-    def _act_on_battle(self, action: BattleAction):
+    def _act_on_battle(self, action):
         """Execute the actions intended by the player in this battle turn"""
         try:
             if action.type == ActionType.SUMMON:
