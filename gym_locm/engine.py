@@ -171,7 +171,7 @@ class GameState:
     def __init__(self, current_phase, current_player, players):
         self.current_phase = current_phase
         self.current_player = current_player
-        self.players = copy.deepcopy(players)
+        self.players = players
 
     def available_actions(self):
         if self.current_phase == Phase.DRAFT:
