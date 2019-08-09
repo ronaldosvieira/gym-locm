@@ -2,35 +2,6 @@ from gym_locm.engine import *
 from gym_locm.helpers import *
 
 
-def parse_action(state, action_type, origin, target):
-    current_player = state.players[state.current_player]
-    opposing_player = state.players[state.current_player.opposing()]
-
-    if action_type == ActionType.SUMMON:
-        origin = current_player.hand[origin]
-        target = Lane.LEFT if target == 0 else Lane.RIGHT
-    elif action_type == ActionType.ATTACK:
-        lane = Lane.LEFT if origin < 3 else Lane.RIGHT
-        creature = origin if lane == Lane.LEFT else origin - 3
-
-        origin = current_player.lanes[lane][creature]
-
-        lane = Lane.LEFT if target < 3 else Lane.RIGHT
-        creature = target if lane == Lane.LEFT else target - 3
-
-        target = None if target == 6 else opposing_player.lanes[lane][creature]
-    elif action_type == ActionType.USE:
-        origin = current_player.hand[origin]
-
-        player = current_player if target < 6 else opposing_player
-        lane = Lane.LEFT if (target % 6) < 3 else Lane.RIGHT
-        creature = (target % 6) if lane == Lane.LEFT else (target % 6) - 3
-
-        target = None if target == 12 else player.lanes[lane][creature]
-
-    return BattleAction(action_type, origin, target)
-
-
 class BattleAgent:
     def act(self, state):
         pass
@@ -43,34 +14,7 @@ class PassBattleAgent(BattleAgent):
 
 class RandomBattleAgent(BattleAgent):
     def act(self, state):
-        available_actions = state.available_actions()
-
-        available_actions[ActionType.PASS] = False
-
-        if not any(available_actions.values()):
-            return BattleAction(ActionType.PASS)
-
-        probabilities = np.array([1 if action else 0 for action in available_actions.values()])
-        probabilities[-1] = 0
-
-        probabilities = probabilities / sum(probabilities)
-        action_type = np.random.choice(ActionType, p=probabilities)
-
-        origin, target = None, None
-
-        available_origins = available_actions[action_type]
-
-        probabilities = np.array([1 if origin else 0 for origin in available_origins])
-        probabilities = probabilities / sum(probabilities)
-        origin = np.random.choice(range(len(available_origins)), p=probabilities)
-
-        available_targets = available_origins[origin]
-
-        probabilities = np.array([1 if target else 0 for target in available_targets])
-        probabilities = probabilities / sum(probabilities)
-        target = np.random.choice(range(len(available_targets)), p=probabilities)
-
-        return parse_action(state, action_type, origin, target)
+        return np.random.choice(state.available_actions)
 
 
 class RuleBasedBattleAgent(BattleAgent):
