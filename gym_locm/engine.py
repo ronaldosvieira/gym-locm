@@ -576,7 +576,6 @@ class Game:
         if action.target not in valid_targets:
             raise MalformedActionError("Invalid target.")
 
-        # print("checking in execution: ", end="")
         if not action.origin.able_to_attack():
             raise MalformedActionError("Attacking creature cannot "
                                        "attack.")
@@ -606,9 +605,7 @@ class Game:
         if 'D' in action.origin.keywords:
             current_player.health += damage_dealt
 
-        # print("cheg aqui?", end="")
         action.origin.has_attacked_this_turn = True
-        # print(action.origin.has_attacked_this_turn, action.origin.able_to_attack())
 
     def _do_use(self, action):
         current_player = self.players[self.current_player]
