@@ -45,24 +45,30 @@ class RandomBattleAgent(BattleAgent):
     def act(self, state):
         available_actions = state.available_actions()
 
+        available_actions[BattleActionType.PASS] = False
+
+        if not any(available_actions.values()):
+            return BattleAction(BattleActionType.PASS)
+
         probabilities = np.array([1 if action else 0 for action in available_actions.values()])
+        probabilities[-1] = 0
+
         probabilities = probabilities / sum(probabilities)
         action_type = np.random.choice(BattleActionType, p=probabilities)
 
         origin, target = None, None
 
-        if action_type != BattleActionType.PASS:
-            available_origins = available_actions[action_type]
+        available_origins = available_actions[action_type]
 
-            probabilities = np.array([1 if origin else 0 for origin in available_origins])
-            probabilities = probabilities / sum(probabilities)
-            origin = np.random.choice(range(len(available_origins)), p=probabilities)
+        probabilities = np.array([1 if origin else 0 for origin in available_origins])
+        probabilities = probabilities / sum(probabilities)
+        origin = np.random.choice(range(len(available_origins)), p=probabilities)
 
-            available_targets = available_origins[origin]
+        available_targets = available_origins[origin]
 
-            probabilities = np.array([1 if target else 0 for target in available_targets])
-            probabilities = probabilities / sum(probabilities)
-            target = np.random.choice(range(len(available_targets)), p=probabilities)
+        probabilities = np.array([1 if target else 0 for target in available_targets])
+        probabilities = probabilities / sum(probabilities)
+        target = np.random.choice(range(len(available_targets)), p=probabilities)
 
         return parse_action(state, action_type, origin, target)
 
