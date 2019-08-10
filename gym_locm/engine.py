@@ -62,6 +62,8 @@ class Player:
         self.hand = []
         self.lanes = ([], [])
 
+        self.actions = []
+
     def draw(self, amount=1):
         for _ in range(amount):
             if len(self.deck) == 0:
@@ -482,8 +484,12 @@ class Game:
 
         current_player.deck.append(card.make_copy())
 
+        current_player.actions.append(action)
+
     def _act_on_battle(self, action):
         """Execute the actions intended by the player in this battle turn"""
+        current_player = self.players[self.current_player]
+
         try:
             if action.type == ActionType.SUMMON:
                 self._do_summon(action)
@@ -493,6 +499,8 @@ class Game:
                 self._do_use(action)
             else:
                 raise MalformedActionError("Invalid action type")
+
+            current_player.actions.append(action)
         except (NotEnoughManaError, MalformedActionError, FullLaneError) as e:
             eprint("Action error:", e.message)
 
@@ -501,8 +509,6 @@ class Game:
                 for creature in lane:
                     if creature.is_dead:
                         lane.remove(creature)
-
-        current_player = self.players[self.current_player]
 
         if current_player.mana == 0:
             current_player.bonus_mana = 0
