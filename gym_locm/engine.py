@@ -84,7 +84,7 @@ class Player:
 
 class Card:
     def __init__(self, card_id, name, card_type, cost, attack, defense, keywords,
-                 player_hp, enemy_hp, card_draw):
+                 player_hp, enemy_hp, card_draw, text):
         self.id = card_id
         self.instance_id = None
         self.name = name
@@ -96,6 +96,7 @@ class Card:
         self.player_hp = player_hp
         self.enemy_hp = enemy_hp
         self.card_draw = card_draw
+        self.text = text
 
     def has_ability(self, keyword):
         return keyword in self.keywords
@@ -699,7 +700,7 @@ class Game:
 
             for card in raw_cards:
                 card_id, name, card_type, cost, attack, defense, \
-                    keywords, player_hp, enemy_hp, card_draw, _ = \
+                    keywords, player_hp, enemy_hp, card_draw, text = \
                     map(str.strip, card.split(';'))
 
                 card_class = type_mapping[card_type]
@@ -707,7 +708,7 @@ class Game:
                 cards.append(card_class(int(card_id), name, card_type, int(cost),
                                         int(attack), int(defense), keywords,
                                         int(player_hp), int(enemy_hp),
-                                        int(card_draw)))
+                                        int(card_draw), text))
 
         assert len(cards) == 160
 
