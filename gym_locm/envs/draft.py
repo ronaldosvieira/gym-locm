@@ -1,11 +1,12 @@
 import gym
+from prettytable import PrettyTable
 
 from gym_locm.agents import *
 from gym_locm.engine import *
 
 
 class LoCMDraftEnv(gym.Env):
-    metadata = {'render.modes': ['human']}
+    metadata = {'render.modes': ['text']}
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self, battle_agent=PassBattleAgent(), use_draft_history=True,
@@ -76,22 +77,32 @@ class LoCMDraftEnv(gym.Env):
 
         return self._encode_state(), reward, done, info
 
-    def render(self, mode='human'):
-        for i, player in enumerate(self.state.players):
-            print(f"Player #{i + 1}")
-            print(f"{player.health} health, {player.mana} mana")
-            print("Hand:")
+    def _render_text_draft(self):
+        print(f'######## TURN {self.turn} ########')
+        print()
+        print(f"Choosing for player {self.state.current_player}")
 
-            for card in player.hand:
-                print(f"{card.name} (#{card.instance_id})")
+        table = PrettyTable(['Index', 'Name', 'Cost', 'Description'])
 
-            print("Lanes:")
+        for i, card in enumerate(self.state.players[self.state.current_player].hand):
+            table.add_row([i, card.name, card.cost, card.text])
 
-            for j, lane in enumerate(player.lanes):
-                for card in lane:
-                    print(f"{j + 1} {card.name} (#{card.instance_id})")
+        print(table)
 
-            print()
+    def _render_text_battle(self):
+        pass  # TODO implement
+
+    def _render_text_ended(self):
+        pass  # TODO implement "end screen"
+
+    def render(self, mode='text'):
+        if mode == 'text':
+            if self.state.current_phase == Phase.DRAFT:
+                self._render_text_draft()
+            elif self.state.current_phase == Phase.BATTLE:
+                self._render_text_battle()
+            elif self.state.current_phase == Phase.ENDED:
+                self._render_text_ended()
 
     def _encode_card(self, card):
         card_type = [1.0 if isinstance(card, card_type) else 0.0
