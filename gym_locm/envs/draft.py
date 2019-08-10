@@ -93,7 +93,9 @@ class LoCMDraftEnv(gym.Env):
         pass  # TODO implement
 
     def _render_text_ended(self):
-        pass  # TODO implement "end screen"
+        winner = 1 if self.state.players[0].health <= 0 else 0
+
+        print(f'(¯`·._.··¸.-~*´¨¯¨`*·~-.,-( PLAYER {winner} WON! )-,.-~*´¨¯¨`*·~-.¸··._.·´¯)')
 
     def render(self, mode='text'):
         if mode == 'text':
