@@ -688,10 +688,11 @@ class Game:
         return GameState(self.current_phase, self.current_player, self.players)
 
     def _new_draft(self) -> List[List[Card]]:
+        pool = np.random.choice(self._cards, 60, replace=False).tolist()
         draft = []
 
         for _ in range(self.cards_in_deck):
-            draft.append(np.random.choice(self._cards, 3, replace=False).tolist())
+            draft.append(np.random.choice(pool, 3, replace=False).tolist())
 
         return draft
 
