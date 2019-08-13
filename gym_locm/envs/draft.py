@@ -9,7 +9,9 @@ class LoCMDraftEnv(gym.Env):
     metadata = {'render.modes': ['text']}
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
-    def __init__(self, battle_agent=PassBattleAgent(), use_draft_history=True,
+    def __init__(self,
+                 battle_agent=RandomBattleAgent(),
+                 use_draft_history=True,
                  cards_in_deck=30):
         self.state = None
         self.turn = 1
