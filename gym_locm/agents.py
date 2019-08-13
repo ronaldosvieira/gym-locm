@@ -1,23 +1,26 @@
+from abc import ABC, abstractmethod
+
 from gym_locm.engine import *
 from gym_locm.helpers import *
 
 
-class BattleAgent:
+class Agent(ABC):
+    @abstractmethod
     def act(self, state):
         pass
 
 
-class PassBattleAgent(BattleAgent):
+class PassBattleAgent(Agent):
     def act(self, state):
         return Action(ActionType.PASS)
 
 
-class RandomBattleAgent(BattleAgent):
+class RandomBattleAgent(Agent):
     def act(self, state):
         return np.random.choice(state.available_actions)
 
 
-class RuleBasedBattleAgent(BattleAgent):
+class RuleBasedBattleAgent(Agent):
     def __init__(self):
         self.last_action = None
 
