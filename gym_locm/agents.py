@@ -98,3 +98,7 @@ class RuleBasedBattleAgent(Agent):
         self.last_action = action
 
         return action
+
+
+PassDraftAgent = PassBattleAgent
+RandomDraftAgent = RandomBattleAgent
