@@ -47,7 +47,8 @@ class LoCMDraftEnv(gym.Env):
         return self._encode_state()
 
     def step(self, action):
-        action = Action(ActionType.DRAFT, action)
+        if not isinstance(action, Action):
+            action = Action(ActionType.DRAFT, action)
 
         new_state, done, info = self.game.step(action)
 
@@ -60,7 +61,8 @@ class LoCMDraftEnv(gym.Env):
         elif info['phase'] == Phase.BATTLE:
             current_player = self.state.players[self.state.current_player]
 
-            chosen_card = current_player.hand[action.origin]
+            chosen_index = action.origin if action.origin is not None else 0
+            chosen_card = current_player.hand[chosen_index]
             current_player.deck.append(chosen_card)
 
             for player in self.state.players:
