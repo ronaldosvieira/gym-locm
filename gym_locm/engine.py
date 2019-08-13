@@ -480,7 +480,8 @@ class Game:
         """Execute the action intended by the player in this draft turn"""
         current_player = self.players[self.current_player]
 
-        card = current_player.hand[action.origin]
+        chosen_index = action.origin if action.origin is not None else 0
+        card = current_player.hand[chosen_index]
 
         current_player.deck.append(card.make_copy())
 
