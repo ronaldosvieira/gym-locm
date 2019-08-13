@@ -140,3 +140,25 @@ class LoCMDraftEnv(gym.Env):
                 encoded_state[j] = self._encode_card(card)
 
         return encoded_state
+
+
+class LoCMDraftSingleEnv(LoCMDraftEnv):
+    def __init__(self, battle_agent=RandomBattleAgent(),
+                 draft_agent=RandomDraftAgent(),
+                 use_draft_history=True,
+                 cards_in_deck=30,
+                 play_first=True):
+        super().__init__(battle_agent, use_draft_history, cards_in_deck)
+
+        self.draft_agent = draft_agent
+        self.play_first = play_first
+
+    def step(self, action):
+        if self.play_first:
+            result = super().step(action)
+            super().step(self.draft_agent.act(self.state))
+        else:
+            super().step(self.draft_agent.act(self.state))
+            result = super().step(action)
+
+        return result
