@@ -19,6 +19,8 @@ class LoCMDraftEnv(gym.Env):
 
         self.game = Game()
 
+        self.use_draft_history = use_draft_history
+
         self.cards_in_state = 33 if use_draft_history else 3
         self.card_features = 16
 
@@ -129,7 +131,8 @@ class LoCMDraftEnv(gym.Env):
         for i, card in enumerate(card_choices):
             encoded_state[-(3 - i)] = self._encode_card(card)
 
-        for j, card in enumerate(chosen_cards):
-            encoded_state[j] = self._encode_card(card)
+        if self.use_draft_history:
+            for j, card in enumerate(chosen_cards):
+                encoded_state[j] = self._encode_card(card)
 
         return encoded_state
