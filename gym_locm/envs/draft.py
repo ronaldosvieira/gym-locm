@@ -155,8 +155,8 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
 
     def step(self, action):
         if self.play_first:
-            result = super().step(action)
-            super().step(self.draft_agent.act(self.state))
+            super().step(action)
+            result = super().step(self.draft_agent.act(self.state))
         else:
             super().step(self.draft_agent.act(self.state))
             result = super().step(action)
