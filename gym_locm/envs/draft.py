@@ -103,7 +103,11 @@ class LoCMDraftEnv(gym.Env):
     def _render_text_ended(self):
         winner = 1 if self.state.players[0].health <= 0 else 0
 
-        print(f'(¯`·._.··¸.-~*´¨¯¨`*·~-.,-( PLAYER {winner} WON! )-,.-~*´¨¯¨`*·~-.¸··._.·´¯)')
+        print(f'*         *    .            *     .   *      .   *\n'
+              f'    .             *   .    * .         .\n'
+              f'*        *    .    PLAYER {winner} WON!       *.   . *\n'
+              f'*     .   *         *         .       *.      *   .\n'  
+              f'.              *      .     * .         .')
 
     def render(self, mode='text'):
         if mode == 'text':
