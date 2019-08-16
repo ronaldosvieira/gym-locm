@@ -102,3 +102,42 @@ class RuleBasedBattleAgent(Agent):
 
 PassDraftAgent = PassBattleAgent
 RandomDraftAgent = RandomBattleAgent
+
+
+class IceboxDraftAgent(Agent):
+    @staticmethod
+    def _icebox_eval(card):
+        value = card.attack + card.defense
+
+        value -= 6.392651 * 0.001 * (card.cost ** 2)
+        value -= 1.463006 * card.cost
+        value -= 1.435985
+
+        value += 5.985350469 * 0.01 * ((card.player_hp - card.enemy_hp) ** 2)
+        value += 3.880957 * 0.1 * (card.player_hp - card.enemy_hp)
+        value += 5.219
+
+        value -= 5.516179907 * (card.card_draw ** 2)
+        value += 0.239521 * card.card_draw
+        value -= 1.63766 * 0.1
+
+        value -= 7.751401869 * 0.01
+
+        if 'B' in card.keywords:
+            value += 0.0
+        if 'C' in card.keywords:
+            value += 0.26015517
+        if 'D' in card.keywords:
+            value += 0.15241379
+        if 'G' in card.keywords:
+            value += 0.04418965
+        if 'L' in card.keywords:
+            value += 0.15313793
+        if 'W' in card.keywords:
+            value += 0.16238793
+
+        return value
+
+    def act(self, state):
+        return np.argmax(list(map(self._icebox_eval,
+                                  state.players[state.current_player].hand)))
