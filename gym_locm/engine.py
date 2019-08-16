@@ -174,9 +174,17 @@ class BlueItem(Item):
 class GameState:
     def __init__(self, current_phase, current_player, players):
         self.current_phase = current_phase
-        self.current_player = current_player
+        self._current_player = current_player
         self.players = players
         self.__available_actions = None
+
+    @property
+    def current_player(self):
+        return self.players[self._current_player]
+
+    @property
+    def opposing_player(self):
+        return self.players[self._current_player.opposing()]
 
     def _old_available_actions(self):
         if self.current_phase == Phase.DRAFT:
@@ -269,28 +277,26 @@ class GameState:
         else:
             summon, attack, use = [], [], []
 
-            current_player = self.players[self.current_player]
-            opposing_player = self.players[self.current_player.opposing()]
-
-            for card in filter(has_enough_mana(current_player.mana), current_player.hand):
+            for card in filter(has_enough_mana(self.current_player.mana),
+                               self.current_player.hand):
                 if isinstance(card, Creature):
                     for lane in Lane:
-                        if len(current_player.lanes[lane]) < 3:
+                        if len(self.current_player.lanes[lane]) < 3:
                             summon.append(Action(ActionType.SUMMON, card, lane))
                 elif isinstance(card, GreenItem):
                     for lane in Lane:
-                        for friendly_creature in current_player.lanes[lane]:
+                        for friendly_creature in self.current_player.lanes[lane]:
                             use.append(Action(ActionType.USE, card, friendly_creature))
                 elif isinstance(card, RedItem):
                     for lane in Lane:
-                        for enemy_creature in opposing_player.lanes[lane]:
+                        for enemy_creature in self.opposing_player.lanes[lane]:
                             use.append(Action(ActionType.USE, card, enemy_creature))
                 elif isinstance(card, BlueItem):
                     for lane in Lane:
-                        for friendly_creature in current_player.lanes[lane]:
+                        for friendly_creature in self.current_player.lanes[lane]:
                             use.append(Action(ActionType.USE, card, friendly_creature))
 
-                        for enemy_creature in opposing_player.lanes[lane]:
+                        for enemy_creature in self.opposing_player.lanes[lane]:
                             use.append(Action(ActionType.USE, card, enemy_creature))
 
                         use.append(Action(ActionType.USE, card, None))
@@ -298,16 +304,17 @@ class GameState:
             for lane in Lane:
                 guard_creatures = []
 
-                for enemy_creature in opposing_player.lanes[lane]:
+                for enemy_creature in self.opposing_player.lanes[lane]:
                     if enemy_creature.has_ability('G'):
                         guard_creatures.append(enemy_creature)
 
                 if not guard_creatures:
-                    valid_targets = opposing_player.lanes[lane] + [None]
+                    valid_targets = self.opposing_player.lanes[lane] + [None]
                 else:
                     valid_targets = guard_creatures
 
-                for friendly_creature in filter(Creature.able_to_attack, current_player.lanes[lane]):
+                for friendly_creature in filter(Creature.able_to_attack,
+                                                self.current_player.lanes[lane]):
                     for valid_target in valid_targets:
                         attack.append(Action(ActionType.ATTACK, friendly_creature, valid_target))
 

@@ -25,15 +25,12 @@ class RuleBasedBattleAgent(Agent):
         self.last_action = None
 
     def act(self, state):
-        current_player = state.players[state.current_player]
-        opposing_player = state.players[state.current_player.opposing()]
-
-        castable = list(filter(has_enough_mana(current_player.mana),
-                               current_player.hand))
+        castable = list(filter(has_enough_mana(state.current_player.mana),
+                               state.current_player.hand))
         summonable = list(filter(is_it(Creature), castable))
 
-        creatures = [c for lane in current_player.lanes for c in lane]
-        opp_creatures = [c for lane in opposing_player.lanes for c in lane]
+        creatures = [c for lane in state.current_player.lanes for c in lane]
+        opp_creatures = [c for lane in state.opposing_player.lanes for c in lane]
         can_attack = list(filter(Creature.able_to_attack, creatures))
 
         green_items = list(filter(is_it(GreenItem), castable))
@@ -54,9 +51,9 @@ class RuleBasedBattleAgent(Agent):
 
         if can_attack:
             creature = np.random.choice(can_attack)
-            lane = Lane.LEFT if creature in current_player.lanes[0] else Lane.RIGHT
+            lane = Lane.LEFT if creature in state.current_player.lanes[0] else Lane.RIGHT
 
-            opp_creatures = opposing_player.lanes[lane]
+            opp_creatures = state.opposing_player.lanes[lane]
             guards = list(filter(lambda c: c.has_ability('G'), opp_creatures))
 
             action = Action(ActionType.ATTACK,
@@ -139,5 +136,4 @@ class IceboxDraftAgent(Agent):
         return value
 
     def act(self, state):
-        return np.argmax(list(map(self._icebox_eval,
-                                  state.players[state.current_player].hand)))
+        return np.argmax(list(map(self._icebox_eval, state.current_player.hand)))

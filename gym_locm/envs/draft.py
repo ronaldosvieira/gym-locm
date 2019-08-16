@@ -59,7 +59,7 @@ class LoCMDraftEnv(gym.Env):
 
             self.state = new_state
         elif info['phase'] == Phase.BATTLE:
-            current_player = self.state.players[self.state.current_player]
+            current_player = self.state.current_player
 
             chosen_index = action.origin if action.origin is not None else 0
             chosen_card = current_player.hand[chosen_index]
@@ -84,13 +84,15 @@ class LoCMDraftEnv(gym.Env):
         return self._encode_state(), reward, done, info
 
     def _render_text_draft(self):
+        playing_first = len(self.state.current_player.deck) == \
+                 len(self.state.opposing_player.deck)
         print(f'######## TURN {self.turn} ########')
         print()
-        print(f"Choosing for player {self.state.current_player}")
+        print(f"Choosing for player {0 if playing_first else 1}")
 
         table = PrettyTable(['Index', 'Name', 'Cost', 'Description'])
 
-        for i, card in enumerate(self.state.players[self.state.current_player].hand):
+        for i, card in enumerate(self.state.current_player.hand):
             table.add_row([i, card.name, card.cost, card.text])
 
         print(table)
@@ -129,8 +131,8 @@ class LoCMDraftEnv(gym.Env):
     def _encode_state(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
-        card_choices = self.state.players[self.state.current_player].hand[0:3]
-        chosen_cards = self.state.players[self.state.current_player].deck
+        card_choices = self.state.current_player.hand[0:3]
+        chosen_cards = self.state.current_player.deck
 
         for i, card in enumerate(card_choices):
             encoded_state[-(3 - i)] = self._encode_card(card)
