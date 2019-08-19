@@ -12,12 +12,15 @@ class LoCMDraftEnv(gym.Env):
     def __init__(self,
                  battle_agent=RandomBattleAgent(),
                  use_draft_history=True,
-                 cards_in_deck=30):
+                 cards_in_deck=30,
+                 evaluation_battles=1):
         self.state = None
         self.turn = 1
+        self.results = []
         self.battle_agent = battle_agent
 
         self.cards_in_deck = cards_in_deck
+        self.evaluation_battles = evaluation_battles
 
         self.game = Game()
 
@@ -41,6 +44,7 @@ class LoCMDraftEnv(gym.Env):
 
     def reset(self):
         self.turn = 1
+        self.results = []
 
         self.state = self.game.reset()
 
@@ -68,18 +72,27 @@ class LoCMDraftEnv(gym.Env):
             for player in self.state.players:
                 player.hand = []
 
-            while not done:
-                action = self.battle_agent.act(new_state)
+            for i in range(self.evaluation_battles):
+                game = copy.deepcopy(self.game)
 
-                new_state, done, info = self.game.step(action)
+                done = False
 
-        if info['phase'] >= Phase.BATTLE:
-            if info['winner'] == PlayerOrder.FIRST:
-                reward = 1
-            elif info['winner'] == PlayerOrder.SECOND:
-                reward = -1
+                while not done:
+                    action = self.battle_agent.act(new_state)
+
+                    new_state, done, info = game.step(action)
+
+                if info['winner'] == PlayerOrder.FIRST:
+                    self.results.append(1)
+                elif info['winner'] == PlayerOrder.SECOND:
+                    self.results.append(-1)
+
+                del game
 
             self.state.current_phase = Phase.ENDED
+
+        if self.results:
+            reward = np.mean(self.results)
 
         return self._encode_state(), reward, done, info
 
@@ -101,13 +114,18 @@ class LoCMDraftEnv(gym.Env):
         pass  # TODO implement
 
     def _render_text_ended(self):
-        winner = 1 if self.state.players[0].health <= 0 else 0
+        if len(self.results) == 1:
+            winner = 0 if self.results[0] == 1 else 1
 
-        print(f'*         *    .            *     .   *      .   *\n'
-              f'    .             *   .    * .         .\n'
-              f'*        *    .    PLAYER {winner} WON!       *.   . *\n'
-              f'*     .   *         *         .       *.      *   .\n'  
-              f'.              *      .     * .         .')
+            print(f'*         *    .            *     .   *      .   *\n'
+                  f'    .             *   .    * .         .\n'
+                  f'*        *    .    PLAYER {winner} WON!       *.   . *\n'
+                  f'*     .   *         *         .       *.      *   .\n'  
+                  f'.              *      .     * .         .')
+        else:
+            wins_by_p0 = int(((np.mean(self.results) + 1) / 2) * 100)
+
+            print(f'P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%')
 
     def render(self, mode='text'):
         if mode == 'text':
@@ -153,8 +171,10 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
                  draft_agent=RandomDraftAgent(),
                  use_draft_history=True,
                  cards_in_deck=30,
+                 evaluation_battles=1,
                  play_first=True):
-        super().__init__(battle_agent, use_draft_history, cards_in_deck)
+        super().__init__(battle_agent, use_draft_history,
+                         cards_in_deck, evaluation_battles)
 
         self.draft_agent = draft_agent
         self.play_first = play_first
