@@ -42,7 +42,7 @@ class Lane(IntEnum):
 
 
 class ActionType(Enum):
-    DRAFT = 0
+    PICK = 0
     SUMMON = 1
     ATTACK = 2
     USE = 3
@@ -193,9 +193,9 @@ class GameState:
 
         if self.current_phase == Phase.DRAFT:
             self.__available_actions = [
-                Action(ActionType.DRAFT, 0),
-                Action(ActionType.DRAFT, 1),
-                Action(ActionType.DRAFT, 2)
+                Action(ActionType.PICK, 0),
+                Action(ActionType.PICK, 1),
+                Action(ActionType.PICK, 2)
             ]
         elif self.current_phase == Phase.ENDED:
             self.__available_actions = []

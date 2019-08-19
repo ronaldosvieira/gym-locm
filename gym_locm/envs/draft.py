@@ -48,7 +48,7 @@ class LoCMDraftEnv(gym.Env):
 
     def step(self, action):
         if not isinstance(action, Action):
-            action = Action(ActionType.DRAFT, action)
+            action = Action(ActionType.PICK, action)
 
         new_state, done, info = self.game.step(action)
 
