@@ -10,14 +10,14 @@ class LoCMDraftEnv(gym.Env):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self,
-                 battle_agent=RandomBattleAgent(),
+                 battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=True,
                  cards_in_deck=30,
                  evaluation_battles=1):
         self.state = None
         self.turn = 1
         self.results = []
-        self.battle_agent = battle_agent
+        self.battle_agents = battle_agents
 
         self.cards_in_deck = cards_in_deck
         self.evaluation_battles = evaluation_battles
@@ -78,7 +78,7 @@ class LoCMDraftEnv(gym.Env):
                 done = False
 
                 while not done:
-                    action = self.battle_agent.act(new_state)
+                    action = self.battle_agents[game.current_player].act(new_state)
 
                     new_state, done, info = game.step(action)
 
@@ -167,13 +167,13 @@ class LoCMDraftEnv(gym.Env):
 
 
 class LoCMDraftSingleEnv(LoCMDraftEnv):
-    def __init__(self, battle_agent=RandomBattleAgent(),
+    def __init__(self, battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  draft_agent=RandomDraftAgent(),
                  use_draft_history=True,
                  cards_in_deck=30,
                  evaluation_battles=1,
                  play_first=True):
-        super().__init__(battle_agent, use_draft_history,
+        super().__init__(battle_agents, use_draft_history,
                          cards_in_deck, evaluation_battles)
 
         self.draft_agent = draft_agent
