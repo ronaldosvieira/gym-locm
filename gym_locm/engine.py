@@ -577,6 +577,9 @@ class Game:
             action.target.keywords = \
                 action.target.keywords.union(action.origin.keywords)
 
+            if action.target.defense <= 0:
+                action.target.is_dead = True
+
             current_player.bonus_draw += action.target.card_draw
             current_player.health += action.target.player_hp
             opposing_player.health += action.target.enemy_hp
@@ -597,6 +600,9 @@ class Game:
                 action.target.keywords.difference(
                     action.origin.keywords)
 
+            if action.target.defense <= 0:
+                action.target.is_dead = True
+
             current_player.bonus_draw += action.target.card_draw
             current_player.health += action.target.player_hp
             opposing_player.health += action.target.enemy_hp
@@ -608,6 +614,10 @@ class Game:
                 action.target.keywords = \
                     action.target.keywords.difference(
                         action.origin.keywords)
+
+                if action.target.defense <= 0:
+                    action.target.is_dead = True
+
             elif action.target is None:
                 opposing_player.damage(-action.origin.defense)
             else:
