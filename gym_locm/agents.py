@@ -101,6 +101,15 @@ PassDraftAgent = PassBattleAgent
 RandomDraftAgent = RandomBattleAgent
 
 
+class RuleBasedDraftAgent(Agent):
+    def act(self, state):
+        for i, card in enumerate(state.current_player.hand):
+            if isinstance(card, Creature) and card.has_ability('G'):
+                return Action(ActionType.PICK, i)
+
+        return Action(ActionType.PICK, 0)
+
+
 class IceboxDraftAgent(Agent):
     @staticmethod
     def _icebox_eval(card):
