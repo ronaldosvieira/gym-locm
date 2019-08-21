@@ -288,7 +288,7 @@ class Game:
 
         self._prepare_for_draft()
 
-        return self._build_game_state()
+        return self.state
 
     def step(self, action) -> (GameState, bool, dict):
         if self.current_phase == Phase.DRAFT:
@@ -311,7 +311,7 @@ class Game:
 
                 self._new_battle_turn()
 
-        new_state = self._build_game_state()
+        new_state = self.state
         has_ended = False
         info = {'turn': self.turn}
 
@@ -633,7 +633,8 @@ class Game:
 
         current_player.mana -= action.origin.cost
 
-    def _build_game_state(self) -> GameState:
+    @property
+    def state(self) -> GameState:
         return GameState(self.current_phase, self.current_player,
                          self.turn, self.players)
 
