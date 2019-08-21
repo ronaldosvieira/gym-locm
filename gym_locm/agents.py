@@ -25,76 +25,44 @@ class RuleBasedBattleAgent(Agent):
         self.last_action = None
 
     def act(self, state):
-        castable = list(filter(has_enough_mana(state.current_player.mana),
-                               state.current_player.hand))
-        summonable = list(filter(is_it(Creature), castable))
+        friends = state.current_player.lanes[0] + state.current_player.lanes[1]
+        foes = state.opposing_player.lanes[0] + state.opposing_player.lanes[1]
 
-        creatures = [c for lane in state.current_player.lanes for c in lane]
-        opp_creatures = [c for lane in state.opposing_player.lanes for c in lane]
-        can_attack = list(filter(Creature.able_to_attack, creatures))
+        current_lane = list(Lane)[state.turn % 2]
 
-        green_items = list(filter(is_it(GreenItem), castable))
-        red_items = list(filter(is_it(RedItem), castable))
-        blue_items = list(filter(is_it(BlueItem), castable))
+        for card in state.current_player.hand:
+            if isinstance(card, Creature) and card.cost <= state.current_player.mana\
+                    and len(state.current_player.lanes[current_lane]) < 3:
+                action = Action(ActionType.SUMMON, card, current_lane)
 
-        if summonable:
-            creature = np.random.choice(summonable)
-            lane = Lane.LEFT if np.random.choice([0, 1]) == 0 else Lane.RIGHT
-
-            action = Action(ActionType.SUMMON,
-                            creature,
-                            lane)
-
-            if self.last_action != action:
-                self.last_action = action
                 return action
 
-        if can_attack:
-            creature = np.random.choice(can_attack)
-            lane = Lane.LEFT if creature in state.current_player.lanes[0] else Lane.RIGHT
+            elif isinstance(card, GreenItem) and card.cost <= state.current_player.mana\
+                    and friends:
+                return Action(ActionType.USE, card, friends[0])
+            elif isinstance(card, RedItem) and card.cost <= state.current_player.mana\
+                    and foes:
+                return Action(ActionType.USE, card, foes[0])
+            elif isinstance(card, BlueItem) and card.cost <= state.current_player.mana:
+                return Action(ActionType.USE, card, None)
 
-            opp_creatures = state.opposing_player.lanes[lane]
-            guards = list(filter(lambda c: c.has_ability('G'), opp_creatures))
+        for card in state.current_player.lanes[Lane.LEFT]:
+            if card.can_attack and not card.has_attacked_this_turn:
+                for enemy in state.opposing_player.lanes[Lane.LEFT]:
+                    if enemy.has_ability('G'):
+                        return Action(ActionType.ATTACK, card, enemy)
 
-            action = Action(ActionType.ATTACK,
-                            creature,
-                            np.random.choice(guards) if guards else None)
+                return Action(ActionType.ATTACK, card, None)
 
-            if self.last_action != action:
-                self.last_action = action
-                return action
+        for card in state.current_player.lanes[Lane.RIGHT]:
+            if card.can_attack and not card.has_attacked_this_turn:
+                for enemy in state.opposing_player.lanes[Lane.RIGHT]:
+                    if enemy.has_ability('G'):
+                        return Action(ActionType.ATTACK, card, enemy)
 
-        if creatures and green_items:
-            action = Action(ActionType.USE,
-                            np.random.choice(green_items),
-                            np.random.choice(creatures))
+                return Action(ActionType.ATTACK, card, None)
 
-            if self.last_action != action:
-                self.last_action = action
-                return action
-
-        if opp_creatures and red_items:
-            action = Action(ActionType.USE,
-                            np.random.choice(red_items),
-                            np.random.choice(opp_creatures))
-
-            if self.last_action != action:
-                self.last_action = action
-                return action
-
-        if blue_items:
-            action = Action(ActionType.USE,
-                            np.random.choice(blue_items))
-
-            if self.last_action != action:
-                self.last_action = action
-                return action
-
-        action = Action(ActionType.PASS)
-
-        self.last_action = action
-
-        return action
+        return Action(ActionType.PASS)
 
 
 PassDraftAgent = PassBattleAgent
