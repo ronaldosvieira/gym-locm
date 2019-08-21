@@ -522,6 +522,11 @@ class Game:
                     action.origin.attack,
                     lethal=action.origin.has_ability('L'))
 
+                action.origin.damage(
+                    action.target.attack,
+                    lethal=action.origin.has_ability('L')
+                )
+
                 excess_damage = action.origin.attack \
                                 - action.target.defense
 
