@@ -293,9 +293,9 @@ class State:
                 self._new_battle_turn()
 
         elif self.current_phase == Phase.BATTLE:
-            if action.type != ActionType.PASS:
-                self._act_on_battle(action)
-            else:
+            self._act_on_battle(action)
+
+            if action.type == ActionType.PASS:
                 self._next_turn()
 
                 self._new_battle_turn()
@@ -400,6 +400,8 @@ class State:
                 self._do_attack(action)
             elif action.type == ActionType.USE:
                 self._do_use(action)
+            elif action.type == ActionType.PASS:
+                pass
             else:
                 raise MalformedActionError("Invalid action type")
 
