@@ -34,3 +34,8 @@ class FullLaneError(ActionError):
 
 class MalformedActionError(ActionError):
     pass
+
+
+class GameIsEndedError(ActionError):
+    def __init__(self, message="Game is ended"):
+        super().__init__(message)

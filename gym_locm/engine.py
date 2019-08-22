@@ -50,7 +50,9 @@ class ActionType(Enum):
 
 
 class Player:
-    def __init__(self):
+    def __init__(self, player_id):
+        self.id = player_id
+
         self.health = 30
         self.base_mana = 0
         self.bonus_mana = 0
@@ -171,13 +173,37 @@ class BlueItem(Item):
     pass
 
 
-class GameState:
-    def __init__(self, current_phase, current_player, turn, players):
-        self.current_phase = current_phase
-        self._current_player = current_player
-        self.turn = turn
-        self.players = players
+class Action:
+    def __init__(self, action_type, origin=None, target=None):
+        self.type = action_type
+        self.origin = origin
+        self.target = target
+
+    def __eq__(self, other):
+        return other is not None and \
+               self.type == other.type and \
+               self.origin == other.origin and \
+               self.target == other.target
+
+
+class State:
+    def __init__(self, cards_in_deck=30):
+        self.current_phase = Phase.DRAFT
+        self._current_player = PlayerOrder.FIRST
+        self.turn = 1
+        self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
         self.__available_actions = None
+
+        self.winner = None
+
+        self.cards_in_deck = cards_in_deck
+
+        self._draft_cards = self._new_draft()
+
+        current_draft_choices = self._draft_cards[self.turn - 1]
+
+        for player in self.players:
+            player.hand = current_draft_choices
 
     @property
     def current_player(self):
@@ -253,44 +279,7 @@ class GameState:
 
         return self.__available_actions
 
-
-class Action:
-    def __init__(self, action_type, origin=None, target=None):
-        self.type = action_type
-        self.origin = origin
-        self.target = target
-
-    def __eq__(self, other):
-        return other is not None and \
-               self.type == other.type and \
-               self.origin == other.origin and \
-               self.target == other.target
-
-
-class Game:
-    _draft_cards: List[List[Card]]
-    current_player: PlayerOrder
-    current_phase: Phase
-
-    def __init__(self, cards_in_deck=30):
-        self.cards_in_deck = cards_in_deck
-
-        self._cards = self._load_cards()
-        self.players = ()
-        self.turn = -1
-
-        self.reset()
-
-    def reset(self) -> GameState:
-        self.current_phase = Phase.DRAFT
-        self.current_player = PlayerOrder.FIRST
-        self.turn = 1
-
-        self._prepare_for_draft()
-
-        return self.state
-
-    def step(self, action) -> (GameState, bool, dict):
+    def act(self, action):
         if self.current_phase == Phase.DRAFT:
             self._act_on_draft(action)
 
@@ -311,49 +300,18 @@ class Game:
 
                 self._new_battle_turn()
 
-        new_state = self.state
-        has_ended = False
-        info = {'turn': self.turn}
+        self.__available_actions = None
 
-        if self.players[PlayerOrder.FIRST].health <= 0:
-            self.current_phase = Phase.ENDED
-            info['winner'] = PlayerOrder.SECOND
-            has_ended = True
-        elif self.players[PlayerOrder.SECOND].health <= 0:
-            self.current_phase = Phase.ENDED
-            info['winner'] = PlayerOrder.FIRST
-            has_ended = True
+    def _new_draft(self) -> List[List[Card]]:
+        cards = self.load_cards()
 
-        info['phase'] = self.current_phase
+        pool = np.random.choice(cards, 60, replace=False).tolist()
+        draft = []
 
-        return new_state, has_ended, info
+        for _ in range(self.cards_in_deck):
+            draft.append(np.random.choice(pool, 3, replace=False).tolist())
 
-    def _next_turn(self) -> bool:
-        if self.current_player == PlayerOrder.FIRST:
-            self.current_player = PlayerOrder.SECOND
-
-            return False
-        else:
-            self.current_player = PlayerOrder.FIRST
-            self.turn += 1
-
-            if self.turn > self.cards_in_deck \
-                    and self.current_phase == Phase.DRAFT:
-                self.current_phase = Phase.BATTLE
-                self.turn = 1
-
-            return True
-
-    def _prepare_for_draft(self):
-        """Prepare all game components for a draft phase"""
-        self._draft_cards = self._new_draft()
-
-        current_draft_choices = self._draft_cards[self.turn - 1]
-
-        self.players = (Player(), Player())
-
-        for player in self.players:
-            player.hand = current_draft_choices
+        return draft
 
     def _prepare_for_battle(self):
         """Prepare all game components for a battle phase"""
@@ -369,6 +327,22 @@ class Game:
         second_player.draw()
         second_player.bonus_mana = 1
 
+    def _next_turn(self) -> bool:
+        if self._current_player == PlayerOrder.FIRST:
+            self._current_player = PlayerOrder.SECOND
+
+            return False
+        else:
+            self._current_player = PlayerOrder.FIRST
+            self.turn += 1
+
+            if self.turn > self.cards_in_deck \
+                    and self.current_phase == Phase.DRAFT:
+                self.current_phase = Phase.BATTLE
+                self.turn = 1
+
+            return True
+
     def _new_draft_turn(self):
         """Initialize a draft turn"""
         current_draft_choices = self._draft_cards[self.turn - 1]
@@ -378,7 +352,7 @@ class Game:
 
     def _new_battle_turn(self):
         """Initialize a battle turn"""
-        current_player = self.players[self.current_player]
+        current_player = self.current_player
 
         for creature in current_player.lanes[Lane.LEFT]:
             creature.can_attack = True
@@ -405,25 +379,20 @@ class Game:
         except FullHandError:
             pass
         except EmptyDeckError:
-            amount_of_damage = current_player.health \
-                               - current_player.next_rune
-            current_player.damage(amount_of_damage)
+            deck_burn = current_player.health - current_player.next_rune
+            current_player.damage(deck_burn)
 
     def _act_on_draft(self, action):
         """Execute the action intended by the player in this draft turn"""
-        current_player = self.players[self.current_player]
-
         chosen_index = action.origin if action.origin is not None else 0
-        card = current_player.hand[chosen_index]
+        card = self.current_player.hand[chosen_index]
 
-        current_player.deck.append(card.make_copy())
+        self.current_player.deck.append(card.make_copy())
 
-        current_player.actions.append(action)
+        self.current_player.actions.append(action)
 
     def _act_on_battle(self, action):
         """Execute the actions intended by the player in this battle turn"""
-        current_player = self.players[self.current_player]
-
         try:
             if action.type == ActionType.SUMMON:
                 self._do_summon(action)
@@ -434,7 +403,7 @@ class Game:
             else:
                 raise MalformedActionError("Invalid action type")
 
-            current_player.actions.append(action)
+            self.current_player.actions.append(action)
         except (NotEnoughManaError, MalformedActionError, FullLaneError) as e:
             eprint("Action error:", e.message)
 
@@ -444,12 +413,19 @@ class Game:
                     if creature.is_dead:
                         lane.remove(creature)
 
-        if current_player.mana == 0:
-            current_player.bonus_mana = 0
+        if self.current_player.mana == 0:
+            self.current_player.bonus_mana = 0
+
+        if self.players[PlayerOrder.FIRST].health <= 0:
+            self.current_phase = Phase.ENDED
+            self.winner = PlayerOrder.SECOND
+        elif self.players[PlayerOrder.SECOND].health <= 0:
+            self.current_phase = Phase.ENDED
+            self.winner = PlayerOrder.FIRST
 
     def _do_summon(self, action):
-        current_player = self.players[self.current_player]
-        opposing_player = self.players[self.current_player.opposing()]
+        current_player = self.current_player
+        opposing_player = self.opposing_player
 
         if action.origin.cost > current_player.mana:
             raise NotEnoughManaError()
@@ -480,8 +456,8 @@ class Game:
         current_player.mana -= action.origin.cost
 
     def _do_attack(self, action):
-        current_player = self.players[self.current_player]
-        opposing_player = self.players[self.current_player.opposing()]
+        current_player = self.current_player
+        opposing_player = self.opposing_player
 
         if not isinstance(action.origin, Creature):
             raise MalformedActionError("Attacking card is not a "
@@ -527,8 +503,7 @@ class Game:
                     lethal=action.origin.has_ability('L')
                 )
 
-                excess_damage = action.origin.attack \
-                                - action.target.defense
+                excess_damage = action.origin.attack - action.target.defense
 
                 if 'B' in action.origin.keywords and excess_damage > 0:
                     opposing_player.damage(excess_damage)
@@ -546,8 +521,8 @@ class Game:
         action.origin.has_attacked_this_turn = True
 
     def _do_use(self, action):
-        current_player = self.players[self.current_player]
-        opposing_player = self.players[self.current_player.opposing()]
+        current_player = self.current_player
+        opposing_player = self.opposing_player
 
         if action.origin.cost > current_player.mana:
             raise NotEnoughManaError()
@@ -633,22 +608,8 @@ class Game:
 
         current_player.mana -= action.origin.cost
 
-    @property
-    def state(self) -> GameState:
-        return GameState(self.current_phase, self.current_player,
-                         self.turn, self.players)
-
-    def _new_draft(self) -> List[List[Card]]:
-        pool = np.random.choice(self._cards, 60, replace=False).tolist()
-        draft = []
-
-        for _ in range(self.cards_in_deck):
-            draft.append(np.random.choice(pool, 3, replace=False).tolist())
-
-        return draft
-
     @staticmethod
-    def _load_cards() -> List[Card]:
+    def load_cards() -> List[Card]:
         cards = []
 
         with open('gym_locm/cardlist.txt', 'r') as card_list:
@@ -658,7 +619,7 @@ class Game:
 
             for card in raw_cards:
                 card_id, name, card_type, cost, attack, defense, \
-                    keywords, player_hp, enemy_hp, card_draw, text = \
+                keywords, player_hp, enemy_hp, card_draw, text = \
                     map(str.strip, card.split(';'))
 
                 card_class = type_mapping[card_type]
@@ -671,3 +632,6 @@ class Game:
         assert len(cards) == 160
 
         return cards
+
+
+Game = State

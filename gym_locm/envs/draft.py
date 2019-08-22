@@ -14,16 +14,14 @@ class LoCMDraftEnv(gym.Env):
                  use_draft_history=True,
                  cards_in_deck=30,
                  evaluation_battles=1):
-        self.state = None
-        self.turn = 1
-        self.results = []
+        self.state = Game(cards_in_deck)
+
         self.battle_agents = battle_agents
 
-        self.cards_in_deck = cards_in_deck
+        self.results = []
         self.evaluation_battles = evaluation_battles
 
-        self.game = Game()
-
+        self.choices = ([], [])
         self.use_draft_history = use_draft_history
 
         self.cards_in_state = 33 if use_draft_history else 3
@@ -43,63 +41,59 @@ class LoCMDraftEnv(gym.Env):
         self.reset()
 
     def reset(self):
-        self.turn = 1
+        self.state = State()
         self.results = []
-
-        self.state = self.game.reset()
 
         return self._encode_state()
 
     def step(self, action):
+        if self._draft_is_finished:
+            raise GameIsEndedError()
+
         if not isinstance(action, Action):
             action = Action(ActionType.PICK, action)
 
-        new_state, done, info = self.game.step(action)
+        chosen_index = action.origin if action.origin is not None else 0
+        chosen_card = self.state.current_player.hand[chosen_index]
+        self.choices[self.state.current_player.id].append(chosen_card)
+
+        self.state.act(action)
 
         reward = 0
+        done = False
+        info = {'phase': self.state.current_phase,
+                'turn': self.state.turn,
+                'winner': []}
 
-        if info['phase'] == Phase.DRAFT:
-            self.turn = info['turn']
-
-            self.state = new_state
-        elif info['phase'] == Phase.BATTLE:
-            current_player = self.state.current_player
-
-            chosen_index = action.origin if action.origin is not None else 0
-            chosen_card = current_player.hand[chosen_index]
-            current_player.deck.append(chosen_card)
-
-            for player in self.state.players:
-                player.hand = []
-
+        if self._draft_is_finished:
             for i in range(self.evaluation_battles):
-                game = copy.deepcopy(self.game)
+                state_copy = copy.deepcopy(self.state)
 
-                done = False
+                while state_copy.winner is None:
+                    agent = self.battle_agents[state_copy.current_player.id]
 
-                while not done:
-                    action = self.battle_agents[game.current_player].act(new_state)
+                    action = agent.act(state_copy)
 
-                    new_state, done, info = game.step(action)
+                    state_copy.act(action)
 
-                if info['winner'] == PlayerOrder.FIRST:
+                if state_copy.winner == PlayerOrder.FIRST:
                     self.results.append(1)
-                elif info['winner'] == PlayerOrder.SECOND:
+                elif state_copy.winner == PlayerOrder.SECOND:
                     self.results.append(-1)
 
-                del game
+                info['winner'].append(state_copy.winner)
 
-            self.state.current_phase = Phase.ENDED
-
-        if self.results:
             reward = np.mean(self.results)
+            done = True
+
+            del info['turn']
 
         return self._encode_state(), reward, done, info
 
     def _render_text_draft(self):
         playing_first = len(self.state.current_player.deck) == \
                  len(self.state.opposing_player.deck)
-        print(f'######## TURN {self.turn} ########')
+        print(f'######## TURN {self.state.turn} ########')
         print()
         print(f"Choosing for player {0 if playing_first else 1}")
 
@@ -115,11 +109,9 @@ class LoCMDraftEnv(gym.Env):
 
     def _render_text_ended(self):
         if len(self.results) == 1:
-            winner = 0 if self.results[0] == 1 else 1
-
             print(f'*         *    .            *     .   *      .   *\n'
                   f'    .             *   .    * .         .\n'
-                  f'*        *    .    PLAYER {winner} WON!       *.   . *\n'
+                  f'*        *    .    PLAYER {self.state.winner} WON!       *.   . *\n'
                   f'*     .   *         *         .       *.      *   .\n'  
                   f'.              *      .     * .         .')
         else:
@@ -153,17 +145,23 @@ class LoCMDraftEnv(gym.Env):
     def _encode_state(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
-        card_choices = self.state.current_player.hand[0:3]
-        chosen_cards = self.state.current_player.deck
+        chosen_cards = self.choices[self.state.current_player.id]
 
-        for i, card in enumerate(card_choices):
-            encoded_state[-(3 - i)] = self._encode_card(card)
+        if not self._draft_is_finished:
+            card_choices = self.state.current_player.hand[0:3]
+
+            for i, card in enumerate(card_choices):
+                encoded_state[-(3 - i)] = self._encode_card(card)
 
         if self.use_draft_history:
             for j, card in enumerate(chosen_cards):
                 encoded_state[j] = self._encode_card(card)
 
         return encoded_state
+
+    @property
+    def _draft_is_finished(self):
+        return self.state.current_phase != Phase.DRAFT
 
 
 class LoCMDraftSingleEnv(LoCMDraftEnv):
