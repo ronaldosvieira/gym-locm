@@ -188,10 +188,10 @@ class Action:
 
 class State:
     def __init__(self, cards_in_deck=30):
-        self.current_phase = Phase.DRAFT
-        self._current_player = PlayerOrder.FIRST
+        self.phase = Phase.DRAFT
         self.turn = 1
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
+        self._current_player = PlayerOrder.FIRST
         self.__available_actions = None
 
         self.winner = None
@@ -218,13 +218,13 @@ class State:
         if self.__available_actions is not None:
             return self.__available_actions
 
-        if self.current_phase == Phase.DRAFT:
+        if self.phase == Phase.DRAFT:
             self.__available_actions = [
                 Action(ActionType.PICK, 0),
                 Action(ActionType.PICK, 1),
                 Action(ActionType.PICK, 2)
             ]
-        elif self.current_phase == Phase.ENDED:
+        elif self.phase == Phase.ENDED:
             self.__available_actions = []
         else:
             summon, attack, use = [], [], []
@@ -280,19 +280,19 @@ class State:
         return self.__available_actions
 
     def act(self, action):
-        if self.current_phase == Phase.DRAFT:
+        if self.phase == Phase.DRAFT:
             self._act_on_draft(action)
 
             self._next_turn()
 
-            if self.current_phase == Phase.DRAFT:
+            if self.phase == Phase.DRAFT:
                 self._new_draft_turn()
-            elif self.current_phase == Phase.BATTLE:
+            elif self.phase == Phase.BATTLE:
                 self._prepare_for_battle()
 
                 self._new_battle_turn()
 
-        elif self.current_phase == Phase.BATTLE:
+        elif self.phase == Phase.BATTLE:
             self._act_on_battle(action)
 
             if action.type == ActionType.PASS:
@@ -337,8 +337,8 @@ class State:
             self.turn += 1
 
             if self.turn > self.cards_in_deck \
-                    and self.current_phase == Phase.DRAFT:
-                self.current_phase = Phase.BATTLE
+                    and self.phase == Phase.DRAFT:
+                self.phase = Phase.BATTLE
                 self.turn = 1
 
             return True
@@ -419,10 +419,10 @@ class State:
             self.current_player.bonus_mana = 0
 
         if self.players[PlayerOrder.FIRST].health <= 0:
-            self.current_phase = Phase.ENDED
+            self.phase = Phase.ENDED
             self.winner = PlayerOrder.SECOND
         elif self.players[PlayerOrder.SECOND].health <= 0:
-            self.current_phase = Phase.ENDED
+            self.phase = Phase.ENDED
             self.winner = PlayerOrder.FIRST
 
     def _do_summon(self, action):

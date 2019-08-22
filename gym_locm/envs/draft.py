@@ -61,7 +61,7 @@ class LoCMDraftEnv(gym.Env):
 
         reward = 0
         done = False
-        info = {'phase': self.state.current_phase,
+        info = {'phase': self.state.phase,
                 'turn': self.state.turn,
                 'winner': []}
 
@@ -121,11 +121,11 @@ class LoCMDraftEnv(gym.Env):
 
     def render(self, mode='text'):
         if mode == 'text':
-            if self.state.current_phase == Phase.DRAFT:
+            if self.state.phase == Phase.DRAFT:
                 self._render_text_draft()
-            elif self.state.current_phase == Phase.BATTLE:
+            elif self.state.phase == Phase.BATTLE:
                 self._render_text_battle()
-            elif self.state.current_phase == Phase.ENDED:
+            elif self.state.phase == Phase.ENDED:
                 self._render_text_ended()
 
     def _encode_card(self, card):
@@ -161,7 +161,7 @@ class LoCMDraftEnv(gym.Env):
 
     @property
     def _draft_is_finished(self):
-        return self.state.current_phase != Phase.DRAFT
+        return self.state.phase != Phase.DRAFT
 
 
 class LoCMDraftSingleEnv(LoCMDraftEnv):
