@@ -392,8 +392,6 @@ class State:
 
         self.current_player.deck.append(card.make_copy())
 
-        self.current_player.actions.append(action)
-
     def _act_on_battle(self, action):
         """Execute the actions intended by the player in this battle turn"""
         try:
