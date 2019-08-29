@@ -185,6 +185,9 @@ class Action:
                self.origin == other.origin and \
                self.target == other.target
 
+    def __repr__(self):
+        return f"{self.type} {self.origin} {self.target}"
+
 
 class State:
     def __init__(self, cards_in_deck=30):
