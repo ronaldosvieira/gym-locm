@@ -53,35 +53,52 @@ class LoCMDraftEnv(gym.Env):
         if not isinstance(action, Action):
             action = Action(ActionType.PICK, action)
 
-        chosen_index = action.origin if action.origin is not None else 0
-        chosen_card = self.state.current_player.hand[chosen_index]
-        self.choices[self.state.current_player.id].append(chosen_card)
+        state = self.state
 
-        self.state.act(action)
+        chosen_index = action.origin if action.origin is not None else 0
+        chosen_card = state.current_player.hand[chosen_index]
+        self.choices[state.current_player.id].append(chosen_card)
+
+        state.act(action)
 
         reward = 0
         done = False
-        info = {'phase': self.state.phase,
-                'turn': self.state.turn,
+        info = {'phase': state.phase,
+                'turn': state.turn,
                 'winner': []}
 
         if self._draft_is_finished:
-            for i in range(self.evaluation_battles):
-                state_copy = copy.deepcopy(self.state)
+            if self.evaluation_battles == 1:
+                while state.winner is None:
+                    agent = self.battle_agents[state.current_player.id]
 
-                while state_copy.winner is None:
-                    agent = self.battle_agents[state_copy.current_player.id]
+                    action = agent.act(state)
 
-                    action = agent.act(state_copy)
+                    state.act(action)
 
-                    state_copy.act(action)
-
-                if state_copy.winner == PlayerOrder.FIRST:
+                if state.winner == PlayerOrder.FIRST:
                     self.results.append(1)
-                elif state_copy.winner == PlayerOrder.SECOND:
+                elif state.winner == PlayerOrder.SECOND:
                     self.results.append(-1)
 
-                info['winner'].append(state_copy.winner)
+                info['winner'].append(state.winner)
+            else:
+                for i in range(self.evaluation_battles):
+                    state_copy = copy.deepcopy(self.state)
+
+                    while state_copy.winner is None:
+                        agent = self.battle_agents[state_copy.current_player.id]
+
+                        action = agent.act(state_copy)
+
+                        state_copy.act(action)
+
+                    if state_copy.winner == PlayerOrder.FIRST:
+                        self.results.append(1)
+                    elif state_copy.winner == PlayerOrder.SECOND:
+                        self.results.append(-1)
+
+                    info['winner'].append(state_copy.winner)
 
             reward = np.mean(self.results)
             done = True
