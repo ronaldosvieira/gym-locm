@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 
 from gym_locm.engine import *
-from gym_locm.helpers import *
+
+import pexpect
 
 
 class Agent(ABC):
@@ -63,6 +64,163 @@ class RuleBasedBattleAgent(Agent):
                 return Action(ActionType.ATTACK, card, None)
 
         return Action(ActionType.PASS)
+
+
+class NativeAgent(Agent):
+    def __init__(self, cmd):
+        self._process = pexpect.spawn(cmd, echo=False, encoding='utf-8')
+
+        self.action_buffer = []
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._process.terminate()
+
+    @staticmethod
+    def _encode_state(state):
+        encoding = ""
+
+        p, o = state.current_player, state.opposing_player
+
+        for cp in p, o:
+            to_draw = 0 if state.phase == Phase.DRAFT else 1 + cp.bonus_draw
+
+            encoding += f"{cp.health} {cp.mana} {len(cp.deck)} " \
+                        f"{cp.next_rune} {to_draw}\n"
+
+        op_hand = 0 if state.phase == Phase.DRAFT else len(o.hand)
+        last_actions = []
+
+        for action in reversed(o.actions):
+            if action.type == ActionType.PASS:
+                break
+
+            last_actions.append(action)
+
+        encoding += f"{op_hand} {len(last_actions)}\n"
+
+        for a in last_actions:
+            names = {
+                ActionType.USE: 'USE',
+                ActionType.SUMMON: 'SUMMON',
+                ActionType.ATTACK: 'ATTACK',
+            }
+
+            target_id = -1 if a.target is None else a.target.instance_id
+
+            encoding += f"{a.origin.id} {names[a.type]} " \
+                        f"{a.origin.instance_id} {target_id}\n"
+
+        cards = p.hand + p.lanes[0] + p.lanes[1] + o.lanes[0] + o.lanes[1]
+
+        encoding += f"{len(cards)}\n"
+
+        for c in cards:
+            if c in p.hand:
+                c.location = 0
+                c.lane = -1
+            elif c in p.lanes[0] + p.lanes[1]:
+                c.location = 1
+                c.lane = 0 if c in p.lanes[0] else 1
+            elif c in o.lanes[0] + o.lanes[1]:
+                c.location = -1
+                c.lane = 0 if c in o.lanes[0] else 1
+
+            if c.type == 'creature':
+                c.cardType = 0
+            elif c.type == 'itemGreen':
+                c.cardType = 1
+            elif c.type == 'itemRed':
+                c.cardType = 2
+            elif c.type == 'itemBlue':
+                c.cardType = 3
+
+            abilities = list('------')
+
+            for i, a in enumerate(list('BCDGLW')):
+                if c.has_ability(a):
+                    abilities[i] = a
+
+            c.abilities = "".join(abilities)
+
+            c.instance_id = -1 if c.instance_id is None else c.instance_id
+
+        for i, c in enumerate(cards):
+            encoding += f"{c.id} {c.instance_id} {c.location} {c.cardType} " \
+                        f"{c.cost} {c.attack} {c.defense} {c.abilities} " \
+                        f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane}\n"
+
+        return encoding
+
+    @staticmethod
+    def _decode_actions(state, actions):
+        actions = actions.split(';')
+        decoded_actions = []
+
+        cp_lanes = state.current_player.lanes[0] + state.current_player.lanes[1]
+        op_lanes = state.opposing_player.lanes[0] + state.opposing_player.lanes[1]
+
+        hands = state.current_player.hand + state.opposing_player.hand
+
+        cards = hands + cp_lanes + op_lanes
+
+        def _find_card(instance_id):
+            if instance_id == -1:
+                return None
+
+            for card in cards:
+                if card.instance_id == instance_id:
+                    return card
+
+        for action in actions:
+            tokens = action.split()
+
+            if not tokens:
+                continue
+
+            if tokens[0] == 'PASS':
+                decoded_actions.append(Action(ActionType.PASS))
+            elif tokens[0] == 'PICK':
+                decoded_actions.append(Action(ActionType.PICK, int(tokens[1])))
+            elif tokens[0] == 'USE':
+                origin = _find_card(int(tokens[1]))
+                target = _find_card(int(tokens[2]))
+
+                decoded_actions.append(Action(ActionType.USE, origin, target))
+            elif tokens[0] == 'SUMMON':
+                origin = _find_card(int(tokens[1]))
+                target = Lane(int(tokens[2]))
+
+                decoded_actions.append(Action(ActionType.SUMMON, origin, target))
+            elif tokens[0] == 'ATTACK':
+                origin = _find_card(int(tokens[1]))
+                target = _find_card(int(tokens[2]))
+
+                decoded_actions.append(Action(ActionType.ATTACK, origin, target))
+
+        return decoded_actions
+
+    def act(self, state):
+        if self.action_buffer:
+            return self.action_buffer.pop()
+
+        self._process.write(self._encode_state(state))
+
+        actions = []
+
+        while not actions:
+            actions = self._process.readline()
+
+            actions = list(reversed(self._decode_actions(state, actions)))
+
+        if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
+            actions = [Action(ActionType.PASS)] + actions
+
+        self.action_buffer = actions
+
+        return self.action_buffer.pop()
 
 
 PassDraftAgent = PassBattleAgent
