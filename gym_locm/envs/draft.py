@@ -6,7 +6,7 @@ from gym_locm.engine import *
 
 
 class LoCMDraftEnv(gym.Env):
-    metadata = {'render.modes': ['text']}
+    metadata = {'render.modes': ['text', 'native']}
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self,
@@ -136,6 +136,9 @@ class LoCMDraftEnv(gym.Env):
 
             print(f'P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%')
 
+    def _render_native(self):
+        return self.state.as_string()
+
     def render(self, mode='text'):
         if mode == 'text':
             if self.state.phase == Phase.DRAFT:
@@ -144,6 +147,8 @@ class LoCMDraftEnv(gym.Env):
                 self._render_text_battle()
             elif self.state.phase == Phase.ENDED:
                 self._render_text_ended()
+        elif mode == 'native':
+            return self._render_native()
 
     def _encode_card(self, card):
         card_type = [1.0 if isinstance(card, card_type) else 0.0
