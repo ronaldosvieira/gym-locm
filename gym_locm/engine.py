@@ -88,9 +88,9 @@ class Player:
 
 class Card:
     def __init__(self, card_id, name, card_type, cost, attack, defense, keywords,
-                 player_hp, enemy_hp, card_draw, text):
+                 player_hp, enemy_hp, card_draw, text, instance_id=None):
         self.id = card_id
-        self.instance_id = None
+        self.instance_id = instance_id
         self.name = name
         self.type = card_type
         self.cost = cost
