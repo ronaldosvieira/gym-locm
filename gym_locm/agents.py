@@ -7,22 +7,33 @@ import pexpect
 
 class Agent(ABC):
     @abstractmethod
+    def reset(self):
+        pass
+
     def act(self, state):
         pass
 
 
 class PassBattleAgent(Agent):
+    def reset(self):
+        pass
+
     def act(self, state):
         return Action(ActionType.PASS)
 
 
 class RandomBattleAgent(Agent):
+    def reset(self):
+        pass
+
     def act(self, state):
         return np.random.choice(state.available_actions)
 
 
 class RuleBasedBattleAgent(Agent):
-    def __init__(self):
+    last_action = None
+
+    def reset(self):
         self.last_action = None
 
     def act(self, state):
@@ -67,16 +78,19 @@ class RuleBasedBattleAgent(Agent):
 
 
 class NativeAgent(Agent):
+    action_buffer = []
+
     def __init__(self, cmd):
         self._process = pexpect.spawn(cmd, echo=False, encoding='utf-8')
-
-        self.action_buffer = []
 
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._process.terminate()
+
+    def reset(self):
+        self.action_buffer = []
 
     @staticmethod
     def _encode_state(state):
@@ -228,6 +242,9 @@ RandomDraftAgent = RandomBattleAgent
 
 
 class RuleBasedDraftAgent(Agent):
+    def reset(self):
+        pass
+
     def act(self, state):
         for i, card in enumerate(state.current_player.hand):
             if isinstance(card, Creature) and card.has_ability('G'):
@@ -237,6 +254,9 @@ class RuleBasedDraftAgent(Agent):
 
 
 class IceboxDraftAgent(Agent):
+    def reset(self):
+        pass
+
     @staticmethod
     def _icebox_eval(card):
         value = card.attack + card.defense
@@ -293,6 +313,9 @@ class ClosetAIDraftAgent(Agent):
         1, -100, -100, -100, -100, -100, -100, -100, -100, -100,
         -100, -100, -100, -100, -100, -100, -100, -100, -100, -100
     ]
+
+    def reset(self):
+        pass
 
     def _closet_ai_eval(self, card):
         return self.scores[card.id - 1]
