@@ -425,3 +425,18 @@ class CoacDraftAgent(Agent):
             self.creatures_drafted += 1
 
         return chosen_card
+
+
+class RLDraftAgent(Agent):
+    card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
+
+    def reset(self):
+        pass
+
+    def __init__(self, algorithm, model='draft-trpo-3kk'):
+        self.model = algorithm.load("models/" + model)
+
+    def act(self, state):
+        action, _ = self.model.predict(state)
+
+        return action[0]
