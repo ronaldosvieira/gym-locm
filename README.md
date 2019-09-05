@@ -1,2 +1,36 @@
+**Status**: Work-in-progress
+
 # gym-locm
-Legends of Code and Magic environment for OpenAI Gym.
+
+[Legends of Code and Magic](https://jakubkowalski.tech/Projects/LOCM/) environment for [OpenAI Gym](https://github.com/openai/gym).
+
+
+## Environments
+
+1. LoCM-draft-v0 (draft phase only)
+2. LoCM-draft-2p-v0 (draft phase only, both players)
+3. ~LoCM-battle-v0 (battle phase only)~
+4. ~LoCM-battle-2p-v0 (battle phase only, both players)~
+5. ~LoCM-v0 (full game)~
+6. ~LoCM-2p-v0 (full game, both players)~
+
+(Crossed = not implemented yet)
+
+## Installation
+```
+git clone https://github.com/ronaldosvieira/gym-locm.git
+cd gym-locm
+pip install -e .
+```
+
+## Usage
+
+```python
+import gym
+import gym-locm
+
+env = gym.make('LoCM-XXX-vX')
+```
+
+## License
+[MIT](https://choosealicense.com/licenses/mit/)
