@@ -27,7 +27,7 @@ pip install -e .
 
 ```python
 import gym
-import gym-locm
+import gym_locm
 
 env = gym.make('LoCM-XXX-vX')
 ```
