@@ -10,6 +10,7 @@ class Agent(ABC):
     def reset(self):
         pass
 
+    @abstractmethod
     def act(self, state):
         pass
 
