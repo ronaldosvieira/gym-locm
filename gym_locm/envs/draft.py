@@ -38,11 +38,15 @@ class LoCMDraftEnv(gym.Env):
 
         self.action_space = gym.spaces.Discrete(3)
 
-        self.reset()
+        self.state = State()
+        self.results = []
 
     def reset(self):
         self.state = State()
         self.results = []
+
+        for agent in self.battle_agents:
+            agent.reset()
 
         return self._encode_state()
 
@@ -198,6 +202,13 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
 
         self.draft_agent = draft_agent
         self.play_first = play_first
+
+    def reset(self):
+        super().reset()
+
+        self.draft_agent.reset()
+
+        return self._encode_state()
 
     def step(self, action):
         if self.play_first:
