@@ -395,12 +395,14 @@ class State:
     def _act_on_battle(self, action):
         """Execute the actions intended by the player in this battle turn"""
         try:
+            origin, target = action.origin, action.target
+
             if action.type == ActionType.SUMMON:
-                self._do_summon(action)
+                self._do_summon(origin, target)
             elif action.type == ActionType.ATTACK:
-                self._do_attack(action)
+                self._do_attack(origin, target)
             elif action.type == ActionType.USE:
-                self._do_use(action)
+                self._do_use(origin, target)
             elif action.type == ActionType.PASS:
                 pass
             else:
@@ -426,49 +428,49 @@ class State:
             self.phase = Phase.ENDED
             self.winner = PlayerOrder.FIRST
 
-    def _do_summon(self, action):
+    def _do_summon(self, origin, target):
         current_player = self.current_player
         opposing_player = self.opposing_player
 
-        if action.origin.cost > current_player.mana:
+        if origin.cost > current_player.mana:
             raise NotEnoughManaError()
 
-        if not isinstance(action.origin, Creature):
+        if not isinstance(origin, Creature):
             raise MalformedActionError("Card being summoned is not a "
                                        "creature")
 
-        if not isinstance(action.target, Lane):
+        if not isinstance(target, Lane):
             raise MalformedActionError("Target is not a lane")
 
-        if len(current_player.lanes[action.target]) >= 3:
+        if len(current_player.lanes[target]) >= 3:
             raise FullLaneError()
 
         try:
-            current_player.hand.remove(action.origin)
+            current_player.hand.remove(origin)
         except ValueError:
             raise MalformedActionError("Card is not in player's hand")
 
-        action.origin.can_attack = False
+        origin.can_attack = False
 
-        current_player.lanes[action.target].append(action.origin)
+        current_player.lanes[target].append(origin)
 
-        current_player.bonus_draw += action.origin.card_draw
-        current_player.health += action.origin.player_hp
-        opposing_player.health += action.origin.enemy_hp
+        current_player.bonus_draw += origin.card_draw
+        current_player.health += origin.player_hp
+        opposing_player.health += origin.enemy_hp
 
-        current_player.mana -= action.origin.cost
+        current_player.mana -= origin.cost
 
-    def _do_attack(self, action):
+    def _do_attack(self, origin, target):
         current_player = self.current_player
         opposing_player = self.opposing_player
 
-        if not isinstance(action.origin, Creature):
+        if not isinstance(origin, Creature):
             raise MalformedActionError("Attacking card is not a "
                                        "creature")
 
-        if action.origin in current_player.lanes[Lane.LEFT]:
+        if origin in current_player.lanes[Lane.LEFT]:
             origin_lane = Lane.LEFT
-        elif action.origin in current_player.lanes[Lane.RIGHT]:
+        elif origin in current_player.lanes[Lane.RIGHT]:
             origin_lane = Lane.RIGHT
         else:
             raise MalformedActionError("Attacking creature is not "
@@ -485,30 +487,29 @@ class State:
         else:
             valid_targets = [None] + opposing_player.lanes[origin_lane]
 
-        if action.target not in valid_targets:
+        if target not in valid_targets:
             raise MalformedActionError("Invalid target")
 
-        if not action.origin.able_to_attack():
+        if not origin.able_to_attack():
             raise MalformedActionError("Attacking creature cannot "
                                        "attack")
 
-        if action.target is None:
-            damage_dealt = opposing_player.damage(action.origin.attack)
+        if target is None:
+            damage_dealt = opposing_player.damage(origin.attack)
 
-        elif isinstance(action.target, Creature):
+        elif isinstance(target, Creature):
             try:
-                damage_dealt = action.target.damage(
-                    action.origin.attack,
-                    lethal=action.origin.has_ability('L'))
+                damage_dealt = target.damage(
+                    origin.attack,
+                    lethal=origin.has_ability('L'))
 
-                action.origin.damage(
-                    action.target.attack,
-                    lethal=action.origin.has_ability('L')
-                )
+                origin.damage(
+                    target.attack,
+                    lethal=origin.has_ability('L'))
 
-                excess_damage = action.origin.attack - action.target.defense
+                excess_damage = origin.attack - target.defense
 
-                if 'B' in action.origin.keywords and excess_damage > 0:
+                if 'B' in origin.keywords and excess_damage > 0:
                     opposing_player.damage(excess_damage)
 
             except WardShieldError:
@@ -518,98 +519,93 @@ class State:
             raise MalformedActionError("Target is not a creature or "
                                        "a player")
 
-        if 'D' in action.origin.keywords:
+        if 'D' in origin.keywords:
             current_player.health += damage_dealt
 
-        action.origin.has_attacked_this_turn = True
+        origin.has_attacked_this_turn = True
 
-    def _do_use(self, action):
+    def _do_use(self, origin, target):
         current_player = self.current_player
         opposing_player = self.opposing_player
 
-        if action.origin.cost > current_player.mana:
+        if origin.cost > current_player.mana:
             raise NotEnoughManaError()
 
-        if action.target is not None and \
-                not isinstance(action.target, Creature):
+        if target is not None and \
+                not isinstance(target, Creature):
             error = "Target is not a creature or a player"
             raise MalformedActionError(error)
 
         try:
-            current_player.hand.remove(action.origin)
+            current_player.hand.remove(origin)
         except ValueError:
             raise MalformedActionError("Card is not in player's hand")
 
-        if isinstance(action.origin, GreenItem):
+        if isinstance(origin, GreenItem):
             is_own_creature = \
-                action.target in current_player.lanes[Lane.LEFT] or \
-                action.target in current_player.lanes[Lane.RIGHT]
+                target in current_player.lanes[Lane.LEFT] or \
+                target in current_player.lanes[Lane.RIGHT]
 
-            if action.target is None or not is_own_creature:
+            if target is None or not is_own_creature:
                 error = "Green items should be used on friendly " \
                         "creatures"
                 raise MalformedActionError(error)
 
-            action.target.attack += action.origin.attack
-            action.target.defense += action.origin.defense
-            action.target.keywords = \
-                action.target.keywords.union(action.origin.keywords)
+            target.attack += origin.attack
+            target.defense += origin.defense
+            target.keywords = target.keywords.union(origin.keywords)
 
-            if action.target.defense <= 0:
-                action.target.is_dead = True
+            if target.defense <= 0:
+                target.is_dead = True
 
-            current_player.bonus_draw += action.target.card_draw
-            current_player.health += action.target.player_hp
-            opposing_player.health += action.target.enemy_hp
+            current_player.bonus_draw += target.card_draw
+            current_player.health += target.player_hp
+            opposing_player.health += target.enemy_hp
 
-        elif isinstance(action.origin, RedItem):
+        elif isinstance(origin, RedItem):
             is_opp_creature = \
-                action.target in opposing_player.lanes[Lane.LEFT] or \
-                action.target in opposing_player.lanes[Lane.RIGHT]
+                target in opposing_player.lanes[Lane.LEFT] or \
+                target in opposing_player.lanes[Lane.RIGHT]
 
-            if action.target is None or not is_opp_creature:
+            if target is None or not is_opp_creature:
                 error = "Red items should be used on enemy " \
                         "creatures"
                 raise MalformedActionError(error)
 
-            action.target.attack += action.origin.attack
-            action.target.defense += action.origin.defense
-            action.target.keywords = \
-                action.target.keywords.difference(
-                    action.origin.keywords)
+            target.attack += origin.attack
+            target.defense += origin.defense
+            target.keywords = target.keywords.difference(origin.keywords)
 
-            if action.target.defense <= 0:
-                action.target.is_dead = True
+            if target.defense <= 0:
+                target.is_dead = True
 
-            current_player.bonus_draw += action.target.card_draw
-            current_player.health += action.target.player_hp
-            opposing_player.health += action.target.enemy_hp
+            current_player.bonus_draw += target.card_draw
+            current_player.health += target.player_hp
+            opposing_player.health += target.enemy_hp
 
-        elif isinstance(action.origin, BlueItem):
-            if isinstance(action.target, Creature):
-                action.target.attack += action.origin.attack
-                action.target.defense += action.origin.defense
-                action.target.keywords = \
-                    action.target.keywords.difference(
-                        action.origin.keywords)
+        elif isinstance(origin, BlueItem):
+            if isinstance(target, Creature):
+                target.attack += origin.attack
+                target.defense += origin.defense
+                target.keywords = target.keywords.difference(origin.keywords)
 
-                if action.target.defense <= 0:
-                    action.target.is_dead = True
+                if target.defense <= 0:
+                    target.is_dead = True
 
-            elif action.target is None:
-                opposing_player.damage(-action.origin.defense)
+            elif target is None:
+                opposing_player.damage(-origin.defense)
             else:
                 raise MalformedActionError("Invalid target")
 
-            current_player.bonus_draw += action.origin.card_draw
-            current_player.health += action.origin.player_hp
-            opposing_player.health += action.origin.enemy_hp
+            current_player.bonus_draw += origin.card_draw
+            current_player.health += origin.player_hp
+            opposing_player.health += origin.enemy_hp
 
         else:
             error = "Card being used is not an item"
             raise MalformedActionError(error)
 
-        current_player.mana -= action.origin.cost
+        current_player.mana -= origin.cost
 
     def as_string(self):
         encoding = ""
@@ -697,7 +693,7 @@ class State:
 
             for card in raw_cards:
                 card_id, name, card_type, cost, attack, defense, \
-                keywords, player_hp, enemy_hp, card_draw, text = \
+                    keywords, player_hp, enemy_hp, card_draw, text = \
                     map(str.strip, card.split(';'))
 
                 card_class = type_mapping[card_type]
