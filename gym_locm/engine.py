@@ -1,4 +1,5 @@
 import copy
+import pickle
 import sys
 import numpy as np
 
@@ -681,6 +682,9 @@ class State:
                 f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane}\n"
 
         return encoding
+
+    def clone(self):
+        return pickle.loads(pickle.dumps(self, -1))
 
     @staticmethod
     def load_cards() -> List[Card]:

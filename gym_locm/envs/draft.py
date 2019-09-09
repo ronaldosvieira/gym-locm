@@ -88,7 +88,7 @@ class LoCMDraftEnv(gym.Env):
                 info['winner'].append(state.winner)
             else:
                 for i in range(self.evaluation_battles):
-                    state_copy = copy.deepcopy(self.state)
+                    state_copy = self.state.clone()
 
                     while state_copy.winner is None:
                         agent = self.battle_agents[state_copy.current_player.id]
