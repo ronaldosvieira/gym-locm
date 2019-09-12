@@ -44,6 +44,7 @@ class LoCMDraftEnv(gym.Env):
     def reset(self):
         self.state = State()
         self.results = []
+        self.choices = ([], [])
 
         for agent in self.battle_agents:
             agent.reset()
