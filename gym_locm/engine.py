@@ -50,6 +50,19 @@ class ActionType(Enum):
     PASS = 4
 
 
+class Location(IntEnum):
+    PLAYER_HAND = 0
+    ENEMY_HAND = 1
+
+    PLAYER_BOARD = 10
+    PLAYER_LEFT_LANE = 10
+    PLAYER_RIGHT_LANE = 11
+
+    ENEMY_BOARD = 20
+    ENEMY_LEFT_LANE = 20
+    ENEMY_RIGHT_LANE = 21
+
+
 class Player:
     def __init__(self, player_id):
         self.id = player_id
@@ -174,6 +187,20 @@ class BlueItem(Item):
     pass
 
 
+class CardRef:
+    def __init__(self, card, location):
+        self.instance_id = card.instance_id
+        self.name = card.name
+        self.location = location
+
+    def __repr__(self):
+        return f"&({self.instance_id}: {self.name})"
+
+    def __eq__(self, other):
+        return self.instance_id == other.instance_id \
+               and self.location == other.location
+
+
 class Action:
     def __init__(self, action_type, origin=None, target=None):
         self.type = action_type
@@ -235,27 +262,44 @@ class State:
 
             for card in filter(has_enough_mana(self.current_player.mana),
                                self.current_player.hand):
+                origin = CardRef(card, Location.PLAYER_HAND)
+
                 if isinstance(card, Creature):
                     for lane in Lane:
                         if len(self.current_player.lanes[lane]) < 3:
-                            summon.append(Action(ActionType.SUMMON, card, lane))
+                            summon.append(Action(ActionType.SUMMON, origin, lane))
+
                 elif isinstance(card, GreenItem):
                     for lane in Lane:
                         for friendly_creature in self.current_player.lanes[lane]:
-                            use.append(Action(ActionType.USE, card, friendly_creature))
+                            target = CardRef(friendly_creature,
+                                             Location.PLAYER_BOARD + lane)
+
+                            use.append(Action(ActionType.USE, origin, target))
+
                 elif isinstance(card, RedItem):
                     for lane in Lane:
                         for enemy_creature in self.opposing_player.lanes[lane]:
-                            use.append(Action(ActionType.USE, card, enemy_creature))
+                            target = CardRef(enemy_creature,
+                                             Location.ENEMY_BOARD + lane)
+
+                            use.append(Action(ActionType.USE, origin, target))
+
                 elif isinstance(card, BlueItem):
                     for lane in Lane:
                         for friendly_creature in self.current_player.lanes[lane]:
-                            use.append(Action(ActionType.USE, card, friendly_creature))
+                            target = CardRef(friendly_creature,
+                                             Location.PLAYER_BOARD + lane)
+
+                            use.append(Action(ActionType.USE, origin, target))
 
                         for enemy_creature in self.opposing_player.lanes[lane]:
-                            use.append(Action(ActionType.USE, card, enemy_creature))
+                            target = CardRef(enemy_creature,
+                                             Location.ENEMY_BOARD + lane)
 
-                        use.append(Action(ActionType.USE, card, None))
+                            use.append(Action(ActionType.USE, origin, target))
+
+                        use.append(Action(ActionType.USE, origin, None))
 
             for lane in Lane:
                 guard_creatures = []
@@ -271,8 +315,15 @@ class State:
 
                 for friendly_creature in filter(Creature.able_to_attack,
                                                 self.current_player.lanes[lane]):
+                    origin = CardRef(friendly_creature,
+                                     Location.PLAYER_BOARD + lane)
+
                     for valid_target in valid_targets:
-                        attack.append(Action(ActionType.ATTACK, friendly_creature, valid_target))
+                        if valid_target is not None:
+                            valid_target = CardRef(valid_target,
+                                                   Location.ENEMY_BOARD + lane)
+
+                        attack.append(Action(ActionType.ATTACK, origin, valid_target))
 
             available_actions = summon + attack + use
 
@@ -386,6 +437,22 @@ class State:
             deck_burn = current_player.health - current_player.next_rune
             current_player.damage(deck_burn)
 
+    def _eval_card_ref(self, card_ref):
+        location_mapping = {
+            Location.PLAYER_HAND: self.current_player.hand,
+            Location.ENEMY_HAND: self.opposing_player.hand,
+            Location.PLAYER_LEFT_LANE: self.current_player.lanes[0],
+            Location.PLAYER_RIGHT_LANE: self.current_player.lanes[1],
+            Location.ENEMY_LEFT_LANE: self.opposing_player.lanes[0],
+            Location.ENEMY_RIGHT_LANE: self.opposing_player.lanes[1]
+        }
+
+        for card in location_mapping[card_ref.location]:
+            if card.instance_id == card_ref.instance_id:
+                return card
+
+        raise InvalidCardRefError(card_ref.instance_id)
+
     def _act_on_draft(self, action):
         """Execute the action intended by the player in this draft turn"""
         chosen_index = action.origin if action.origin is not None else 0
@@ -397,6 +464,12 @@ class State:
         """Execute the actions intended by the player in this battle turn"""
         try:
             origin, target = action.origin, action.target
+
+            if isinstance(action.origin, CardRef):
+                origin = self._eval_card_ref(action.origin)
+
+            if isinstance(action.target, CardRef):
+                target = self._eval_card_ref(action.target)
 
             if action.type == ActionType.SUMMON:
                 self._do_summon(origin, target)
@@ -410,7 +483,10 @@ class State:
                 raise MalformedActionError("Invalid action type")
 
             self.current_player.actions.append(action)
-        except (NotEnoughManaError, MalformedActionError, FullLaneError) as e:
+        except (NotEnoughManaError,
+                MalformedActionError,
+                FullLaneError,
+                InvalidCardRefError) as e:
             eprint("Action error:", e.message)
 
         for player in self.players:

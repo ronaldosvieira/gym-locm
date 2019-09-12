@@ -39,3 +39,11 @@ class MalformedActionError(ActionError):
 class GameIsEndedError(ActionError):
     def __init__(self, message="Game is ended"):
         super().__init__(message)
+
+
+class InvalidCardRefError(ActionError):
+    def __init__(self, instance_id=None, message="Invalid card reference"):
+        if instance_id is not None:
+            message += f": {instance_id}"
+
+        super().__init__(message)
