@@ -44,36 +44,52 @@ class RuleBasedBattleAgent(Agent):
         current_lane = list(Lane)[state.turn % 2]
 
         for card in state.current_player.hand:
+            origin = CardRef(card, Location.PLAYER_HAND)
+
             if isinstance(card, Creature) and card.cost <= state.current_player.mana\
                     and len(state.current_player.lanes[current_lane]) < 3:
-                action = Action(ActionType.SUMMON, card, current_lane)
+                action = Action(ActionType.SUMMON, origin, current_lane)
 
                 return action
 
             elif isinstance(card, GreenItem) and card.cost <= state.current_player.mana\
                     and friends:
-                return Action(ActionType.USE, card, friends[0])
+                lane = Lane.LEFT if friends[0] in state.current_player.lanes[0] else Lane.RIGHT
+                target = CardRef(friends[0], Location.PLAYER_BOARD + lane)
+
+                return Action(ActionType.USE, origin, target)
             elif isinstance(card, RedItem) and card.cost <= state.current_player.mana\
                     and foes:
-                return Action(ActionType.USE, card, foes[0])
+                lane = Lane.LEFT if foes[0] in state.opposing_player.lanes[0] else Lane.RIGHT
+                target = CardRef(foes[0], Location.ENEMY_BOARD + lane)
+
+                return Action(ActionType.USE, origin, target)
             elif isinstance(card, BlueItem) and card.cost <= state.current_player.mana:
-                return Action(ActionType.USE, card, None)
+                return Action(ActionType.USE, origin, None)
 
         for card in state.current_player.lanes[Lane.LEFT]:
+            origin = CardRef(card, Location.PLAYER_LEFT_LANE)
+
             if card.can_attack and not card.has_attacked_this_turn:
                 for enemy in state.opposing_player.lanes[Lane.LEFT]:
                     if enemy.has_ability('G'):
-                        return Action(ActionType.ATTACK, card, enemy)
+                        target = CardRef(enemy, Location.ENEMY_LEFT_LANE)
+
+                        return Action(ActionType.ATTACK, origin, target)
 
                 return Action(ActionType.ATTACK, card, None)
 
         for card in state.current_player.lanes[Lane.RIGHT]:
+            origin = CardRef(card, Location.PLAYER_RIGHT_LANE)
+
             if card.can_attack and not card.has_attacked_this_turn:
                 for enemy in state.opposing_player.lanes[Lane.RIGHT]:
                     if enemy.has_ability('G'):
-                        return Action(ActionType.ATTACK, card, enemy)
+                        target = CardRef(enemy, Location.ENEMY_RIGHT_LANE)
 
-                return Action(ActionType.ATTACK, card, None)
+                        return Action(ActionType.ATTACK, origin, target)
+
+                return Action(ActionType.ATTACK, origin, None)
 
         return Action(ActionType.PASS)
 
@@ -174,20 +190,22 @@ class NativeAgent(Agent):
         actions = actions.split(';')
         decoded_actions = []
 
-        cp_lanes = state.current_player.lanes[0] + state.current_player.lanes[1]
-        op_lanes = state.opposing_player.lanes[0] + state.opposing_player.lanes[1]
-
-        hands = state.current_player.hand + state.opposing_player.hand
-
-        cards = hands + cp_lanes + op_lanes
-
         def _find_card(instance_id):
             if instance_id == -1:
                 return None
 
-            for card in cards:
-                if card.instance_id == instance_id:
-                    return card
+            locations = {
+                Location.PLAYER_HAND: state.current_player.hand,
+                Location.PLAYER_LEFT_LANE: state.current_player.lanes[Lane.LEFT],
+                Location.PLAYER_RIGHT_LANE: state.current_player.lanes[Lane.RIGHT],
+                Location.ENEMY_LEFT_LANE: state.opposing_player.lanes[Lane.LEFT],
+                Location.ENEMY_RIGHT_LANE: state.opposing_player.lanes[Lane.RIGHT]
+            }
+
+            for location, cards in locations.items():
+                for card in cards:
+                    if card.instance_id == instance_id:
+                        return CardRef(card, location)
 
         for action in actions:
             tokens = action.split()
