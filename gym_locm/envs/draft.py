@@ -12,6 +12,7 @@ class LoCMDraftEnv(gym.Env):
     def __init__(self,
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=True,
+                 sort_cards=True,
                  cards_in_deck=30,
                  evaluation_battles=1):
         self.state = Game(cards_in_deck)
@@ -22,6 +23,9 @@ class LoCMDraftEnv(gym.Env):
         self.evaluation_battles = evaluation_battles
 
         self.choices = ([], [])
+        self.draft_ordering = ()
+
+        self.sort_cards = sort_cards
         self.use_draft_history = use_draft_history
 
         self.cards_in_state = 33 if use_draft_history else 3
@@ -44,7 +48,9 @@ class LoCMDraftEnv(gym.Env):
     def reset(self):
         self.state = State()
         self.results = []
+
         self.choices = ([], [])
+        self.draft_ordering = ()
 
         for agent in self.battle_agents:
             agent.reset()
@@ -60,7 +66,11 @@ class LoCMDraftEnv(gym.Env):
 
         state = self.state
 
-        chosen_index = action.origin if action.origin is not None else 0
+        if action.origin is not None:
+            chosen_index = self.draft_ordering[action.origin]
+        else:
+            chosen_index = 0
+
         chosen_card = state.current_player.hand[chosen_index]
         self.choices[state.current_player.id].append(chosen_card)
 
@@ -177,6 +187,12 @@ class LoCMDraftEnv(gym.Env):
         if not self._draft_is_finished:
             card_choices = self.state.current_player.hand[0:3]
 
+            if self.sort_cards:
+                sorted_cards = sorted(range(3),
+                                      key=lambda p: card_choices[p].id)
+
+                self.draft_ordering = list(sorted_cards)
+
             for i, card in enumerate(card_choices):
                 encoded_state[-(3 - i)] = self._encode_card(card)
 
@@ -195,10 +211,11 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
     def __init__(self, battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  draft_agent=RandomDraftAgent(),
                  use_draft_history=True,
+                 sort_cards=True,
                  cards_in_deck=30,
                  evaluation_battles=1,
                  play_first=True):
-        super().__init__(battle_agents, use_draft_history,
+        super().__init__(battle_agents, use_draft_history, sort_cards,
                          cards_in_deck, evaluation_battles)
 
         self.draft_agent = draft_agent
