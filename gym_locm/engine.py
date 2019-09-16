@@ -287,12 +287,6 @@ class State:
 
                 elif isinstance(card, BlueItem):
                     for lane in Lane:
-                        for friendly_creature in self.current_player.lanes[lane]:
-                            target = CardRef(friendly_creature,
-                                             Location.PLAYER_BOARD + lane)
-
-                            use.append(Action(ActionType.USE, origin, target))
-
                         for enemy_creature in self.opposing_player.lanes[lane]:
                             target = CardRef(enemy_creature,
                                              Location.ENEMY_BOARD + lane)
@@ -661,6 +655,15 @@ class State:
             opposing_player.health += target.enemy_hp
 
         elif isinstance(origin, BlueItem):
+            is_opp_creature = \
+                target in opposing_player.lanes[Lane.LEFT] or \
+                target in opposing_player.lanes[Lane.RIGHT]
+
+            if target is not None and not is_opp_creature:
+                error = "Blue items should be used on enemy " \
+                        "creatures or enemy player"
+                raise MalformedActionError(error)
+
             if isinstance(target, Creature):
                 target.attack += origin.attack
                 target.defense += origin.defense
