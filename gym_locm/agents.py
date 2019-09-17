@@ -480,8 +480,6 @@ class CoacDraftAgent(Agent):
 
 
 class RLDraftAgent(Agent):
-    card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
-
     def reset(self):
         pass
 
