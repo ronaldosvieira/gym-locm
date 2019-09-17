@@ -187,8 +187,10 @@ class LoCMDraftEnv(gym.Env):
         if not self._draft_is_finished:
             card_choices = self.state.current_player.hand[0:3]
 
+            self.draft_ordering = list(range(3))
+
             if self.sort_cards:
-                sorted_cards = sorted(range(3),
+                sorted_cards = sorted(self.draft_ordering,
                                       key=lambda p: card_choices[p].id)
 
                 self.draft_ordering = list(sorted_cards)
