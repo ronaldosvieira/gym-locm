@@ -1,3 +1,5 @@
+from typing import Union
+
 import gym
 from prettytable import PrettyTable
 
@@ -45,7 +47,7 @@ class LoCMDraftEnv(gym.Env):
         self.state = State()
         self.results = []
 
-    def reset(self):
+    def reset(self) -> np.array:
         self.state = State()
         self.results = []
 
@@ -57,7 +59,7 @@ class LoCMDraftEnv(gym.Env):
 
         return self._encode_state()
 
-    def step(self, action):
+    def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         if self._draft_is_finished:
             raise GameIsEndedError()
 
@@ -154,7 +156,7 @@ class LoCMDraftEnv(gym.Env):
     def _render_native(self):
         return self.state.as_string()
 
-    def render(self, mode='text'):
+    def render(self, mode: str = 'text') -> Union[None, str]:
         if mode == 'text':
             if self.state.phase == Phase.DRAFT:
                 self._render_text_draft()
@@ -223,14 +225,14 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
         self.draft_agent = draft_agent
         self.play_first = play_first
 
-    def reset(self):
+    def reset(self) -> np.array:
         super().reset()
 
         self.draft_agent.reset()
 
         return self._encode_state()
 
-    def step(self, action):
+    def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         if self.play_first:
             super().step(action)
             result = super().step(self.draft_agent.act(self.state))

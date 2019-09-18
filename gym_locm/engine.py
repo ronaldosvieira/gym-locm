@@ -3,7 +3,7 @@ import pickle
 import sys
 import numpy as np
 
-from typing import List
+from typing import List, NewType, Union
 from enum import Enum, IntEnum
 from gym_locm.exceptions import *
 from gym_locm.helpers import *
@@ -80,7 +80,7 @@ class Player:
 
         self.actions = []
 
-    def draw(self, amount=1):
+    def draw(self, amount: int = 1):
         for _ in range(amount):
             if len(self.deck) == 0:
                 raise EmptyDeckError()
@@ -90,7 +90,7 @@ class Player:
 
             self.hand.append(self.deck.pop())
 
-    def damage(self, amount) -> int:
+    def damage(self, amount: int) -> int:
         self.health -= amount
 
         while self.health <= self.next_rune:
@@ -116,10 +116,10 @@ class Card:
         self.card_draw = card_draw
         self.text = text
 
-    def has_ability(self, keyword):
+    def has_ability(self, keyword: str) -> bool:
         return keyword in self.keywords
 
-    def make_copy(self):
+    def make_copy(self) -> 'Card':
         card = copy.copy(self)
 
         card.instance_id = _next_instance_id()
@@ -144,17 +144,17 @@ class Creature(Card):
         self.can_attack = False
         self.has_attacked_this_turn = False
 
-    def remove_ability(self, ability):
+    def remove_ability(self, ability: str):
         self.keywords.discard(ability)
 
-    def add_ability(self, ability):
+    def add_ability(self, ability: str):
         self.keywords.add(ability)
 
-    def able_to_attack(self):
+    def able_to_attack(self) -> bool:
         return not self.has_attacked_this_turn and \
                (self.can_attack or self.has_ability('C'))
 
-    def damage(self, amount=1, lethal=False) -> int:
+    def damage(self, amount: int = 1, lethal: bool = False) -> int:
         if amount <= 0:
             return 0
 
@@ -237,15 +237,15 @@ class State:
             player.hand = current_draft_choices
 
     @property
-    def current_player(self):
+    def current_player(self) -> Player:
         return self.players[self._current_player]
 
     @property
-    def opposing_player(self):
+    def opposing_player(self) -> Player:
         return self.players[self._current_player.opposing()]
 
     @property
-    def available_actions(self):
+    def available_actions(self) -> List[Action]:
         if self.__available_actions is not None:
             return self.__available_actions
 
@@ -328,7 +328,7 @@ class State:
 
         return self.__available_actions
 
-    def act(self, action):
+    def act(self, action: Action):
         if self.phase == Phase.DRAFT:
             self._act_on_draft(action)
 
@@ -431,7 +431,7 @@ class State:
             deck_burn = current_player.health - current_player.next_rune
             current_player.damage(deck_burn)
 
-    def _eval_card_ref(self, card_ref):
+    def _eval_card_ref(self, card_ref: CardRef) -> Card:
         location_mapping = {
             Location.PLAYER_HAND: self.current_player.hand,
             Location.ENEMY_HAND: self.opposing_player.hand,
@@ -447,14 +447,14 @@ class State:
 
         raise InvalidCardRefError(card_ref.instance_id)
 
-    def _act_on_draft(self, action):
+    def _act_on_draft(self, action: Action):
         """Execute the action intended by the player in this draft turn"""
         chosen_index = action.origin if action.origin is not None else 0
         card = self.current_player.hand[chosen_index]
 
         self.current_player.deck.append(card.make_copy())
 
-    def _act_on_battle(self, action):
+    def _act_on_battle(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
         try:
             origin, target = action.origin, action.target
@@ -499,7 +499,7 @@ class State:
             self.phase = Phase.ENDED
             self.winner = PlayerOrder.FIRST
 
-    def _do_summon(self, origin, target):
+    def _do_summon(self, origin: Card, target: Lane):
         current_player = self.current_player
         opposing_player = self.opposing_player
 
@@ -531,7 +531,7 @@ class State:
 
         current_player.mana -= origin.cost
 
-    def _do_attack(self, origin, target):
+    def _do_attack(self, origin: Card, target: Union[None, Card]):
         current_player = self.current_player
         opposing_player = self.opposing_player
 
@@ -595,7 +595,7 @@ class State:
 
         origin.has_attacked_this_turn = True
 
-    def _do_use(self, origin, target):
+    def _do_use(self, origin: Card, target: Union[None, Card]):
         current_player = self.current_player
         opposing_player = self.opposing_player
 
@@ -687,7 +687,7 @@ class State:
 
         current_player.mana -= origin.cost
 
-    def as_string(self):
+    def as_string(self) -> str:
         encoding = ""
 
         p, o = self.current_player, self.opposing_player
@@ -762,7 +762,7 @@ class State:
 
         return encoding
 
-    def clone(self):
+    def clone(self) -> 'State':
         return pickle.loads(pickle.dumps(self, -1))
 
     @staticmethod
