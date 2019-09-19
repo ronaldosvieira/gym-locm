@@ -241,3 +241,33 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
             result = super().step(action)
 
         return result
+
+
+class LoCMDraftSelfPlayEnv(LoCMDraftEnv):
+    def __init__(self, model,
+                 battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
+                 use_draft_history=True,
+                 sort_cards=True,
+                 cards_in_deck=30,
+                 evaluation_battles=1,
+                 play_first=True):
+        super().__init__(battle_agents, use_draft_history, sort_cards,
+                         cards_in_deck, evaluation_battles)
+
+        self.play_first = play_first
+        self.model = model
+
+    def update_parameters(self, parameters):
+        self.model.load_parameters(parameters, exact_match=True)
+
+    def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+        obs = self._encode_state()
+
+        if self.play_first:
+            super().step(action)
+            result = super().step(self.model.predict(obs)[0])
+        else:
+            super().step(self.model.predict(obs)[0])
+            result = super().step(action)
+
+        return result
