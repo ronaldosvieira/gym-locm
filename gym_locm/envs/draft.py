@@ -18,16 +18,13 @@ class LoCMDraftEnv(gym.Env):
                  cards_in_deck=30,
                  evaluation_battles=1,
                  seed=None):
-        self.state = Game(cards_in_deck)
-
-        self.battle_agents = battle_agents
-
+        # init bookkeeping structures
         self.results = []
-        self.evaluation_battles = evaluation_battles
-
         self.choices = ([], [])
         self.draft_ordering = ()
 
+        self.battle_agents = battle_agents
+        self.evaluation_battles = evaluation_battles
         self.sort_cards = sort_cards
         self.use_draft_history = use_draft_history
 
@@ -36,60 +33,80 @@ class LoCMDraftEnv(gym.Env):
 
         # (30 cards already chosen + 3 current choices) x (16 card features)
         self.state_shape = (self.cards_in_state, self.card_features)
-
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0,
             shape=self.state_shape,
             dtype=np.float32
         )
 
+        # three actions possible - choose each of the three cards
         self.action_space = gym.spaces.Discrete(3)
 
-        self.state = State(seed=seed)
-        self.results = []
+        # init game
+        self.state = State(cards_in_deck=cards_in_deck, seed=seed)
 
     def seed(self, seed=None):
+        """Sets a seed for random choices in the game."""
         self.state.seed(seed)
 
     def reset(self) -> np.array:
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # start a brand new game
         self.state = State()
-        self.results = []
 
+        # empty bookkeeping structures
+        self.results = []
         self.choices = ([], [])
         self.draft_ordering = ()
 
+        # reset all agents' internal state
         for agent in self.battle_agents:
             agent.reset()
 
         return self._encode_state()
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+        """Makes an action in the game."""
+        # if the draft is finished, there should be no more actions
         if self._draft_is_finished:
             raise GameIsEndedError()
 
+        # if it's an integer, wrap it in an action object
         if not isinstance(action, Action):
             action = Action(ActionType.PICK, action)
 
+        # less property accesses
         state = self.state
 
+        # find appropriate value for the provided card index
         if action.origin is not None:
             chosen_index = self.draft_ordering[action.origin]
         else:
             chosen_index = 0
 
+        # find chosen card and keep track of it
         chosen_card = state.current_player.hand[chosen_index]
         self.choices[state.current_player.id].append(chosen_card)
 
+        # execute the action
         state.act(action)
 
+        # init return info
         reward = 0
         done = False
         info = {'phase': state.phase,
                 'turn': state.turn,
                 'winner': []}
 
+        # if draft is now ended, evaluation should be done
         if self._draft_is_finished:
+            # faster evaluation method for when only one battle is required
+            # todo: check if this optimization is still necessary
             if self.evaluation_battles == 1:
+                # while the game doesn't end, get agents acting alternatively
                 while state.winner is None:
                     agent = self.battle_agents[state.current_player.id]
 
@@ -104,6 +121,8 @@ class LoCMDraftEnv(gym.Env):
 
                 info['winner'].append(state.winner)
             else:
+                # for each evaluation battle required, copy the current
+                # start-of-battle state and do battle
                 for i in range(self.evaluation_battles):
                     state_copy = self.state.clone()
 
@@ -143,7 +162,7 @@ class LoCMDraftEnv(gym.Env):
         print(table)
 
     def _render_text_battle(self):
-        pass  # TODO implement
+        pass  # todo: implement
 
     def _render_text_ended(self):
         if len(self.results) == 1:
@@ -161,6 +180,8 @@ class LoCMDraftEnv(gym.Env):
         return self.state.as_string()
 
     def render(self, mode: str = 'text') -> Union[None, str]:
+        """Builds a representation of the current state."""
+        # if text mode, print appropriate representation
         if mode == 'text':
             if self.state.phase == Phase.DRAFT:
                 self._render_text_draft()
@@ -168,6 +189,7 @@ class LoCMDraftEnv(gym.Env):
                 self._render_text_battle()
             elif self.state.phase == Phase.ENDED:
                 self._render_text_ended()
+        # if native mode, build and return input string
         elif mode == 'native':
             return self._render_native()
 
@@ -224,20 +246,30 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
                  evaluation_battles=1,
                  seed=None,
                  play_first=True):
+        # init the env
         super().__init__(battle_agents, use_draft_history, sort_cards,
                          cards_in_deck, evaluation_battles, seed)
 
+        # also init the draft agent and the new parameter
         self.draft_agent = draft_agent
         self.play_first = play_first
 
     def reset(self) -> np.array:
-        super().reset()
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # reset what is needed
+        encoded_state = super().reset()
 
+        # also reset the draft agent
         self.draft_agent.reset()
 
-        return self._encode_state()
+        return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+        """Makes an action in the game."""
+        # act according to first and second players
         if self.play_first:
             super().step(action)
             result = super().step(self.draft_agent.act(self.state))
@@ -257,18 +289,23 @@ class LoCMDraftSelfPlayEnv(LoCMDraftEnv):
                  evaluation_battles=1,
                  seed=None,
                  play_first=True):
+        # init the env
         super().__init__(battle_agents, use_draft_history, sort_cards,
                          cards_in_deck, evaluation_battles, seed)
 
+        # also init the new parameters
         self.play_first = play_first
         self.model = model
 
     def update_parameters(self, parameters):
+        """Update the current parameters in the model with new ones."""
         self.model.load_parameters(parameters, exact_match=True)
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+        """Makes an action in the game."""
         obs = self._encode_state()
 
+        # act according to first and second players
         if self.play_first:
             super().step(action)
             result = super().step(self.model.predict(obs)[0])
