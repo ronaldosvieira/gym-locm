@@ -5,6 +5,9 @@ import numpy as np
 
 from typing import List, NewType, Union
 from enum import Enum, IntEnum
+
+from gym.utils import seeding
+
 from gym_locm.exceptions import *
 from gym_locm.helpers import *
 
@@ -218,7 +221,10 @@ class Action:
 
 
 class State:
-    def __init__(self, cards_in_deck=30):
+    def __init__(self, cards_in_deck=30, seed=None):
+        self.np_random = None
+        self.seed(seed)
+
         self.phase = Phase.DRAFT
         self.turn = 1
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
@@ -328,6 +334,11 @@ class State:
 
         return self.__available_actions
 
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+
+        return [seed]
+
     def act(self, action: Action):
         if self.phase == Phase.DRAFT:
             self._act_on_draft(action)
@@ -354,11 +365,11 @@ class State:
     def _new_draft(self) -> List[List[Card]]:
         cards = self.load_cards()
 
-        pool = np.random.choice(cards, 60, replace=False).tolist()
+        pool = self.np_random.choice(cards, 60, replace=False).tolist()
         draft = []
 
         for _ in range(self.cards_in_deck):
-            draft.append(np.random.choice(pool, 3, replace=False).tolist())
+            draft.append(self.np_random.choice(pool, 3, replace=False).tolist())
 
         return draft
 
@@ -368,7 +379,7 @@ class State:
             player.hand = []
             player.lanes = ([], [])
 
-            np.random.shuffle(player.deck)
+            self.np_random.shuffle(player.deck)
             player.draw(4)
             player.base_mana = 0
 

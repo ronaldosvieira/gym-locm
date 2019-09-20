@@ -16,7 +16,8 @@ class LoCMDraftEnv(gym.Env):
                  use_draft_history=True,
                  sort_cards=True,
                  cards_in_deck=30,
-                 evaluation_battles=1):
+                 evaluation_battles=1,
+                 seed=None):
         self.state = Game(cards_in_deck)
 
         self.battle_agents = battle_agents
@@ -44,8 +45,11 @@ class LoCMDraftEnv(gym.Env):
 
         self.action_space = gym.spaces.Discrete(3)
 
-        self.state = State()
+        self.state = State(seed=seed)
         self.results = []
+
+    def seed(self, seed=None):
+        self.state.seed(seed)
 
     def reset(self) -> np.array:
         self.state = State()
@@ -218,9 +222,10 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
                  sort_cards=True,
                  cards_in_deck=30,
                  evaluation_battles=1,
+                 seed=None,
                  play_first=True):
         super().__init__(battle_agents, use_draft_history, sort_cards,
-                         cards_in_deck, evaluation_battles)
+                         cards_in_deck, evaluation_battles, seed)
 
         self.draft_agent = draft_agent
         self.play_first = play_first
@@ -250,9 +255,10 @@ class LoCMDraftSelfPlayEnv(LoCMDraftEnv):
                  sort_cards=True,
                  cards_in_deck=30,
                  evaluation_battles=1,
+                 seed=None,
                  play_first=True):
         super().__init__(battle_agents, use_draft_history, sort_cards,
-                         cards_in_deck, evaluation_battles)
+                         cards_in_deck, evaluation_battles, seed)
 
         self.play_first = play_first
         self.model = model

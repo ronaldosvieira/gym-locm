@@ -28,7 +28,7 @@ def evaluate(player_1, player_2):
         i += 1
         current_episode = i
 
-        game = engine.Game()
+        game = engine.Game(seed=i)
 
         for bot in bots:
             bot.reset()
