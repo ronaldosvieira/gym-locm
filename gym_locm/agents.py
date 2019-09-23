@@ -282,9 +282,6 @@ class MCTSBattleAgent(Agent):
 
         best_child = searcher.choose(root)
 
-        while best_child.parent_node != root:
-            best_child = best_child.parent_node
-
         return best_child.action
 
 
