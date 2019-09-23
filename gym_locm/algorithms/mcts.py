@@ -2,10 +2,16 @@
 A minimal implementation of Monte Carlo tree search (MCTS) in Python 3
 Luke Harold Miles, July 2019, Public Domain Dedication
 See also https://en.wikipedia.org/wiki/Monte_Carlo_tree_search
+
+Modified by Ronaldo Vieira, 2019
+Original version:
 https://gist.github.com/qpwo/c538c6f73727e254fdc7fab81024f6e1
 """
 from collections import defaultdict
 import math
+import numpy as np
+
+from gym_locm.engine import PlayerOrder
 
 
 class MCTS:
@@ -73,13 +79,12 @@ class MCTS:
 
     def _simulate(self, node):
         """Returns the reward for a random simulation (to completion) of `node`"""
-        invert_reward = True
-        while True:
-            if node.is_terminal():
-                reward = node.reward()
-                return 1 - reward if invert_reward else reward
-            node = node.find_random_child()
-            invert_reward = not invert_reward
+        game = node.state.clone()
+
+        while game.winner is None:
+            game.act(np.random.choice(game.available_actions))
+
+        return 1 if game.winner == PlayerOrder.FIRST else -1
 
     def _backpropagate(self, path, reward):
         """Send the reward back up to the ancestors of the leaf"""
