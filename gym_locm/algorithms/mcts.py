@@ -90,8 +90,11 @@ class MCTS:
         """Send the reward back up to the ancestors of the leaf"""
         for node in reversed(path):
             self.N[node] += 1
-            self.Q[node] += reward
-            reward = 1 - reward  # 1 for me is 0 for my enemy, and vice versa
+
+            if node.state.current_player.id == PlayerOrder.FIRST:
+                self.Q[node] += reward
+            else:
+                self.Q[node] -= reward
 
     def _uct_select(self, node):
         """Select a child of node, balancing exploration & exploitation"""
@@ -99,12 +102,12 @@ class MCTS:
         # All children of node should already be expanded:
         assert all(n in self.children for n in self.children[node])
 
-        log_N_vertex = math.log(self.N[node])
+        log_n_vertex = math.log(self.N[node])
 
         def uct(n):
             """Upper confidence bound for trees"""
             return self.Q[n] / self.N[n] + self.exploration_weight * math.sqrt(
-                log_N_vertex / self.N[n]
+                log_n_vertex / self.N[n]
             )
 
         return max(self.children[node], key=uct)
