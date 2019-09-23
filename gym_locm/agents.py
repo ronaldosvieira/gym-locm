@@ -259,13 +259,12 @@ class NativeAgent(Agent):
 
 
 class MCTSBattleAgent(Agent):
-    def __init__(self):
-        self.searcher = MCTS()
-
     def reset(self):
-        self.searcher = MCTS()
+        pass
 
     def act(self, state, time_limit_ms=200):
+        searcher = MCTS()
+
         if len(state.available_actions) == 1:
             return state.available_actions[0]
 
@@ -279,9 +278,9 @@ class MCTSBattleAgent(Agent):
             if current_time - start_time > time_limit_ms:
                 break
 
-            self.searcher.do_rollout(root)
+            searcher.do_rollout(root)
 
-        best_child = self.searcher.choose(root)
+        best_child = searcher.choose(root)
 
         while best_child.parent_node != root:
             best_child = best_child.parent_node
