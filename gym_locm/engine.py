@@ -282,7 +282,7 @@ class State:
 
     @property
     def opposing_player(self) -> Player:
-        return self.players[self._current_player.opposing()]
+        return self.players[(int(self._current_player) + 1) % 2]
 
     @property
     def available_actions(self) -> Tuple[Action]:
