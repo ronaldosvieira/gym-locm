@@ -5,6 +5,7 @@ from gym_locm.algorithms import LOCMNode, MCTS
 
 import pexpect
 import time
+import random
 
 
 class Agent(ABC):
@@ -30,7 +31,9 @@ class RandomBattleAgent(Agent):
         pass
 
     def act(self, state):
-        return np.random.choice(state.available_actions)
+        index = int(len(state.available_actions) * random.random())
+
+        return state.available_actions[index]
 
 
 class RuleBasedBattleAgent(Agent):
