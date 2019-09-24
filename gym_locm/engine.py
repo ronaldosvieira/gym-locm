@@ -296,18 +296,21 @@ class State:
         else:
             summon, attack, use = [], [], []
 
-            for card in filter(has_enough_mana(self.current_player.mana),
-                               self.current_player.hand):
+            c_hand = self.current_player.hand
+            c_lanes = self.current_player.lanes
+            o_lanes = self.opposing_player.lanes
+
+            for card in filter(has_enough_mana(self.current_player.mana), c_hand):
                 origin = CardRef(card, Location.PLAYER_HAND)
 
                 if isinstance(card, Creature):
                     for lane in Lane:
-                        if len(self.current_player.lanes[lane]) < 3:
+                        if len(c_lanes[lane]) < 3:
                             summon.append(Action(ActionType.SUMMON, origin, lane))
 
                 elif isinstance(card, GreenItem):
                     for lane in Lane:
-                        for friendly_creature in self.current_player.lanes[lane]:
+                        for friendly_creature in c_lanes[lane]:
                             target = CardRef(friendly_creature,
                                              Location.PLAYER_BOARD + lane)
 
@@ -315,7 +318,7 @@ class State:
 
                 elif isinstance(card, RedItem):
                     for lane in Lane:
-                        for enemy_creature in self.opposing_player.lanes[lane]:
+                        for enemy_creature in o_lanes[lane]:
                             target = CardRef(enemy_creature,
                                              Location.ENEMY_BOARD + lane)
 
@@ -323,7 +326,7 @@ class State:
 
                 elif isinstance(card, BlueItem):
                     for lane in Lane:
-                        for enemy_creature in self.opposing_player.lanes[lane]:
+                        for enemy_creature in o_lanes[lane]:
                             target = CardRef(enemy_creature,
                                              Location.ENEMY_BOARD + lane)
 
@@ -334,17 +337,17 @@ class State:
             for lane in Lane:
                 guard_creatures = []
 
-                for enemy_creature in self.opposing_player.lanes[lane]:
+                for enemy_creature in o_lanes[lane]:
                     if enemy_creature.has_ability('G'):
                         guard_creatures.append(enemy_creature)
 
                 if not guard_creatures:
-                    valid_targets = self.opposing_player.lanes[lane] + [None]
+                    valid_targets = o_lanes[lane] + [None]
                 else:
                     valid_targets = guard_creatures
 
                 for friendly_creature in filter(Creature.able_to_attack,
-                                                self.current_player.lanes[lane]):
+                                                c_lanes[lane]):
                     origin = CardRef(friendly_creature,
                                      Location.PLAYER_BOARD + lane)
 
