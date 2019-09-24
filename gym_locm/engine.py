@@ -393,11 +393,15 @@ class State:
     def _new_draft(self) -> List[List[Card]]:
         cards = list(_cards)
 
-        pool = self.np_random.choice(cards, 60, replace=False).tolist()
+        self.np_random.shuffle(cards)
+
+        pool = cards[:60]
         draft = []
 
         for _ in range(self.cards_in_deck):
-            draft.append(self.np_random.choice(pool, 3, replace=False).tolist())
+            self.np_random.shuffle(pool)
+
+            draft.append(pool[:3])
 
         return draft
 
