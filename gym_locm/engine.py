@@ -249,6 +249,12 @@ _cards = load_cards()
 
 
 class State:
+    __available_actions_draft = [
+        Action(ActionType.PICK, 0),
+        Action(ActionType.PICK, 1),
+        Action(ActionType.PICK, 2)
+    ]
+
     def __init__(self, cards_in_deck=30, seed=None):
         self.np_random = None
         self.seed(seed)
@@ -284,11 +290,7 @@ class State:
             return self.__available_actions
 
         if self.phase == Phase.DRAFT:
-            self.__available_actions = [
-                Action(ActionType.PICK, 0),
-                Action(ActionType.PICK, 1),
-                Action(ActionType.PICK, 2)
-            ]
+            self.__available_actions = self.__available_actions_draft
         elif self.phase == Phase.ENDED:
             self.__available_actions = []
         else:
