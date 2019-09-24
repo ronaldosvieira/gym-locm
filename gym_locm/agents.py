@@ -10,6 +10,10 @@ import random
 
 class Agent(ABC):
     @abstractmethod
+    def seed(self, seed):
+        pass
+
+    @abstractmethod
     def reset(self):
         pass
 
@@ -19,6 +23,9 @@ class Agent(ABC):
 
 
 class PassBattleAgent(Agent):
+    def seed(self, seed):
+        pass
+
     def reset(self):
         pass
 
@@ -27,6 +34,12 @@ class PassBattleAgent(Agent):
 
 
 class RandomBattleAgent(Agent):
+    def __init__(self, seed=None):
+        self.random = random.Random(seed)
+
+    def seed(self, seed):
+        self.random.seed(seed)
+
     def reset(self):
         pass
 
@@ -37,10 +50,11 @@ class RandomBattleAgent(Agent):
 
 
 class RuleBasedBattleAgent(Agent):
-    last_action = None
+    def seed(self, seed):
+        pass
 
     def reset(self):
-        self.last_action = None
+        pass
 
     def act(self, state):
         friends = state.current_player.lanes[0] + state.current_player.lanes[1]
@@ -110,6 +124,9 @@ class NativeAgent(Agent):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._process.terminate()
+
+    def seed(self, seed):
+        pass
 
     def reset(self):
         self.action_buffer = []
@@ -262,6 +279,9 @@ class NativeAgent(Agent):
 
 
 class MCTSBattleAgent(Agent):
+    def seed(self, seed):
+        pass
+
     def reset(self):
         pass
 
@@ -293,6 +313,9 @@ RandomDraftAgent = RandomBattleAgent
 
 
 class RuleBasedDraftAgent(Agent):
+    def seed(self, seed):
+        pass
+
     def reset(self):
         pass
 
@@ -305,6 +328,9 @@ class RuleBasedDraftAgent(Agent):
 
 
 class IceboxDraftAgent(Agent):
+    def seed(self, seed):
+        pass
+
     def reset(self):
         pass
 
@@ -364,6 +390,9 @@ class ClosetAIDraftAgent(Agent):
         1, -100, -100, -100, -100, -100, -100, -100, -100, -100,
         -100, -100, -100, -100, -100, -100, -100, -100, -100, -100
     ]
+
+    def seed(self, seed):
+        pass
 
     def reset(self):
         pass
@@ -450,10 +479,13 @@ class CoacDraftAgent(Agent):
             117, 55, 42, 153, 20, 156, 143, 110, 160, 140
         ]
     }
-    creatures_drafted, drafted = 0, 0
+
+    def seed(self, seed):
+        pass
 
     def __init__(self):
-        pass
+        self.creatures_drafted = 0
+        self.drafted = 0
 
     def reset(self):
         self.drafted = 0
@@ -479,6 +511,9 @@ class CoacDraftAgent(Agent):
 
 
 class RLDraftAgent(Agent):
+    def seed(self, seed):
+        pass
+
     def reset(self):
         pass
 
