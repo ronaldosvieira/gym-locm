@@ -38,10 +38,17 @@ def state_from_native_input(game_input):
             cost, attack, defense, keywords, player_hp, \
             opp_hp, card_draw, lane = next(game_input).split()
 
-        card = engine.Card(int(card_id), "", int(card_type), int(cost),
-                    int(attack), int(defense), keywords,
-                    int(player_hp), int(opp_hp), int(card_draw),
-                    "", instance_id=int(instance_id))
+        card_type = int(card_type)
+
+        types_dict = {0: engine.Creature, 1: engine.GreenItem,
+                      2: engine.RedItem, 3: engine.BlueItem}
+
+        card_class = types_dict[card_type]
+
+        card = card_class(int(card_id), "", card_type, int(cost),
+                          int(attack), int(defense), keywords,
+                          int(player_hp), int(opp_hp), int(card_draw),
+                          "", instance_id=int(instance_id))
 
         location = int(location)
         lane = int(lane)
