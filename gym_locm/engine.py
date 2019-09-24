@@ -220,6 +220,34 @@ class Action:
         return f"{self.type} {self.origin} {self.target}"
 
 
+def load_cards() -> List['Card']:
+    cards = []
+
+    with open('gym_locm/cardlist.txt', 'r') as card_list:
+        raw_cards = card_list.readlines()
+        type_mapping = {'creature': Creature, 'itemRed': RedItem,
+                        'itemGreen': GreenItem, 'itemBlue': BlueItem}
+
+        for card in raw_cards:
+            card_id, name, card_type, cost, attack, defense, \
+                keywords, player_hp, enemy_hp, card_draw, text = \
+                map(str.strip, card.split(';'))
+
+            card_class = type_mapping[card_type]
+
+            cards.append(card_class(int(card_id), name, card_type, int(cost),
+                                    int(attack), int(defense), keywords,
+                                    int(player_hp), int(enemy_hp),
+                                    int(card_draw), text))
+
+    assert len(cards) == 160
+
+    return cards
+
+
+_cards = load_cards()
+
+
 class State:
     def __init__(self, cards_in_deck=30, seed=None):
         self.np_random = None
@@ -363,7 +391,7 @@ class State:
         self.__available_actions = None
 
     def _new_draft(self) -> List[List[Card]]:
-        cards = self.load_cards()
+        cards = list(_cards)
 
         pool = self.np_random.choice(cards, 60, replace=False).tolist()
         draft = []
@@ -775,31 +803,6 @@ class State:
 
     def clone(self) -> 'State':
         return pickle.loads(pickle.dumps(self, -1))
-
-    @staticmethod
-    def load_cards() -> List[Card]:
-        cards = []
-
-        with open('gym_locm/cardlist.txt', 'r') as card_list:
-            raw_cards = card_list.readlines()
-            type_mapping = {'creature': Creature, 'itemRed': RedItem,
-                            'itemGreen': GreenItem, 'itemBlue': BlueItem}
-
-            for card in raw_cards:
-                card_id, name, card_type, cost, attack, defense, \
-                    keywords, player_hp, enemy_hp, card_draw, text = \
-                    map(str.strip, card.split(';'))
-
-                card_class = type_mapping[card_type]
-
-                cards.append(card_class(int(card_id), name, card_type, int(cost),
-                                        int(attack), int(defense), keywords,
-                                        int(player_hp), int(enemy_hp),
-                                        int(card_draw), text))
-
-        assert len(cards) == 160
-
-        return cards
 
 
 Game = State
