@@ -3,7 +3,7 @@ import pickle
 import sys
 import numpy as np
 
-from typing import List, NewType, Union
+from typing import List, NewType, Union, Tuple
 from enum import Enum, IntEnum
 
 from gym.utils import seeding
@@ -249,11 +249,11 @@ _cards = load_cards()
 
 
 class State:
-    __available_actions_draft = [
+    __available_actions_draft = (
         Action(ActionType.PICK, 0),
         Action(ActionType.PICK, 1),
         Action(ActionType.PICK, 2)
-    ]
+    )
 
     def __init__(self, cards_in_deck=30, seed=None):
         self.np_random = None
@@ -285,14 +285,14 @@ class State:
         return self.players[self._current_player.opposing()]
 
     @property
-    def available_actions(self) -> List[Action]:
+    def available_actions(self) -> Tuple[Action]:
         if self.__available_actions is not None:
             return self.__available_actions
 
         if self.phase == Phase.DRAFT:
             self.__available_actions = self.__available_actions_draft
         elif self.phase == Phase.ENDED:
-            self.__available_actions = []
+            self.__available_actions = ()
         else:
             summon, attack, use = [], [], []
 
@@ -360,7 +360,7 @@ class State:
             if not available_actions:
                 available_actions = [Action(ActionType.PASS)]
 
-            self.__available_actions = available_actions
+            self.__available_actions = tuple(available_actions)
 
         return self.__available_actions
 
