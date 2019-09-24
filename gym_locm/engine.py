@@ -480,13 +480,15 @@ class State:
             current_player.damage(deck_burn)
 
     def _eval_card_ref(self, card_ref: CardRef) -> Card:
+        c, o = self.current_player, self.opposing_player
+
         location_mapping = {
-            Location.PLAYER_HAND: self.current_player.hand,
-            Location.ENEMY_HAND: self.opposing_player.hand,
-            Location.PLAYER_LEFT_LANE: self.current_player.lanes[0],
-            Location.PLAYER_RIGHT_LANE: self.current_player.lanes[1],
-            Location.ENEMY_LEFT_LANE: self.opposing_player.lanes[0],
-            Location.ENEMY_RIGHT_LANE: self.opposing_player.lanes[1]
+            Location.PLAYER_HAND: c.hand,
+            Location.ENEMY_HAND: o.hand,
+            Location.PLAYER_LEFT_LANE: c.lanes[0],
+            Location.PLAYER_RIGHT_LANE: c.lanes[1],
+            Location.ENEMY_LEFT_LANE: o.lanes[0],
+            Location.ENEMY_RIGHT_LANE: o.lanes[1]
         }
 
         for card in location_mapping[card_ref.location]:
