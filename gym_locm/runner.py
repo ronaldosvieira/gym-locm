@@ -1,8 +1,11 @@
-import sys
 import argparse
-import threading
-
+import cProfile
+import io
+import sys
+from threading import Thread
 from datetime import datetime
+from pstats import SortKey, Stats
+
 from gym_locm import agents, engine
 
 
@@ -14,20 +17,26 @@ def cmdline_args():
     draft_choices = ["pass", "random", "rule-based", "icebox", "closet-ai", "coac"]
     battle_choices = ["pass", "random", "rule-based", "mcts"]
 
-    p.add_argument("--p1-draft", help="draft strategy used by player 1", required=True,
-                   choices=draft_choices)
-    p.add_argument("--p1-player", help="battle strategy used by player 1", required=True,
-                   choices=battle_choices)
-    p.add_argument("--p1-time", help="max thinking time for player 1", default=200)
+    p.add_argument("--p1-draft", help="draft strategy used by player 1",
+                   required=True, choices=draft_choices)
+    p.add_argument("--p1-player", help="battle strategy used by player 1",
+                   required=True, choices=battle_choices)
+    p.add_argument("--p1-time", help="max thinking time for player 1",
+                   default=200)
 
-    p.add_argument("--p2-draft", help="draft strategy used by player 2", required=True,
-                   choices=draft_choices)
-    p.add_argument("--p2-player", help="battle strategy used by player 2", required=True,
-                   choices=battle_choices)
-    p.add_argument("--p2-time", help="max thinking time for player 2", default=200)
+    p.add_argument("--p2-draft", help="draft strategy used by player 2",
+                   required=True, choices=draft_choices)
+    p.add_argument("--p2-player", help="battle strategy used by player 2",
+                   required=True, choices=battle_choices)
+    p.add_argument("--p2-time", help="max thinking time for player 2",
+                   default=200)
 
-    p.add_argument("--games", type=int, help="amount of games to run", default=1)
-    p.add_argument("--threads", type=int, help="amount of threads to use", default=1)
+    p.add_argument("--games", type=int, help="amount of games to run",
+                   default=1)
+    p.add_argument("--threads", type=int, help="amount of threads to use",
+                   default=1)
+    p.add_argument("--profile", action="store_true",
+                   help="whether to profile the runs (ignores thread parameter)")
 
     return p.parse_args()
 
@@ -99,15 +108,32 @@ if __name__ == '__main__':
     i = 0
     wins = 0
 
-    threads = []
+    if args.profile:
+        profiler = cProfile.Profile()
+        result = io.StringIO()
 
-    for _ in range(args.threads):
-        thread = threading.Thread(target=evaluate,
-                                  args=(player_1, player_2),
-                                  daemon=True)
-        thread.start()
+        profiler.enable()
 
-        threads.append(thread)
+        evaluate(player_1, player_2)
 
-    for thread in threads:
-        thread.join()
+        profiler.disable()
+
+        profiler_stats = Stats(profiler, stream=result)
+
+        profiler_stats.sort_stats(SortKey.CUMULATIVE)
+        profiler_stats.print_stats()
+
+        print(result.getvalue())
+    else:
+        threads = []
+
+        for _ in range(args.threads):
+            thread = Thread(target=evaluate,
+                            args=(player_1, player_2),
+                            daemon=True)
+            thread.start()
+
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
