@@ -76,7 +76,7 @@ class LOCMNode(Node):
 
     def is_terminal(self):
         """Returns True if the node has no children"""
-        return not self.state.available_actions
+        return self.state.winner is not None
 
     def reward(self):
         """Assumes `self` is terminal node. 1=win, 0=loss, .5=tie, etc"""
