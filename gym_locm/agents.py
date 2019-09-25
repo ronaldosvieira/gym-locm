@@ -279,14 +279,17 @@ class NativeAgent(Agent):
 
 
 class MCTSBattleAgent(Agent):
+    def __init__(self, agents=(RandomBattleAgent(), RandomBattleAgent())):
+        self.agents = agents
+
     def seed(self, seed):
         pass
 
     def reset(self):
         pass
 
-    def act(self, state, time_limit_ms=200):
-        searcher = MCTS()
+    def act(self, state, time_limit_ms=1000):
+        searcher = MCTS(agents=self.agents)
 
         if len(state.available_actions) == 1:
             return state.available_actions[0]

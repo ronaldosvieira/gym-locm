@@ -17,7 +17,8 @@ from gym_locm.engine import PlayerOrder
 class MCTS:
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, exploration_weight=1.41):
+    def __init__(self, agents, exploration_weight=1.41):
+        self.agents = agents
         self.Q = defaultdict(int)  # total reward of each node
         self.N = defaultdict(int)  # total visit count for each node
         self.children = defaultdict(list)  # children of each node
@@ -82,7 +83,8 @@ class MCTS:
         game = node.state.clone()
 
         while game.winner is None:
-            game.act(np.random.choice(game.available_actions))
+            action = self.agents[game.current_player.id].act(game)
+            game.act(action)
 
         return 1 if game.winner == PlayerOrder.FIRST else -1
 
