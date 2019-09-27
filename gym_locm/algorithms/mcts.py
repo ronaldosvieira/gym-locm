@@ -7,11 +7,57 @@ Modified by Ronaldo Vieira, 2019
 Original version:
 https://gist.github.com/qpwo/c538c6f73727e254fdc7fab81024f6e1
 """
+import random
 from collections import defaultdict
 import math
+from operator import attrgetter
+
 import numpy as np
 
 from gym_locm.engine import PlayerOrder
+
+
+class Node:
+    def __init__(self, state, actions, parent):
+        self.state = state
+        self.actions = actions
+        self.parent = parent
+
+    def __hash__(self):
+        """Nodes must be hashable"""
+        s = self.state
+        p0, p1 = self.state.players
+
+        attributes = [
+            s.phase, s.turn, s.current_player.id,
+            p0.health, p0.base_mana, p0.bonus_mana, p0.next_rune, p0.bonus_draw,
+            p1.health, p1.base_mana, p1.bonus_mana, p1.next_rune, p1.bonus_draw,
+            "p0", *[(c.id, c.instance_id) for c in sorted(p0.hand, key=attrgetter('id'))],
+            "p1", *[(c.id, c.instance_id) for c in sorted(p1.hand, key=attrgetter('id'))]
+        ]
+
+        for p in (p0, p1):
+            for j in range(2):
+                for i in range(3):
+                    if len(p.lanes[j]) > i:
+                        c = sorted(p.lanes[j], key=attrgetter('id'))[i]
+
+                        stats = [c.id, c.instance_id, c.attack, c.defense] + \
+                                list(map(int, map(c.keywords.__contains__, 'BCDGLW'))) + \
+                                [int(p.id), j, c.able_to_attack()]
+                    else:
+                        stats = [-1] * 12
+
+                    attributes.extend(stats)
+
+        for action in self.actions:
+            attributes.extend((action.type, action.origin, action.target))
+
+        return hash(tuple(attributes))
+
+    def __eq__(self, other):
+        """Nodes must be comparable"""
+        return hash(self) == hash(other)
 
 
 class MCTS:
@@ -24,69 +70,83 @@ class MCTS:
         self.children = defaultdict(list)  # children of each node
         self.exploration_weight = exploration_weight
 
-    def choose(self, node):
+    def choose(self, state):
+        node = Node(state, [], None)
+
         """Choose the best successor of node. (Choose a move in the game)"""
-        if node.is_terminal():
-            raise RuntimeError(f"choose called on terminal node {node}")
+        if state.winner is not None:
+            raise RuntimeError("choose called on terminal node")
 
         if node not in self.children:
-            return node.find_random_child()
+            index = int(len(state.available_actions) * random.random())
+
+            return state.available_actions[index]
 
         def score(n):
             if self.N[n] == 0:
                 return float("-inf")  # avoid unseen moves
             return self.Q[n] / self.N[n]  # average reward
 
-        return max(self.children[node], key=score)
+        return max(self.children[node], key=score).actions[-1]
 
-    def do_rollout(self, node):
+    def do_rollout(self, state):
+        node = Node(state, [], None)
+
         """"Make the tree one layer better. (Train for one iteration.)"""
-        path = self._select(node)
+        path, new_state = self._select(node)
         leaf = path[-1]
 
-        # if not leaf.is_terminal():
-        self._expand(leaf)
+        self._expand(leaf, state, new_state)
 
-        reward = self._simulate(leaf)
+        reward = self._simulate(leaf, new_state)
         self._backpropagate(path, reward)
 
     def _select(self, node):
         """Find an unexplored descendent of `node`"""
         path = []
 
+        state_copy = node.state.clone()
+
         while True:
             path.append(node)
 
             if node not in self.children or not self.children[node] \
-                    or node.is_terminal():
+                    or state_copy.winner is not None:
                 # node is either unexplored or terminal
-                return path
+                return path, state_copy
 
             unexplored = [item for item in self.children[node]
                           if item not in self.children.keys()]
 
             if unexplored:
                 n = unexplored.pop()
+                state_copy.act(n.actions[-1])
                 path.append(n)
-                return path
-            node = self._uct_select(node)  # descend a layer deeper
+                return path, state_copy
 
-    def _expand(self, node):
+            node = self._uct_select(node)  # descend a layer deeper
+            state_copy.act(node.actions[-1])
+
+    def _expand(self, node, root_state, new_state):
         """"Update the `children` dict with the children of `node`"""
         if node in self.children:
             return  # already expanded
-        # self.children[node].append(node.find_random_child())
-        self.children[node] = node.find_children()
 
-    def _simulate(self, node):
+        children = []
+
+        for action in new_state.available_actions:
+            children.append(Node(root_state, node.actions + [action], node))
+
+        self.children[node] = children
+
+    def _simulate(self, node, new_state):
         """Returns the reward for a random simulation (to completion) of `node`"""
-        game = node.state.clone()
 
-        while game.winner is None:
-            action = self.agents[game.current_player.id].act(game)
-            game.act(action)
+        while new_state.winner is None:
+            action = self.agents[new_state.current_player.id].act(new_state)
+            new_state.act(action)
 
-        return 1 if game.winner == PlayerOrder.FIRST else -1
+        return 1 if new_state.winner == PlayerOrder.FIRST else -1
 
     def _backpropagate(self, path, reward):
         """Send the reward back up to the ancestors of the leaf"""

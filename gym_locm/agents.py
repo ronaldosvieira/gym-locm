@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from gym_locm.engine import *
-from gym_locm.algorithms import LOCMNode, MCTS
+from gym_locm.algorithms import Node, MCTS
 
 import pexpect
 import time
@@ -271,13 +271,11 @@ class MCTSBattleAgent(Agent):
     def reset(self):
         pass
 
-    def act(self, state, time_limit_ms=1000):
+    def act(self, state, time_limit_ms=200):
         searcher = MCTS(agents=self.agents)
 
         if len(state.available_actions) == 1:
             return state.available_actions[0]
-
-        root = LOCMNode(state, None, None)
 
         start_time = int(time.time() * 1000.0)
 
@@ -287,11 +285,12 @@ class MCTSBattleAgent(Agent):
             if current_time - start_time > time_limit_ms:
                 break
 
-            searcher.do_rollout(root)
+            searcher.do_rollout(state)
 
-        best_child = searcher.choose(root)
 
-        return best_child.action
+        action = searcher.choose(state)
+
+        return action
 
 
 PassDraftAgent = PassBattleAgent
