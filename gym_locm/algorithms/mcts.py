@@ -98,7 +98,7 @@ class MCTS:
 
         self._expand(leaf, state, new_state)
 
-        reward = self._simulate(leaf, new_state)
+        reward = self._simulate(new_state)
         self._backpropagate(path, reward)
 
     def _select(self, node):
@@ -139,8 +139,30 @@ class MCTS:
 
         self.children[node] = children
 
-    def _simulate(self, node, new_state):
+    def _simulate(self, new_state):
         """Returns the reward for a random simulation (to completion) of `node`"""
+
+        amount_deck = len(new_state.opposing_player.deck)
+        amount_hand = len(new_state.opposing_player.hand)
+
+        new_deck = []
+
+        for i in range(amount_deck + amount_hand):
+            random_index = int(3 * random.random())
+
+            card = new_state._draft_cards[i][random_index].make_copy()
+
+            new_deck.append(card)
+
+        random.shuffle(new_deck)
+
+        new_state.opposing_player.deck = new_deck
+        new_state.opposing_player.hand = []
+
+        new_state.opposing_player.draw(amount=amount_hand)
+
+        for player in new_state.players:
+            random.shuffle(player.deck)
 
         while new_state.winner is None:
             action = self.agents[new_state.current_player.id].act(new_state)
