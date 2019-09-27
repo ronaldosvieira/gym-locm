@@ -63,7 +63,7 @@ class RuleBasedBattleAgent(Agent):
         current_lane = list(Lane)[state.turn % 2]
 
         for card in state.current_player.hand:
-            origin = CardRef(card, Location.PLAYER_HAND)
+            origin = card.instance_id
 
             if isinstance(card, Creature) and card.cost <= state.current_player.mana\
                     and len(state.current_player.lanes[current_lane]) < 3:
@@ -73,38 +73,36 @@ class RuleBasedBattleAgent(Agent):
 
             elif isinstance(card, GreenItem) and card.cost <= state.current_player.mana\
                     and friends:
-                lane = Lane.LEFT if friends[0] in state.current_player.lanes[0] else Lane.RIGHT
-                target = CardRef(friends[0], Location.PLAYER_BOARD + lane)
+                target = friends[0].instance_id
 
                 return Action(ActionType.USE, origin, target)
             elif isinstance(card, RedItem) and card.cost <= state.current_player.mana\
                     and foes:
-                lane = Lane.LEFT if foes[0] in state.opposing_player.lanes[0] else Lane.RIGHT
-                target = CardRef(foes[0], Location.ENEMY_BOARD + lane)
+                target = foes[0].instance_id
 
                 return Action(ActionType.USE, origin, target)
             elif isinstance(card, BlueItem) and card.cost <= state.current_player.mana:
                 return Action(ActionType.USE, origin, None)
 
         for card in state.current_player.lanes[Lane.LEFT]:
-            origin = CardRef(card, Location.PLAYER_LEFT_LANE)
+            origin = card.instance_id
 
             if card.can_attack and not card.has_attacked_this_turn:
                 for enemy in state.opposing_player.lanes[Lane.LEFT]:
                     if enemy.has_ability('G'):
-                        target = CardRef(enemy, Location.ENEMY_LEFT_LANE)
+                        target = enemy.instance_id
 
                         return Action(ActionType.ATTACK, origin, target)
 
                 return Action(ActionType.ATTACK, card, None)
 
         for card in state.current_player.lanes[Lane.RIGHT]:
-            origin = CardRef(card, Location.PLAYER_RIGHT_LANE)
+            origin = card.instance_id
 
             if card.can_attack and not card.has_attacked_this_turn:
                 for enemy in state.opposing_player.lanes[Lane.RIGHT]:
                     if enemy.has_ability('G'):
-                        target = CardRef(enemy, Location.ENEMY_RIGHT_LANE)
+                        target = enemy.instance_id
 
                         return Action(ActionType.ATTACK, origin, target)
 
@@ -208,26 +206,9 @@ class NativeAgent(Agent):
         return encoding
 
     @staticmethod
-    def _decode_actions(state, actions):
+    def _decode_actions(actions):
         actions = actions.split(';')
         decoded_actions = []
-
-        def _find_card(instance_id):
-            if instance_id == -1:
-                return None
-
-            locations = {
-                Location.PLAYER_HAND: state.current_player.hand,
-                Location.PLAYER_LEFT_LANE: state.current_player.lanes[Lane.LEFT],
-                Location.PLAYER_RIGHT_LANE: state.current_player.lanes[Lane.RIGHT],
-                Location.ENEMY_LEFT_LANE: state.opposing_player.lanes[Lane.LEFT],
-                Location.ENEMY_RIGHT_LANE: state.opposing_player.lanes[Lane.RIGHT]
-            }
-
-            for location, cards in locations.items():
-                for card in cards:
-                    if card.instance_id == instance_id:
-                        return CardRef(card, location)
 
         for action in actions:
             tokens = action.split()
@@ -240,18 +221,20 @@ class NativeAgent(Agent):
             elif tokens[0] == 'PICK':
                 decoded_actions.append(Action(ActionType.PICK, int(tokens[1])))
             elif tokens[0] == 'USE':
-                origin = _find_card(int(tokens[1]))
-                target = _find_card(int(tokens[2]))
+                origin = int(tokens[1])
+                target = int(tokens[2])
+                target = target if target >= 0 else None
 
                 decoded_actions.append(Action(ActionType.USE, origin, target))
             elif tokens[0] == 'SUMMON':
-                origin = _find_card(int(tokens[1]))
+                origin = int(tokens[1])
                 target = Lane(int(tokens[2]))
 
                 decoded_actions.append(Action(ActionType.SUMMON, origin, target))
             elif tokens[0] == 'ATTACK':
-                origin = _find_card(int(tokens[1]))
-                target = _find_card(int(tokens[2]))
+                origin = int(tokens[1])
+                target = int(tokens[2])
+                target = target if target >= 0 else None
 
                 decoded_actions.append(Action(ActionType.ATTACK, origin, target))
 
@@ -268,9 +251,9 @@ class NativeAgent(Agent):
         while not actions:
             actions = self._process.readline()
 
-            actions = list(reversed(self._decode_actions(state, actions)))
+            actions = list(reversed(self._decode_actions(actions)))
 
-        if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
+        if actions[0].type != ActionType.PASS and state.phase != Phase.DRAFT:
             actions = [Action(ActionType.PASS)] + actions
 
         self.action_buffer = actions
@@ -510,7 +493,7 @@ class CoacDraftAgent(Agent):
         if isinstance(state.current_player.hand[chosen_card], Creature):
             self.creatures_drafted += 1
 
-        return chosen_card
+        return Action(ActionType.PICK, chosen_card)
 
 
 class RLDraftAgent(Agent):

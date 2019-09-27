@@ -1,6 +1,7 @@
 import copy
 import pickle
 import sys
+
 import numpy as np
 
 from typing import List, NewType, Union, Tuple
@@ -190,20 +191,6 @@ class BlueItem(Item):
     pass
 
 
-class CardRef:
-    def __init__(self, card, location):
-        self.instance_id = card.instance_id
-        self.name = card.name
-        self.location = location
-
-    def __repr__(self):
-        return f"&({self.instance_id}: {self.name})"
-
-    def __eq__(self, other):
-        return self.instance_id == other.instance_id \
-               and self.location == other.location
-
-
 class Action:
     def __init__(self, action_type, origin=None, target=None):
         self.type = action_type
@@ -301,7 +288,7 @@ class State:
             o_lanes = self.opposing_player.lanes
 
             for card in filter(has_enough_mana(self.current_player.mana), c_hand):
-                origin = CardRef(card, Location.PLAYER_HAND)
+                origin = card.instance_id
 
                 if isinstance(card, Creature):
                     for lane in Lane:
@@ -311,24 +298,21 @@ class State:
                 elif isinstance(card, GreenItem):
                     for lane in Lane:
                         for friendly_creature in c_lanes[lane]:
-                            target = CardRef(friendly_creature,
-                                             Location.PLAYER_BOARD + lane)
+                            target = friendly_creature.instance_id
 
                             use.append(Action(ActionType.USE, origin, target))
 
                 elif isinstance(card, RedItem):
                     for lane in Lane:
                         for enemy_creature in o_lanes[lane]:
-                            target = CardRef(enemy_creature,
-                                             Location.ENEMY_BOARD + lane)
+                            target = enemy_creature.instance_id
 
                             use.append(Action(ActionType.USE, origin, target))
 
                 elif isinstance(card, BlueItem):
                     for lane in Lane:
                         for enemy_creature in o_lanes[lane]:
-                            target = CardRef(enemy_creature,
-                                             Location.ENEMY_BOARD + lane)
+                            target = enemy_creature.instance_id
 
                             use.append(Action(ActionType.USE, origin, target))
 
@@ -348,13 +332,11 @@ class State:
 
                 for friendly_creature in filter(Creature.able_to_attack,
                                                 c_lanes[lane]):
-                    origin = CardRef(friendly_creature,
-                                     Location.PLAYER_BOARD + lane)
+                    origin = friendly_creature.instance_id
 
                     for valid_target in valid_targets:
                         if valid_target is not None:
-                            valid_target = CardRef(valid_target,
-                                                   Location.ENEMY_BOARD + lane)
+                            valid_target = valid_target.instance_id
 
                         attack.append(Action(ActionType.ATTACK, origin, valid_target))
 
@@ -479,7 +461,7 @@ class State:
             deck_burn = current_player.health - current_player.next_rune
             current_player.damage(deck_burn)
 
-    def _eval_card_ref(self, card_ref: CardRef) -> Card:
+    def _find_card(self, instance_id: int) -> Card:
         c, o = self.current_player, self.opposing_player
 
         location_mapping = {
@@ -491,11 +473,12 @@ class State:
             Location.ENEMY_RIGHT_LANE: o.lanes[1]
         }
 
-        for card in location_mapping[card_ref.location]:
-            if card.instance_id == card_ref.instance_id:
-                return card
+        for location, cards in location_mapping.items():
+            for card in cards:
+                if card.instance_id == instance_id:
+                    return card
 
-        raise InvalidCardRefError(card_ref.instance_id)
+        raise InvalidCardError(instance_id)
 
     def _act_on_draft(self, action: Action):
         """Execute the action intended by the player in this draft turn"""
@@ -507,20 +490,12 @@ class State:
     def _act_on_battle(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
         try:
-            origin, target = action.origin, action.target
-
-            if isinstance(action.origin, CardRef):
-                origin = self._eval_card_ref(action.origin)
-
-            if isinstance(action.target, CardRef):
-                target = self._eval_card_ref(action.target)
-
             if action.type == ActionType.SUMMON:
-                self._do_summon(origin, target)
+                self._do_summon(action)
             elif action.type == ActionType.ATTACK:
-                self._do_attack(origin, target)
+                self._do_attack(action)
             elif action.type == ActionType.USE:
-                self._do_use(origin, target)
+                self._do_use(action)
             elif action.type == ActionType.PASS:
                 pass
             else:
@@ -530,7 +505,7 @@ class State:
         except (NotEnoughManaError,
                 MalformedActionError,
                 FullLaneError,
-                InvalidCardRefError) as e:
+                InvalidCardError) as e:
             eprint("Action error:", e.message)
 
         for player in self.players:
@@ -549,9 +524,17 @@ class State:
             self.phase = Phase.ENDED
             self.winner = PlayerOrder.FIRST
 
-    def _do_summon(self, origin: Card, target: Lane):
+    def _do_summon(self, action: Action):
         current_player = self.current_player
         opposing_player = self.opposing_player
+
+        origin, target = action.origin, action.target
+
+        if isinstance(action.origin, int):
+            origin = self._find_card(origin)
+
+        if isinstance(action.target, int):
+            target = Lane(target)
 
         if origin.cost > current_player.mana:
             raise NotEnoughManaError()
@@ -581,9 +564,17 @@ class State:
 
         current_player.mana -= origin.cost
 
-    def _do_attack(self, origin: Card, target: Union[None, Card]):
+    def _do_attack(self, action: Action):
         current_player = self.current_player
         opposing_player = self.opposing_player
+
+        origin, target = action.origin, action.target
+
+        if isinstance(action.origin, int):
+            origin = self._find_card(origin)
+
+        if isinstance(action.target, int):
+            target = self._find_card(target)
 
         if not isinstance(origin, Creature):
             raise MalformedActionError("Attacking card is not a "
@@ -645,9 +636,17 @@ class State:
 
         origin.has_attacked_this_turn = True
 
-    def _do_use(self, origin: Card, target: Union[None, Card]):
+    def _do_use(self, action: Action):
         current_player = self.current_player
         opposing_player = self.opposing_player
+
+        origin, target = action.origin, action.target
+
+        if isinstance(action.origin, int):
+            origin = self._find_card(origin)
+
+        if isinstance(action.target, int):
+            target = self._find_card(target)
 
         if origin.cost > current_player.mana:
             raise NotEnoughManaError()

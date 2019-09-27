@@ -41,8 +41,8 @@ class GameIsEndedError(ActionError):
         super().__init__(message)
 
 
-class InvalidCardRefError(ActionError):
-    def __init__(self, instance_id=None, message="Invalid card reference"):
+class InvalidCardError(ActionError):
+    def __init__(self, instance_id=None, message="Invalid instance id"):
         if instance_id is not None:
             message += f": {instance_id}"
 
