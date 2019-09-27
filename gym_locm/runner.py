@@ -4,7 +4,7 @@ import io
 import sys
 from threading import Thread
 from datetime import datetime
-from pstats import SortKey, Stats
+from pstats import Stats
 
 from gym_locm import agents, engine
 
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
         profiler_stats = Stats(profiler, stream=result)
 
-        profiler_stats.sort_stats(SortKey.CUMULATIVE)
+        profiler_stats.sort_stats('cumulative')
         profiler_stats.print_stats()
 
         print(result.getvalue())
