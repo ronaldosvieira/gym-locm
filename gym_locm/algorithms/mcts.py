@@ -23,8 +23,13 @@ class Node:
         self.actions = actions
         self.parent = parent
 
+        self._hash = None
+
     def __hash__(self):
         """Nodes must be hashable"""
+        if self._hash is not None:
+            return self._hash
+
         s = self.state
         p0, p1 = self.state.players
 
@@ -53,7 +58,9 @@ class Node:
         for action in self.actions:
             attributes.extend((action.type, action.origin, action.target))
 
-        return hash(tuple(attributes))
+        self._hash = hash(tuple(attributes))
+
+        return self._hash
 
     def __eq__(self, other):
         """Nodes must be comparable"""
