@@ -22,6 +22,7 @@ class Node:
         self.state = state
         self.actions = actions
         self.parent = parent
+        self.player_id = parent.player_id if parent else state.current_player.id
 
         self._hash = None
 
@@ -32,14 +33,16 @@ class Node:
 
         s = self.state
         p0, p1 = self.state.players
+        cp = self.state.players[self.player_id]
 
         attributes = [
             s.phase, s.turn, s.current_player.id,
-            p0.health, p0.base_mana, p0.bonus_mana, p0.next_rune, p0.bonus_draw,
-            p1.health, p1.base_mana, p1.bonus_mana, p1.next_rune, p1.bonus_draw,
-            "p0", *[(c.id, c.instance_id) for c in sorted(p0.hand, key=attrgetter('id'))],
-            "p1", *[(c.id, c.instance_id) for c in sorted(p1.hand, key=attrgetter('id'))]
+            p0.health, p0.base_mana + p0.bonus_mana, p0.bonus_draw,
+            p1.health, p1.base_mana + p1.bonus_mana, p1.bonus_draw
         ]
+
+        attributes.extend(c.instance_id
+                          for c in sorted(cp.hand, key=attrgetter('id')))
 
         for p in (p0, p1):
             for j in range(2):
@@ -47,9 +50,9 @@ class Node:
                     if len(p.lanes[j]) > i:
                         c = sorted(p.lanes[j], key=attrgetter('id'))[i]
 
-                        stats = [c.id, c.instance_id, c.attack, c.defense] + \
-                                list(map(int, map(c.keywords.__contains__, 'BCDGLW'))) + \
-                                [int(p.id), j, c.able_to_attack()]
+                        stats = [c.instance_id, c.attack, c.defense] + \
+                            list(map(int, map(c.keywords.__contains__, 'BCDGLW'))) + \
+                            [int(p.id), j, c.able_to_attack()]
                     else:
                         stats = [-1] * 12
 
