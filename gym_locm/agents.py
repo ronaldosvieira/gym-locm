@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from gym_locm.engine import *
-from gym_locm.algorithms import Node, MCTS
+from gym_locm.algorithms import MCTS
 
 import pexpect
 import time
@@ -266,7 +266,8 @@ class MCTSBattleAgent(Agent):
         self.agents = agents
 
     def seed(self, seed):
-        pass
+        for agent in self.agents:
+            agent.seed(seed)
 
     def reset(self):
         pass
