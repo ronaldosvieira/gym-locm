@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 
-from typing import List, NewType, Union, Tuple
+from typing import List, Tuple
 from enum import Enum, IntEnum
 
 from gym.utils import seeding

@@ -12,9 +12,7 @@ from collections import defaultdict
 import math
 from operator import attrgetter
 
-import numpy as np
-
-from gym_locm.engine import PlayerOrder
+from gym_locm.engine import PlayerOrder, ActionType, Action
 
 
 class Node:
