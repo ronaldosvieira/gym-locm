@@ -35,6 +35,7 @@ def cmdline_args():
                    default=1)
     p.add_argument("--threads", type=int, help="amount of threads to use",
                    default=1)
+    p.add_argument("--seed", type=int, help="seed to use on episodes", default=0)
     p.add_argument("--profile", action="store_true",
                    help="whether to profile the runs (ignores thread parameter)")
 
@@ -71,7 +72,7 @@ def evaluate(player_1, player_2):
         i += 1
         current_episode = i
 
-        game = engine.Game(seed=i)
+        game = engine.Game(seed=args.seed)
 
         for bot in draft_bots + battle_bots:
             bot.reset()
