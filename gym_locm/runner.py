@@ -72,7 +72,7 @@ def evaluate(player_1, player_2):
         i += 1
         current_episode = i
 
-        game = engine.Game(seed=args.seed)
+        game = engine.Game(seed=args.seed + i - 1)
 
         for bot in draft_bots + battle_bots:
             bot.reset()
