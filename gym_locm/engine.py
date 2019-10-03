@@ -316,7 +316,7 @@ class State:
 
                             use.append(Action(ActionType.USE, origin, target))
 
-                        use.append(Action(ActionType.USE, origin, None))
+                    use.append(Action(ActionType.USE, origin, None))
 
             for lane in Lane:
                 guard_creatures = []
