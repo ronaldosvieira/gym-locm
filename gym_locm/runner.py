@@ -15,7 +15,7 @@ def cmdline_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     draft_choices = ["pass", "random", "rule-based", "icebox", "closet-ai", "coac"]
-    battle_choices = ["pass", "random", "rule-based", "mcts"]
+    battle_choices = ["pass", "random", "rule-based", "coac", "mcts"]
 
     p.add_argument("--p1-draft", help="draft strategy used by player 1",
                    required=True, choices=draft_choices)
@@ -56,6 +56,7 @@ def parse_agent(draft_agent, battle_agent):
         "pass": agents.PassBattleAgent,
         "random": agents.RandomBattleAgent,
         "rule-based": agents.RuleBasedBattleAgent,
+        "coac": agents.CoacBattleAgent,
         "mcts": agents.MCTSBattleAgent
     }
 
