@@ -103,6 +103,40 @@ class Player:
 
         return amount
 
+    def clone(self):
+        cloned_player = Player.empty_copy()
+
+        cloned_player.id = self.id
+        cloned_player.health = self.health
+        cloned_player.base_mana = self.base_mana
+        cloned_player.bonus_mana = self.bonus_mana
+        cloned_player.mana = self.mana
+        cloned_player.next_rune = self.next_rune
+        cloned_player.bonus_draw = self.bonus_draw
+
+        cloned_player.deck = [card.make_copy(card.instance_id)
+                              for card in self.deck]
+        cloned_player.hand = [card.make_copy(card.instance_id)
+                              for card in self.hand]
+        cloned_player.lanes = tuple([[card.make_copy(card.instance_id)
+                                      for card in lane]
+                                     for lane in self.lanes])
+
+        cloned_player.actions = list(self.actions)
+
+        return cloned_player
+
+    @staticmethod
+    def empty_copy():
+        class Empty(Player):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = Player
+
+        return new_copy
+
 
 class Card:
     def __init__(self, card_id, name, card_type, cost, attack, defense, keywords,
@@ -123,12 +157,27 @@ class Card:
     def has_ability(self, keyword: str) -> bool:
         return keyword in self.keywords
 
-    def make_copy(self) -> 'Card':
-        card = copy.copy(self)
+    def make_copy(self, instance_id=None) -> 'Card':
+        cloned_card = Card.empty_copy(self)
 
-        card.instance_id = _next_instance_id()
+        cloned_card.id = self.id
+        cloned_card.name = self.name
+        cloned_card.type = self.type
+        cloned_card.cost = self.cost
+        cloned_card.attack = self.attack
+        cloned_card.defense = self.defense
+        cloned_card.keywords = set(self.keywords)
+        cloned_card.player_hp = self.player_hp
+        cloned_card.enemy_hp = self.enemy_hp
+        cloned_card.card_draw = self.card_draw
+        cloned_card.text = self.text
 
-        return card
+        if instance_id is not None:
+            cloned_card.instance_id = instance_id
+        else:
+            cloned_card.instance_id = _next_instance_id()
+
+        return cloned_card
 
     def __eq__(self, other):
         return other is not None \
@@ -138,6 +187,17 @@ class Card:
 
     def __repr__(self):
         return f"({self.instance_id}: {self.name})"
+
+    @staticmethod
+    def empty_copy(card):
+        class Empty(Card):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = type(card)
+
+        return new_copy
 
 
 class Creature(Card):
@@ -173,6 +233,15 @@ class Creature(Card):
             self.is_dead = True
 
         return amount
+
+    def make_copy(self, instance_id=None) -> 'Card':
+        cloned_card = super().make_copy(instance_id)
+
+        cloned_card.is_dead = self.is_dead
+        cloned_card.can_attack = self.can_attack
+        cloned_card.has_attacked_this_turn = self.has_attacked_this_turn
+
+        return cloned_card
 
 
 class Item(Card):
@@ -812,7 +881,34 @@ class State:
         return encoding
 
     def clone(self) -> 'State':
-        return pickle.loads(pickle.dumps(self, -1))
+        cloned_state = State.empty_copy()
+
+        cloned_state.np_random = np.random.RandomState()
+        cloned_state.np_random.set_state(self.np_random.get_state())
+
+        cloned_state.phase = self.phase
+        cloned_state.turn = self.turn
+        cloned_state._current_player = self._current_player
+        cloned_state.__available_actions = self.__available_actions
+        cloned_state.winner = self.winner
+        cloned_state.cards_in_deck = self.cards_in_deck
+        cloned_state._draft_cards = self._draft_cards
+        cloned_state.players = tuple([player.clone() for player in self.players])
+
+        return cloned_state
+
+        # return pickle.loads(pickle.dumps(self, -1))
+
+    @staticmethod
+    def empty_copy():
+        class Empty(State):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = State
+
+        return new_copy
 
 
 Game = State
