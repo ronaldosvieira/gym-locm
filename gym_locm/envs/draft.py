@@ -223,10 +223,15 @@ class LoCMDraftEnv(gym.Env):
 
                 self.draft_ordering = list(sorted_cards)
 
-            for i, card in enumerate(card_choices):
-                encoded_state[-(3 - i)] = self._encode_card(card)
+            for i in range(len(card_choices)):
+                index = self.draft_ordering[i]
+
+                encoded_state[-(3 - i)] = self._encode_card(card_choices[i])
 
         if self.use_draft_history:
+            if self.sort_cards:
+                chosen_cards = sorted(chosen_cards, key=lambda c: c.id)
+
             for j, card in enumerate(chosen_cards):
                 encoded_state[j] = self._encode_card(card)
 
