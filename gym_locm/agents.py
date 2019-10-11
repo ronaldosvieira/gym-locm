@@ -536,7 +536,9 @@ class IceboxDraftAgent(Agent):
         return value
 
     def act(self, state):
-        return np.argmax(list(map(self._icebox_eval, state.current_player.hand)))
+        index = np.argmax(list(map(self._icebox_eval, state.current_player.hand)))
+
+        return Action(ActionType.PICK, index)
 
 
 class ClosetAIDraftAgent(Agent):
@@ -569,7 +571,9 @@ class ClosetAIDraftAgent(Agent):
         return self.scores[card.id - 1]
 
     def act(self, state):
-        return np.argmax(list(map(self._closet_ai_eval, state.current_player.hand)))
+        index = np.argmax(list(map(self._closet_ai_eval, state.current_player.hand)))
+
+        return Action(ActionType.PICK, index)
 
 
 class CoacDraftAgent(Agent):
@@ -691,4 +695,4 @@ class RLDraftAgent(Agent):
     def act(self, state):
         action, _ = self.model.predict(state)
 
-        return action[0]
+        return Action(ActionType.PICK, action[0])
