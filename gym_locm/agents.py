@@ -541,6 +541,24 @@ class RuleBasedDraftAgent(Agent):
         return Action(ActionType.PICK, 0)
 
 
+class MaxAttackDraftAgent(Agent):
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        pass
+
+    def act(self, state):
+        hand = state.current_player.hand
+        index, max_attack = 0, 0
+
+        for i in range(3):
+            if isinstance(hand[i], Creature) and hand[i].attack > max_attack:
+                index, max_attack = i, hand[i].attack
+
+        return Action(ActionType.PICK, index)
+
+
 class IceboxDraftAgent(Agent):
     def seed(self, seed):
         pass
