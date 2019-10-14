@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from operator import attrgetter
 
 from gym_locm.engine import *
 from gym_locm.algorithms import MCTS
@@ -107,6 +108,51 @@ class RuleBasedBattleAgent(Agent):
                         return Action(ActionType.ATTACK, origin, target)
 
                 return Action(ActionType.ATTACK, origin, None)
+
+        return Action(ActionType.PASS)
+
+
+class MaxAttackBattleAgent(Agent):
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        pass
+
+    def act(self, state):
+        lanes = zip(list(Lane),
+                    state.current_player.lanes,
+                    state.opposing_player.lanes)
+
+        for lane, friends, foes in lanes:
+            guard_foes = filter(lambda c: c.has_ability('G'), foes)
+
+            friends = filter(Creature.able_to_attack, friends)
+            friends = sorted(friends, key=attrgetter('attack'), reverse=True)
+
+            for creature in friends:
+                try:
+                    target = next(guard_foes)
+                except StopIteration:
+                    target = None
+
+                return Action(ActionType.ATTACK, creature.instance_id, target)
+
+        creatures_in_hand = filter(is_it(Creature),
+                                   state.current_player.hand)
+        creatures_in_hand = filter(has_enough_mana(state.current_player.mana),
+                                   creatures_in_hand)
+        creatures_in_hand = sorted(creatures_in_hand,
+                                   key=attrgetter('attack'),
+                                   reverse=True)
+
+        lanes = (l for l in Lane if len(state.current_player.lanes[l]) < 3)
+
+        try:
+            for creature in creatures_in_hand:
+                return Action(ActionType.SUMMON, creature.instance_id, next(lanes))
+        except StopIteration:
+            pass
 
         return Action(ActionType.PASS)
 
