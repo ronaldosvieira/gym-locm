@@ -14,8 +14,10 @@ def cmdline_args():
         description="This is runner script for agent experimentation on gym-locm.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    draft_choices = ["pass", "random", "rule-based", "icebox", "closet-ai", "coac"]
-    battle_choices = ["pass", "random", "rule-based", "coac", "mcts"]
+    draft_choices = ["pass", "random", "rule-based", "max-attack",
+                     "icebox", "closet-ai", "coac"]
+    battle_choices = ["pass", "random", "rule-based", "max-attack",
+                      "coac", "mcts"]
 
     p.add_argument("--p1-draft", help="draft strategy used by player 1",
                    required=True, choices=draft_choices)
@@ -47,6 +49,7 @@ def parse_agent(draft_agent, battle_agent):
         "pass": agents.PassDraftAgent,
         "random": agents.RandomDraftAgent,
         "rule-based": agents.RuleBasedDraftAgent,
+        "max-attack": agents.MaxAttackDraftAgent,
         "icebox": agents.IceboxDraftAgent,
         "closet-ai": agents.ClosetAIDraftAgent,
         "coac": agents.CoacDraftAgent
@@ -56,6 +59,7 @@ def parse_agent(draft_agent, battle_agent):
         "pass": agents.PassBattleAgent,
         "random": agents.RandomBattleAgent,
         "rule-based": agents.RuleBasedBattleAgent,
+        "max-attack": agents.MaxAttackBattleAgent,
         "coac": agents.CoacBattleAgent,
         "mcts": agents.MCTSBattleAgent
     }
