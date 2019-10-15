@@ -682,6 +682,8 @@ class State:
 
         elif isinstance(target, Creature):
             try:
+                target_defense = target.defense
+
                 damage_dealt = target.damage(
                     origin.attack,
                     lethal=origin.has_ability('L'))
@@ -690,7 +692,7 @@ class State:
                     target.attack,
                     lethal=origin.has_ability('L'))
 
-                excess_damage = origin.attack - target.defense
+                excess_damage = damage_dealt - target_defense
 
                 if 'B' in origin.keywords and excess_damage > 0:
                     opposing_player.damage(excess_damage)
