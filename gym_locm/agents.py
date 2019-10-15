@@ -176,82 +176,6 @@ class NativeAgent(Agent):
         self.action_buffer = []
 
     @staticmethod
-    def _encode_state(state):
-        encoding = ""
-
-        p, o = state.current_player, state.opposing_player
-
-        for cp in p, o:
-            to_draw = 0 if state.phase == Phase.DRAFT else 1 + cp.bonus_draw
-
-            encoding += f"{cp.health} {cp.mana} {len(cp.deck)} " \
-                        f"{cp.next_rune} {to_draw}\n"
-
-        op_hand = 0 if state.phase == Phase.DRAFT else len(o.hand)
-        last_actions = []
-
-        for action in reversed(o.actions):
-            if action.type == ActionType.PASS:
-                break
-
-            last_actions.append(action)
-
-        encoding += f"{op_hand} {len(last_actions)}\n"
-
-        for a in last_actions:
-            names = {
-                ActionType.USE: 'USE',
-                ActionType.SUMMON: 'SUMMON',
-                ActionType.ATTACK: 'ATTACK',
-            }
-
-            target_id = -1 if a.target is None else a.target.instance_id
-
-            encoding += f"{a.origin.id} {names[a.type]} " \
-                        f"{a.origin.instance_id} {target_id}\n"
-
-        cards = p.hand + p.lanes[0] + p.lanes[1] + o.lanes[0] + o.lanes[1]
-
-        encoding += f"{len(cards)}\n"
-
-        for c in cards:
-            if c in p.hand:
-                c.location = 0
-                c.lane = -1
-            elif c in p.lanes[0] + p.lanes[1]:
-                c.location = 1
-                c.lane = 0 if c in p.lanes[0] else 1
-            elif c in o.lanes[0] + o.lanes[1]:
-                c.location = -1
-                c.lane = 0 if c in o.lanes[0] else 1
-
-            if c.type == 'creature':
-                c.cardType = 0
-            elif c.type == 'itemGreen':
-                c.cardType = 1
-            elif c.type == 'itemRed':
-                c.cardType = 2
-            elif c.type == 'itemBlue':
-                c.cardType = 3
-
-            abilities = list('------')
-
-            for i, a in enumerate(list('BCDGLW')):
-                if c.has_ability(a):
-                    abilities[i] = a
-
-            c.abilities = "".join(abilities)
-
-            c.instance_id = -1 if c.instance_id is None else c.instance_id
-
-        for i, c in enumerate(cards):
-            encoding += f"{c.id} {c.instance_id} {c.location} {c.cardType} " \
-                        f"{c.cost} {c.attack} {c.defense} {c.abilities} " \
-                        f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane}\n"
-
-        return encoding
-
-    @staticmethod
     def _decode_actions(actions):
         actions = actions.split(';')
         decoded_actions = []
@@ -290,7 +214,7 @@ class NativeAgent(Agent):
         if self.action_buffer:
             return self.action_buffer.pop()
 
-        self._process.write(self._encode_state(state))
+        self._process.write(str(state))
 
         actions = []
 
