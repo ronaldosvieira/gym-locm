@@ -177,7 +177,7 @@ class LoCMDraftEnv(gym.Env):
             print(f'P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%')
 
     def _render_native(self):
-        return self.state.as_string()
+        return str(self.state)
 
     def render(self, mode: str = 'text') -> Union[None, str]:
         """Builds a representation of the current state."""

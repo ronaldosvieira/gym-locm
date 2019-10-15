@@ -812,7 +812,26 @@ class State:
 
         current_player.mana -= origin.cost
 
-    def as_string(self) -> str:
+    def clone(self) -> 'State':
+        cloned_state = State.empty_copy()
+
+        cloned_state.np_random = np.random.RandomState()
+        cloned_state.np_random.set_state(self.np_random.get_state())
+
+        cloned_state.phase = self.phase
+        cloned_state.turn = self.turn
+        cloned_state._current_player = self._current_player
+        cloned_state.__available_actions = self.__available_actions
+        cloned_state.winner = self.winner
+        cloned_state.cards_in_deck = self.cards_in_deck
+        cloned_state._draft_cards = self._draft_cards
+        cloned_state.players = tuple([player.clone() for player in self.players])
+
+        return cloned_state
+
+        # return pickle.loads(pickle.dumps(self, -1))
+
+    def __str__(self) -> str:
         encoding = ""
 
         p, o = self.current_player, self.opposing_player
@@ -880,26 +899,7 @@ class State:
                 f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane}\n"
 
         return encoding
-
-    def clone(self) -> 'State':
-        cloned_state = State.empty_copy()
-
-        cloned_state.np_random = np.random.RandomState()
-        cloned_state.np_random.set_state(self.np_random.get_state())
-
-        cloned_state.phase = self.phase
-        cloned_state.turn = self.turn
-        cloned_state._current_player = self._current_player
-        cloned_state.__available_actions = self.__available_actions
-        cloned_state.winner = self.winner
-        cloned_state.cards_in_deck = self.cards_in_deck
-        cloned_state._draft_cards = self._draft_cards
-        cloned_state.players = tuple([player.clone() for player in self.players])
-
-        return cloned_state
-
-        # return pickle.loads(pickle.dumps(self, -1))
-
+    
     @staticmethod
     def empty_copy():
         class Empty(State):
