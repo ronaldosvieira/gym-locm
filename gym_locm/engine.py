@@ -810,10 +810,10 @@ class State:
             encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} " \
                 f"{len(cp.deck)} {cp.next_rune} {to_draw}\n"
 
-        op_hand = 0 if self.phase == Phase.DRAFT else len(o.hand)
+        op_hand = len(o.hand) if self.phase != Phase.DRAFT else 0
         last_actions = []
 
-        for action in reversed(o.actions):
+        for action in reversed(o.actions[:-1]):
             if action.type == ActionType.PASS:
                 break
 
@@ -821,17 +821,11 @@ class State:
 
         encoding += f"{op_hand} {len(last_actions)}\n"
 
-        for a in last_actions:
-            names = {
-                ActionType.USE: 'USE',
-                ActionType.SUMMON: 'SUMMON',
-                ActionType.ATTACK: 'ATTACK',
-            }
+        for a in reversed(last_actions):
+            target_id = -1 if a.target is None else a.target
 
-            target_id = -1 if a.target is None else a.target.instance_id
-
-            encoding += f"{a.origin.id} {names[a.type]} " \
-                f"{a.origin.instance_id} {target_id}\n"
+            encoding += f"{a.resolved_origin.id} {a.type.name} " \
+                f"{a.origin} {target_id}\n"
 
         cards = p.hand + p.lanes[0] + p.lanes[1] + o.lanes[0] + o.lanes[1]
 
