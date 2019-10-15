@@ -97,6 +97,38 @@ class MCTS:
 
         return max(self.children[node], key=score).actions[-1]
 
+    def choose_until_pass(self, state):
+        node = Node(state, [], None)
+
+        """Choose the best successor of node. (Choose a move in the game)"""
+        if state.winner is not None:
+            raise RuntimeError("choose called on terminal node")
+
+        actions = []
+
+        def score(n):
+            if self.N[n] == 0:
+                return float("-inf")  # avoid unseen moves
+            return self.Q[n] / self.N[n]  # average reward
+
+        while True:
+            try:
+                best_child = max(self.children[node], key=score)
+
+                actions.append(best_child.actions[-1])
+            except KeyError:
+                index = int(len(state.available_actions) * random.random())
+
+                actions.append(state.available_actions[index])
+
+                if actions[-1].type == ActionType.PASS:
+                    actions.append(Action(ActionType.PASS))
+
+            if actions[-1].type == ActionType.PASS:
+                return actions
+
+            node = best_child
+
     def do_rollout(self, state):
         node = Node(state, [], None)
 

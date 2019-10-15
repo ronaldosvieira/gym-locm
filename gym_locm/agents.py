@@ -242,7 +242,7 @@ class MCTSBattleAgent(Agent):
     def reset(self):
         pass
 
-    def act(self, state, time_limit_ms=200):
+    def act(self, state, time_limit_ms=200, multiple=False):
         searcher = MCTS(agents=self.agents)
 
         if len(state.available_actions) == 1:
@@ -258,8 +258,10 @@ class MCTSBattleAgent(Agent):
 
             searcher.do_rollout(state)
 
-
-        action = searcher.choose(state)
+        if multiple:
+            action = searcher.choose_until_pass(state)
+        else:
+            action = searcher.choose(state)
 
         return action
 
