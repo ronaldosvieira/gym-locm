@@ -510,6 +510,9 @@ class State:
             creature.can_attack = True
             creature.has_attacked_this_turn = False
 
+        if current_player.base_mana > 0 and current_player.mana == 0:
+            current_player.bonus_mana = 0
+
         if current_player.base_mana < 12:
             current_player.base_mana += 1
 
@@ -517,7 +520,6 @@ class State:
             + current_player.bonus_mana
 
         amount_to_draw = 1 + current_player.bonus_draw
-        current_player.bonus_draw = 0
 
         if self.turn > 50:
             current_player.deck = []
@@ -577,14 +579,13 @@ class State:
                 InvalidCardError) as e:
             eprint("Action error:", e.message)
 
+        self.current_player.bonus_draw = 0
+
         for player in self.players:
             for lane in player.lanes:
                 for creature in lane:
                     if creature.is_dead:
                         lane.remove(creature)
-
-        if self.current_player.mana == 0:
-            self.current_player.bonus_mana = 0
 
         if self.players[PlayerOrder.FIRST].health <= 0:
             self.phase = Phase.ENDED
@@ -813,8 +814,8 @@ class State:
         for cp in p, o:
             to_draw = 0 if self.phase == Phase.DRAFT else 1 + cp.bonus_draw
 
-            encoding += f"{cp.health} {cp.mana} {len(cp.deck)} " \
-                f"{cp.next_rune} {to_draw}\n"
+            encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} " \
+                f"{len(cp.deck)} {cp.next_rune} {to_draw}\n"
 
         op_hand = 0 if self.phase == Phase.DRAFT else len(o.hand)
         last_actions = []
