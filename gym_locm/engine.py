@@ -12,7 +12,7 @@ from gym.utils import seeding
 from gym_locm.exceptions import *
 from gym_locm.helpers import *
 
-instance_counter = -1
+instance_counter = 0
 
 
 def eprint(*args, **kwargs):
@@ -468,6 +468,17 @@ class State:
             player.lanes = ([], [])
 
             self.np_random.shuffle(player.deck)
+
+        d1, d2 = [], []
+
+        for card1, card2 in zip(*(p.deck for p in self.players)):
+            d1.append(card1.make_copy())
+            d2.append(card2.make_copy())
+
+        self.players[0].deck = list(reversed(d1))
+        self.players[1].deck = list(reversed(d2))
+
+        for player in self.players:
             player.draw(4)
             player.base_mana = 0
 
@@ -556,7 +567,7 @@ class State:
         chosen_index = action.origin if action.origin is not None else 0
         card = self.current_player.hand[chosen_index]
 
-        self.current_player.deck.append(card.make_copy())
+        self.current_player.deck.append(card)
 
     def _act_on_battle(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
