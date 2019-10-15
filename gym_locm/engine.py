@@ -561,12 +561,26 @@ class State:
     def _act_on_battle(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
         try:
+            origin, target = action.origin, action.target
+
+            if isinstance(action.origin, int):
+                origin = self._find_card(origin)
+
             if action.type == ActionType.SUMMON:
-                self._do_summon(action)
+                if isinstance(action.target, int):
+                    target = Lane(target)
+
+                self._do_summon(origin, target)
             elif action.type == ActionType.ATTACK:
-                self._do_attack(action)
+                if isinstance(action.target, int):
+                    target = self._find_card(target)
+
+                self._do_attack(origin, target)
             elif action.type == ActionType.USE:
-                self._do_use(action)
+                if isinstance(action.target, int):
+                    target = self._find_card(target)
+
+                self._do_use(origin, target)
             elif action.type == ActionType.PASS:
                 pass
             else:
@@ -594,17 +608,9 @@ class State:
             self.phase = Phase.ENDED
             self.winner = PlayerOrder.FIRST
 
-    def _do_summon(self, action: Action):
+    def _do_summon(self, origin, target):
         current_player = self.current_player
         opposing_player = self.opposing_player
-
-        origin, target = action.origin, action.target
-
-        if isinstance(action.origin, int):
-            origin = self._find_card(origin)
-
-        if isinstance(action.target, int):
-            target = Lane(target)
 
         if origin.cost > current_player.mana:
             raise NotEnoughManaError()
@@ -634,17 +640,9 @@ class State:
 
         current_player.mana -= origin.cost
 
-    def _do_attack(self, action: Action):
+    def _do_attack(self, origin, target):
         current_player = self.current_player
         opposing_player = self.opposing_player
-
-        origin, target = action.origin, action.target
-
-        if isinstance(action.origin, int):
-            origin = self._find_card(origin)
-
-        if isinstance(action.target, int):
-            target = self._find_card(target)
 
         if not isinstance(origin, Creature):
             raise MalformedActionError("Attacking card is not a "
@@ -706,17 +704,9 @@ class State:
 
         origin.has_attacked_this_turn = True
 
-    def _do_use(self, action: Action):
+    def _do_use(self, origin, target):
         current_player = self.current_player
         opposing_player = self.opposing_player
-
-        origin, target = action.origin, action.target
-
-        if isinstance(action.origin, int):
-            origin = self._find_card(origin)
-
-        if isinstance(action.target, int):
-            target = self._find_card(target)
 
         if origin.cost > current_player.mana:
             raise NotEnoughManaError()
