@@ -586,6 +586,9 @@ class State:
             else:
                 raise MalformedActionError("Invalid action type")
 
+            action.resolved_origin = origin
+            action.resolved_target = target
+
             self.current_player.actions.append(action)
         except (NotEnoughManaError,
                 MalformedActionError,
