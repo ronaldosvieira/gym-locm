@@ -701,7 +701,7 @@ class State:
 
                 origin.damage(
                     target.attack,
-                    lethal=origin.has_ability('L'))
+                    lethal=target.has_ability('L'))
 
                 excess_damage = damage_dealt - target_defense
 
