@@ -769,8 +769,12 @@ class State:
                 raise MalformedActionError(error)
 
             target.attack += origin.attack
-            target.defense += origin.defense
             target.keywords = target.keywords.difference(origin.keywords)
+
+            try:
+                target.damage(-origin.defense)
+            except WardShieldError:
+                pass
 
             if target.defense <= 0:
                 target.is_dead = True
@@ -791,8 +795,12 @@ class State:
 
             if isinstance(target, Creature):
                 target.attack += origin.attack
-                target.defense += origin.defense
                 target.keywords = target.keywords.difference(origin.keywords)
+
+                try:
+                    target.damage(-origin.defense)
+                except WardShieldError:
+                    pass
 
                 if target.defense <= 0:
                     target.is_dead = True
@@ -899,7 +907,7 @@ class State:
                 f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane}\n"
 
         return encoding
-    
+
     @staticmethod
     def empty_copy():
         class Empty(State):
