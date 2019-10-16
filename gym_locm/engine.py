@@ -759,9 +759,9 @@ class State:
             if target.defense <= 0:
                 target.is_dead = True
 
-            current_player.bonus_draw += target.card_draw
-            current_player.health += target.player_hp
-            opposing_player.health += target.enemy_hp
+            current_player.bonus_draw += origin.card_draw
+            current_player.health += origin.player_hp
+            opposing_player.health += origin.enemy_hp
 
         elif isinstance(origin, RedItem):
             is_opp_creature = \
@@ -784,9 +784,9 @@ class State:
             if target.defense <= 0:
                 target.is_dead = True
 
-            current_player.bonus_draw += target.card_draw
-            current_player.health += target.player_hp
-            opposing_player.health += target.enemy_hp
+            current_player.bonus_draw += origin.card_draw
+            current_player.health += origin.player_hp
+            opposing_player.health += origin.enemy_hp
 
         elif isinstance(origin, BlueItem):
             is_opp_creature = \
