@@ -78,6 +78,8 @@ class Player:
         self.next_rune = 25
         self.bonus_draw = 0
 
+        self.last_drawn = 0
+
         self.deck = []
         self.hand = []
         self.lanes = ([], [])
@@ -530,6 +532,7 @@ class State:
         current_player.mana = current_player.base_mana \
             + current_player.bonus_mana
 
+        amount_in_hand = len(current_player.hand)
         amount_to_draw = 1 + current_player.bonus_draw
 
         if self.turn > 50:
@@ -542,6 +545,9 @@ class State:
         except EmptyDeckError:
             deck_burn = current_player.health - current_player.next_rune
             current_player.damage(deck_burn)
+
+        current_player.bonus_draw = 0
+        current_player.last_drawn = len(current_player.hand) - amount_in_hand
 
     def _find_card(self, instance_id: int) -> Card:
         c, o = self.current_player, self.opposing_player
@@ -607,7 +613,6 @@ class State:
                 InvalidCardError) as e:
             eprint("Action error:", e.message)
 
-        self.current_player.bonus_draw = 0
 
         for player in self.players:
             for lane in player.lanes:
@@ -845,10 +850,10 @@ class State:
         p, o = self.current_player, self.opposing_player
 
         for cp in p, o:
-            to_draw = 0 if self.phase == Phase.DRAFT else 1 + cp.bonus_draw
+            draw = cp.last_drawn if cp == self.current_player else 1 + cp.bonus_draw
 
             encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} " \
-                f"{len(cp.deck)} {cp.next_rune} {to_draw}\n"
+                f"{len(cp.deck)} {cp.next_rune} {draw}\n"
 
         op_hand = len(o.hand) if self.phase != Phase.DRAFT else 0
         last_actions = []
