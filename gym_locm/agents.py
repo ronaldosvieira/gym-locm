@@ -210,25 +210,29 @@ class NativeAgent(Agent):
 
         return decoded_actions
 
-    def act(self, state):
+    def act(self, state, multiple=False):
         if self.action_buffer:
-            return self.action_buffer.pop()
+            if multiple:
+                return list(reversed(self.action_buffer))
+            else:
+                return self.action_buffer.pop()
 
         self._process.write(str(state))
 
         actions = []
 
         while not actions:
-            actions = self._process.readline()
+            actions = self._decode_actions(self._process.readline())
 
-            actions = list(reversed(self._decode_actions(actions)))
+        if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
+            actions += [Action(ActionType.PASS)]
 
-        if actions[0].type != ActionType.PASS and state.phase != Phase.DRAFT:
-            actions = [Action(ActionType.PASS)] + actions
+        if multiple:
+            return actions
+        else:
+            self.action_buffer = list(reversed(actions))
 
-        self.action_buffer = actions
-
-        return self.action_buffer.pop()
+            return self.action_buffer.pop()
 
 
 class MCTSBattleAgent(Agent):
