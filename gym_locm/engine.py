@@ -887,7 +887,9 @@ class State:
                 c.location = -1
                 c.lane = 0 if c in o.lanes[0] else 1
 
-            if c.type == 'creature':
+            if isinstance(c.type, int):
+                c.cardType = c.type
+            elif c.type == 'creature':
                 c.cardType = 0
             elif c.type == 'itemGreen':
                 c.cardType = 1
