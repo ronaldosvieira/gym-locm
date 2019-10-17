@@ -9,24 +9,34 @@ def has_enough_mana(available_mana):
     return lambda card: card.cost <= available_mana
 
 
+def mockup_card():
+    return engine.Card(0, "", 0, 0, 0, 0, "------", 0, 0, 0, "",
+                       instance_id=None)
+
+
 def state_from_native_input(game_input):
     state = engine.State()
 
     game_input = iter(game_input)
 
-    for player in state.players:
+    for i, player in enumerate(state.players):
         health, mana, deck, rune, draw = map(int, next(game_input).split())
 
         player.health = health
         player.mana = mana
+        player.base_mana = mana
         player.next_rune = rune
-        player.bonus_draw = 1 - draw
+        player.bonus_draw = 0 if i == 0 else draw - 1
+        player.last_drawn = draw if i == 0 else 1
 
         player.hand = []
+        player.deck = [mockup_card() for _ in range(deck)]
 
     state.phase = engine.Phase.DRAFT if mana == 0 else engine.Phase.BATTLE
 
     opp_hand, opp_actions = map(int, next(game_input).split())
+
+    state.opposing_player.hand = [mockup_card() for _ in range(opp_hand)]
 
     for _ in range(opp_actions):
         next(game_input)
