@@ -9,7 +9,7 @@ from pstats import Stats
 from gym_locm import agents, engine
 
 
-def cmdline_args():
+def get_arg_parser():
     p = argparse.ArgumentParser(
         description="This is runner script for agent experimentation on gym-locm.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -20,18 +20,24 @@ def cmdline_args():
                       "coac", "mcts"]
 
     p.add_argument("--p1-draft", help="draft strategy used by player 1",
-                   required=True, choices=draft_choices)
+                   choices=draft_choices)
     p.add_argument("--p1-player", help="battle strategy used by player 1",
-                   required=True, choices=battle_choices)
+                   choices=battle_choices)
     p.add_argument("--p1-time", help="max thinking time for player 1",
                    default=200)
+    p.add_argument("--p1-path",
+                   help="native agent to be used by player 1 - "
+                        "mutually exclusive with draft, battle and time args.")
 
     p.add_argument("--p2-draft", help="draft strategy used by player 2",
-                   required=True, choices=draft_choices)
+                   choices=draft_choices)
     p.add_argument("--p2-player", help="battle strategy used by player 2",
-                   required=True, choices=battle_choices)
+                   choices=battle_choices)
     p.add_argument("--p2-time", help="max thinking time for player 2",
                    default=200)
+    p.add_argument("--p2-path",
+                   help="native agent to be used by player 2 - "
+                        "mutually exclusive with draft, battle and time args")
 
     p.add_argument("--games", type=int, help="amount of games to run",
                    default=1)
@@ -41,7 +47,7 @@ def cmdline_args():
     p.add_argument("--profile", action="store_true",
                    help="whether to profile the runs (ignores thread parameter)")
 
-    return p.parse_args()
+    return p
 
 
 def parse_agent(draft_agent, battle_agent):
@@ -64,14 +70,14 @@ def parse_agent(draft_agent, battle_agent):
         "mcts": agents.MCTSBattleAgent
     }
 
-    return draft_choices[draft_agent], battle_choices[battle_agent]
+    return draft_choices[draft_agent](), battle_choices[battle_agent]()
 
 
 def evaluate(player_1, player_2):
     global i, wins
 
-    draft_bots = (player_1[0](), player_2[0]())
-    battle_bots = (player_1[1](), player_2[1]())
+    draft_bots = (player_1[0], player_2[0])
+    battle_bots = (player_1[1], player_2[1])
 
     while i < args.games:
         i += 1
@@ -101,15 +107,33 @@ def evaluate(player_1, player_2):
 
 
 if __name__ == '__main__':
-
     if sys.version_info < (3, 0, 0):
         sys.stderr.write("You need python 3.0 or later to run this script\n")
         sys.exit(1)
 
-    args = cmdline_args()
+    arg_parser = get_arg_parser()
+    args = arg_parser.parse_args()
 
-    player_1 = parse_agent(args.p1_draft, args.p1_player)
-    player_2 = parse_agent(args.p2_draft, args.p2_player)
+    if not args.p1_path and (not args.p1_draft or not args.p1_player):
+        sys.stderr.write("You should use either p1-path or both "
+                         "p1-draft and p1-battle or p1-path.\n")
+        sys.exit(1)
+    elif not args.p2_path and (not args.p2_draft or not args.p2_player):
+        sys.stderr.write("You should use either p2-path or both "
+                         "p2-draft and p2-battle.\n")
+        sys.exit(1)
+
+    if args.p1_path is not None:
+        player_1 = agents.NativeAgent(args.p1_path)
+        player_1 = (player_1, player_1)
+    else:
+        player_1 = parse_agent(args.p1_draft, args.p1_player)
+
+    if args.p2_path is not None:
+        player_2 = agents.NativeAgent(args.p2_path)
+        player_2 = (player_2, player_2)
+    else:
+        player_2 = parse_agent(args.p2_draft, args.p2_player)
 
     i = 0
     wins = 0
