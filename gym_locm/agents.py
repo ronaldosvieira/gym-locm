@@ -219,10 +219,15 @@ class NativeAgent(Agent):
 
         self._process.write(str(state))
 
-        actions = []
+        while True:
+            raw_output = self._process.readline()
 
-        while not actions:
-            actions = self._decode_actions(self._process.readline())
+            actions = self._decode_actions(raw_output)
+
+            if actions:
+                break
+            else:
+                eprint(raw_output, end="")
 
         if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
             actions += [Action(ActionType.PASS)]
