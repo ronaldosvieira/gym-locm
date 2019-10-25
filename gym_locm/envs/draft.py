@@ -106,39 +106,20 @@ class LoCMDraftEnv(gym.Env):
             # faster evaluation method for when only one battle is required
             # todo: check if this optimization is still necessary
             if self.evaluation_battles == 1:
-                # while the game doesn't end, get agents acting alternatively
-                while state.winner is None:
-                    agent = self.battle_agents[state.current_player.id]
+                winner = self.do_match(state)
 
-                    action = agent.act(state)
-
-                    state.act(action)
-
-                if state.winner == PlayerOrder.FIRST:
-                    self.results.append(1)
-                elif state.winner == PlayerOrder.SECOND:
-                    self.results.append(-1)
-
-                info['winner'].append(state.winner)
+                self.results = [1 if winner == PlayerOrder.FIRST else -1]
+                info['winner'] = [winner]
             else:
                 # for each evaluation battle required, copy the current
                 # start-of-battle state and do battle
                 for i in range(self.evaluation_battles):
                     state_copy = self.state.clone()
 
-                    while state_copy.winner is None:
-                        agent = self.battle_agents[state_copy.current_player.id]
+                    winner = self.do_match(state_copy)
 
-                        action = agent.act(state_copy)
-
-                        state_copy.act(action)
-
-                    if state_copy.winner == PlayerOrder.FIRST:
-                        self.results.append(1)
-                    elif state_copy.winner == PlayerOrder.SECOND:
-                        self.results.append(-1)
-
-                    info['winner'].append(state_copy.winner)
+                    self.results.append(1 if winner == PlayerOrder.FIRST else -1)
+                    info['winner'].append(winner)
 
             reward = np.mean(self.results)
             done = True
@@ -146,6 +127,21 @@ class LoCMDraftEnv(gym.Env):
             del info['turn']
 
         return self._encode_state(), reward, done, info
+
+    def do_match(self, state):
+        # reset the agents
+        for agent in self.battle_agents:
+            agent.reset()
+
+        # while the game doesn't end, get agents acting alternatively
+        while state.winner is None:
+            agent = self.battle_agents[state.current_player.id]
+
+            action = agent.act(state)
+
+            state.act(action)
+
+        return state.winner
 
     def _render_text_draft(self):
         playing_first = len(self.state.current_player.deck) == \
