@@ -21,7 +21,7 @@ class LoCMDraftEnv(gym.Env):
         # init bookkeeping structures
         self.results = []
         self.choices = ([], [])
-        self.draft_ordering = ()
+        self.draft_ordering = list(range(3))
 
         self.battle_agents = battle_agents
         self.evaluation_battles = evaluation_battles
@@ -60,7 +60,7 @@ class LoCMDraftEnv(gym.Env):
         # empty bookkeeping structures
         self.results = []
         self.choices = ([], [])
-        self.draft_ordering = ()
+        self.draft_ordering = list(range(3))
 
         # reset all agents' internal state
         for agent in self.battle_agents:
