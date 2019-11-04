@@ -53,8 +53,14 @@ class LoCMDraftEnv(gym.Env):
         Resets the environment.
         The game is put into its initial state and all agents are reset.
         """
+        # recover random state from current state obj
+        random_state = self.state.np_random
+
         # start a brand new game
         self.state = State()
+
+        # apply random state
+        self.state.np_random = random_state
 
         # empty bookkeeping structures
         self.results = []
