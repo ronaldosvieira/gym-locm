@@ -15,7 +15,6 @@ class LoCMDraftEnv(gym.Env):
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=True,
                  sort_cards=True,
-                 cards_in_deck=30,
                  evaluation_battles=1,
                  seed=None):
         # init bookkeeping structures
@@ -43,7 +42,7 @@ class LoCMDraftEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(3)
 
         # init game
-        self.state = State(cards_in_deck=cards_in_deck, seed=seed)
+        self.state = State(seed=seed)
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
@@ -243,13 +242,12 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
                  draft_agent=RandomDraftAgent(),
                  use_draft_history=True,
                  sort_cards=True,
-                 cards_in_deck=30,
                  evaluation_battles=1,
                  seed=None,
                  play_first=True):
         # init the env
         super().__init__(battle_agents, use_draft_history, sort_cards,
-                         cards_in_deck, evaluation_battles, seed)
+                         evaluation_battles, seed)
 
         # also init the draft agent and the new parameter
         self.draft_agent = draft_agent

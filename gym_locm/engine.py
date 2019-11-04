@@ -313,7 +313,7 @@ class State:
         Action(ActionType.PICK, 2)
     )
 
-    def __init__(self, cards_in_deck=30, seed=None):
+    def __init__(self, seed=None):
         self.np_random = None
         self.seed(seed)
 
@@ -324,8 +324,6 @@ class State:
         self.__available_actions = None
 
         self.winner = None
-
-        self.cards_in_deck = cards_in_deck
 
         self._draft_cards = self._new_draft()
 
@@ -456,7 +454,7 @@ class State:
         pool = cards[:60]
         draft = []
 
-        for _ in range(self.cards_in_deck):
+        for _ in range(30):
             self.np_random.shuffle(pool)
 
             draft.append(pool[:3])
@@ -497,8 +495,7 @@ class State:
             self._current_player = PlayerOrder.FIRST
             self.turn += 1
 
-            if self.turn > self.cards_in_deck \
-                    and self.phase == Phase.DRAFT:
+            if self.turn > 30 and self.phase == Phase.DRAFT:
                 self.phase = Phase.BATTLE
                 self.turn = 1
 
@@ -836,7 +833,6 @@ class State:
         cloned_state._current_player = self._current_player
         cloned_state.__available_actions = self.__available_actions
         cloned_state.winner = self.winner
-        cloned_state.cards_in_deck = self.cards_in_deck
         cloned_state._draft_cards = self._draft_cards
         cloned_state.players = tuple([player.clone() for player in self.players])
 
