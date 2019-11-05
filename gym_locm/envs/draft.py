@@ -1,15 +1,14 @@
 from typing import Union
 
 import gym
-from prettytable import PrettyTable
 
 from gym_locm.agents import *
 from gym_locm.engine import *
+from gym_locm.envs.base_env import LoCMEnv
 
 
-class LoCMDraftEnv(gym.Env):
+class LoCMDraftEnv(LoCMEnv):
     metadata = {'render.modes': ['text', 'native']}
-    card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self,
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
@@ -17,6 +16,8 @@ class LoCMDraftEnv(gym.Env):
                  sort_cards=True,
                  evaluation_battles=1,
                  seed=None):
+        super().__init__(seed=seed)
+
         # init bookkeeping structures
         self.results = []
         self.choices = ([], [])
@@ -40,13 +41,6 @@ class LoCMDraftEnv(gym.Env):
 
         # three actions possible - choose each of the three cards
         self.action_space = gym.spaces.Discrete(3)
-
-        # init game
-        self.state = State(seed=seed)
-
-    def seed(self, seed=None):
-        """Sets a seed for random choices in the game."""
-        self.state.seed(seed)
 
     def reset(self) -> np.array:
         """
@@ -148,67 +142,15 @@ class LoCMDraftEnv(gym.Env):
 
         return state.winner
 
-    def _render_text_draft(self):
-        playing_first = len(self.state.current_player.deck) == \
-                 len(self.state.opposing_player.deck)
-        print(f'######## TURN {self.state.turn} ########')
-        print()
-        print(f"Choosing for player {0 if playing_first else 1}")
-
-        table = PrettyTable(['Index', 'Name', 'Cost', 'Description'])
-
-        for i, card in enumerate(self.state.current_player.hand):
-            table.add_row([i, card.name, card.cost, card.text])
-
-        print(table)
-
-    def _render_text_battle(self):
-        pass  # todo: implement
-
     def _render_text_ended(self):
         if len(self.results) == 1:
-            print(f'*         *    .            *     .   *      .   *\n'
-                  f'    .             *   .    * .         .\n'
-                  f'*        *    .    PLAYER {self.state.winner} WON!       *.   . *\n'
-                  f'*     .   *         *         .       *.      *   .\n'  
-                  f'.              *      .     * .         .')
+            super()._render_text_ended()
         else:
             wins_by_p0 = int(((np.mean(self.results) + 1) / 2) * 100)
 
             print(f'P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%')
 
-    def _render_native(self):
-        return str(self.state)
-
-    def render(self, mode: str = 'text') -> Union[None, str]:
-        """Builds a representation of the current state."""
-        # if text mode, print appropriate representation
-        if mode == 'text':
-            if self.state.phase == Phase.DRAFT:
-                self._render_text_draft()
-            elif self.state.phase == Phase.BATTLE:
-                self._render_text_battle()
-            elif self.state.phase == Phase.ENDED:
-                self._render_text_ended()
-        # if native mode, build and return input string
-        elif mode == 'native':
-            return self._render_native()
-
-    def _encode_card(self, card):
-        card_type = [1.0 if isinstance(card, card_type) else 0.0
-                     for card_type in self.card_types]
-        cost = card.cost / 12
-        attack = card.attack / 12
-        defense = max(-12, card.defense) / 12
-        keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
-        player_hp = card.player_hp / 12
-        enemy_hp = card.enemy_hp / 12
-        card_draw = card.card_draw / 2
-
-        return card_type + [cost, attack, defense, player_hp,
-                            enemy_hp, card_draw] + keywords
-
-    def _encode_state(self):
+    def _encode_state_draft(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
         chosen_cards = self.choices[self.state.current_player.id]
@@ -227,16 +169,19 @@ class LoCMDraftEnv(gym.Env):
             for i in range(len(card_choices)):
                 index = self.draft_ordering[i]
 
-                encoded_state[-(3 - i)] = self._encode_card(card_choices[i])
+                encoded_state[-(3 - i)] = self.encode_card(card_choices[i])
 
         if self.use_draft_history:
             if self.sort_cards:
                 chosen_cards = sorted(chosen_cards, key=lambda c: c.id)
 
             for j, card in enumerate(chosen_cards):
-                encoded_state[j] = self._encode_card(card)
+                encoded_state[j] = self.encode_card(card)
 
         return encoded_state
+
+    def _encode_state_battle(self):
+        pass
 
     @property
     def _draft_is_finished(self):
