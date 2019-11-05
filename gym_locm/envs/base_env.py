@@ -6,7 +6,7 @@ from prettytable import PrettyTable
 from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, State, Phase
 
 
-class LoCMEnv(gym.Env, ABC):
+class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self, seed=None):
@@ -61,7 +61,7 @@ class LoCMEnv(gym.Env, ABC):
     def encode_card(card):
         """ Encodes a card object into a numerical array. """
         card_type = [1.0 if isinstance(card, card_type) else 0.0
-                     for card_type in LoCMEnv.card_types]
+                     for card_type in LOCMEnv.card_types]
         cost = card.cost / 12
         attack = card.attack / 12
         defense = max(-12, card.defense) / 12

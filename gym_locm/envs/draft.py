@@ -4,10 +4,10 @@ import gym
 
 from gym_locm.agents import *
 from gym_locm.engine import *
-from gym_locm.envs.base_env import LoCMEnv
+from gym_locm.envs.base_env import LOCMEnv
 
 
-class LoCMDraftEnv(LoCMEnv):
+class LOCMDraftEnv(LOCMEnv):
     metadata = {'render.modes': ['text', 'native']}
 
     def __init__(self,
@@ -188,7 +188,7 @@ class LoCMDraftEnv(LoCMEnv):
         return self.state.phase != Phase.DRAFT
 
 
-class LoCMDraftSingleEnv(LoCMDraftEnv):
+class LOCMDraftSingleEnv(LOCMDraftEnv):
     def __init__(self, battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  draft_agent=RandomDraftAgent(),
                  use_draft_history=True,
@@ -230,7 +230,7 @@ class LoCMDraftSingleEnv(LoCMDraftEnv):
         return result
 
 
-class LoCMDraftSelfPlayEnv(LoCMDraftEnv):
+class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
     def __init__(self, model,
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=True,

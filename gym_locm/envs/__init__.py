@@ -1,1 +1,1 @@
-from gym_locm.envs.draft import LoCMDraftEnv, LoCMDraftSingleEnv
+from gym_locm.envs.draft import LOCMDraftEnv, LOCMDraftSingleEnv

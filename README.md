@@ -7,12 +7,12 @@
 
 ## Environments
 
-1. LoCM-draft-v0 (draft phase only)
-2. LoCM-draft-2p-v0 (draft phase only, both players)
-3. ~LoCM-battle-v0 (battle phase only)~
-4. ~LoCM-battle-2p-v0 (battle phase only, both players)~
-5. ~LoCM-v0 (full game)~
-6. ~LoCM-2p-v0 (full game, both players)~
+1. LOCM-draft-v0 (draft phase only)
+2. LOCM-draft-2p-v0 (draft phase only, both players)
+3. ~LOCM-battle-v0 (battle phase only)~
+4. ~LOCM-battle-2p-v0 (battle phase only, both players)~
+5. ~LOCM-v0 (full game)~
+6. ~LOCM-2p-v0 (full game, both players)~
 
 (Crossed = not implemented yet)
 
@@ -29,7 +29,7 @@ pip install -e .
 import gym
 import gym_locm
 
-env = gym.make('LoCM-XXX-vX')
+env = gym.make('LOCM-XXX-vX')
 ```
 
 ## License
