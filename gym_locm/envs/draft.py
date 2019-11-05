@@ -290,13 +290,12 @@ class LoCMDraftSelfPlayEnv(LoCMDraftEnv):
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=True,
                  sort_cards=True,
-                 cards_in_deck=30,
                  evaluation_battles=1,
                  seed=None,
                  play_first=True):
         # init the env
         super().__init__(battle_agents, use_draft_history, sort_cards,
-                         cards_in_deck, evaluation_battles, seed)
+                         evaluation_battles, seed)
 
         # also init the new parameters
         self.play_first = play_first
