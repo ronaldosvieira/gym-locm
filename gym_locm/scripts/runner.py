@@ -8,6 +8,8 @@ from pstats import Stats
 
 from gym_locm import agents, engine
 
+i, wins = 0, 0
+
 
 def get_arg_parser():
     p = argparse.ArgumentParser(
@@ -73,17 +75,17 @@ def parse_agent(draft_agent, battle_agent):
     return draft_choices[draft_agent](), battle_choices[battle_agent]()
 
 
-def evaluate(player_1, player_2):
+def evaluate(player_1, player_2, games, seed):
     global i, wins
 
     draft_bots = (player_1[0], player_2[0])
     battle_bots = (player_1[1], player_2[1])
 
-    while i < args.games:
+    while i < games:
         i += 1
         current_episode = i
 
-        game = engine.Game(seed=args.seed + i - 1)
+        game = engine.Game(seed=seed + i - 1)
 
         for bot in draft_bots + battle_bots:
             bot.reset()
@@ -106,7 +108,7 @@ def evaluate(player_1, player_2):
         print(f"{datetime.now()} Episode {current_episode}: {'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
 
 
-if __name__ == '__main__':
+def run():
     if sys.version_info < (3, 0, 0):
         sys.stderr.write("You need python 3.0 or later to run this script\n")
         sys.exit(1)
@@ -135,8 +137,7 @@ if __name__ == '__main__':
     else:
         player_2 = parse_agent(args.p2_draft, args.p2_player)
 
-    i = 0
-    wins = 0
+    params = (player_1, player_2, args.games, args.seed)
 
     if args.profile:
         profiler = cProfile.Profile()
@@ -144,7 +145,7 @@ if __name__ == '__main__':
 
         profiler.enable()
 
-        evaluate(player_1, player_2)
+        evaluate(*params)
 
         profiler.disable()
 
@@ -158,12 +159,14 @@ if __name__ == '__main__':
         threads = []
 
         for _ in range(args.threads):
-            thread = Thread(target=evaluate,
-                            args=(player_1, player_2),
-                            daemon=True)
+            thread = Thread(target=evaluate, args=params, daemon=True)
             thread.start()
 
             threads.append(thread)
 
         for thread in threads:
             thread.join()
+
+
+if __name__ == '__main__':
+    run()
