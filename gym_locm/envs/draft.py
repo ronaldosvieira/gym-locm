@@ -169,7 +169,7 @@ class LOCMDraftEnv(LOCMEnv):
             for i in range(len(card_choices)):
                 index = self.draft_ordering[i]
 
-                encoded_state[-(3 - i)] = self.encode_card(card_choices[i])
+                encoded_state[-(3 - i)] = self.encode_card(card_choices[index])
 
         if self.use_draft_history:
             if self.sort_cards:
