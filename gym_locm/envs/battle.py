@@ -69,10 +69,33 @@ class LOCMBattleEnv(LOCMEnv):
 
     @staticmethod
     def encode_players(current, opposing):
-        pass  # todo: implement
+        return current.health, current.mana, current.next_rune, \
+                1 + current.bonus_draw, opposing.health, \
+                opposing.base_mana + opposing.bonus_mana, \
+                opposing.next_rune, 1 + opposing.bonus_draw
 
     def _encode_state_draft(self):
         pass
 
     def _encode_state_battle(self):
-        pass  # todo: implement
+        encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
+
+        p0, p1 = self.state.current_player, self.state.opposing_player
+
+        # players info
+        encoded_state[:8] = self.encode_players(p0, p1)
+
+        # current player's hand and board
+        encoded_state[8:8 + 16 * len(p0.hand)] = map(self.encode_card, p0.hand)
+        encoded_state[136:136 + 16 * len(p0.lanes[0])] = \
+            map(self.encode_card, p0.lanes[0])
+        encoded_state[184:184 + 16 * len(p0.lanes[1])] = \
+            map(self.encode_card, p0.lanes[1])
+
+        # opposing player's board
+        encoded_state[232:232 + 16 * len(p1.lanes[0])] = \
+            map(self.encode_card, p1.lanes[0])
+        encoded_state[280:280 + 16 * len(p1.lanes[1])] = \
+            map(self.encode_card, p1.lanes[1])
+
+        return encoded_state
