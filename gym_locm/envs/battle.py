@@ -64,9 +64,6 @@ class LOCMBattleEnv(LOCMEnv):
 
         return self._encode_state()
 
-    def render(self, mode='human'):
-        pass  # todo: implement
-
     @staticmethod
     def encode_players(current, opposing):
         return current.health, current.mana, current.next_rune, \
