@@ -2,6 +2,7 @@ import gym
 import numpy as np
 
 from gym_locm.agents import RandomDraftAgent
+from gym_locm.engine import Phase
 from gym_locm.envs.base_env import LOCMEnv
 
 
@@ -13,7 +14,31 @@ class LOCMBattleEnv(LOCMEnv):
                  seed=None):
         super().__init__(seed=seed)
 
-        # todo: implement the rest
+        self.draft_agents = draft_agents,
+
+        cards_in_state = 8 + 6 + 6  # 20 cards
+        card_features = 16
+        player_features = 4  # hp, mana, next_rune, next_draw
+
+        # 328 features
+        self.state_shape = player_features * 2 + cards_in_state * card_features
+        self.observation_space = gym.spaces.Box(
+            low=-1.0, high=1.0, shape=self.state_shape, dtype=np.float32
+        )
+
+        # 163 possible actions
+        self.action_space = gym.spaces.Discrete(163)
+
+        # reset all agents' internal state
+        for agent in self.draft_agents:
+            agent.reset()
+
+        # play through draft
+        while self.state.phase == Phase.DRAFT:
+            for agent in self.draft_agents:
+                action = agent.act(self.state)
+
+                self.state.act(action)
 
     def step(self, action):
         pass  # todo: implement
