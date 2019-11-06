@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from gym_locm.agents import RandomDraftAgent
-from gym_locm.engine import Phase
+from gym_locm.engine import State, Phase
 from gym_locm.envs.base_env import LOCMEnv
 
 
@@ -44,7 +44,25 @@ class LOCMBattleEnv(LOCMEnv):
         pass  # todo: implement
 
     def reset(self) -> np.array:
-        pass  # todo: implement
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # start a brand new game
+        state = State()
+
+        # reset all agents' internal state
+        for agent in self.draft_agents:
+            agent.reset()
+
+        # play through draft
+        while state.phase == Phase.DRAFT:
+            for agent in self.draft_agents:
+                state.act(agent.act(state))
+
+        self.state = state
+
+        return self._encode_state()
 
     def render(self, mode='human'):
         pass  # todo: implement
