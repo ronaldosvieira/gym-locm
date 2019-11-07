@@ -2,8 +2,9 @@ import gym
 import numpy as np
 
 from gym_locm.agents import RandomDraftAgent
-from gym_locm.engine import State, Phase
+from gym_locm.engine import State, Phase, Action, PlayerOrder
 from gym_locm.envs.base_env import LOCMEnv
+from gym_locm.exceptions import GameIsEndedError, MalformedActionError
 
 
 class LOCMBattleEnv(LOCMEnv):
@@ -41,7 +42,37 @@ class LOCMBattleEnv(LOCMEnv):
                 self.state.act(action)
 
     def step(self, action):
-        pass  # todo: implement
+        """Makes an action in the game."""
+        # if the battle is finished, there should be no more actions
+        if self._battle_is_finished:
+            raise GameIsEndedError()
+
+        # check if an action object was passed
+        if not isinstance(action, Action):
+            raise MalformedActionError(f"Action should be an action object, "
+                                       f"not {type(action)}")
+
+        # less property accesses
+        state = self.state
+
+        # execute the action
+        state.act(action)
+
+        # build return info
+        winner = state.winner
+
+        reward = 0
+        done = state.winner is not None
+        info = {'phase': state.phase,
+                'turn': state.turn,
+                'winner': state.winner}
+
+        if winner is not None:
+            reward = 1 if winner == PlayerOrder.FIRST else -1
+
+            del info['turn']
+
+        return self._encode_state(), reward, done, info
 
     def reset(self) -> np.array:
         """
