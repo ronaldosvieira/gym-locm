@@ -183,10 +183,6 @@ class LOCMDraftEnv(LOCMEnv):
     def _encode_state_battle(self):
         pass
 
-    @property
-    def _draft_is_finished(self):
-        return self.state.phase != Phase.DRAFT
-
 
 class LOCMDraftSingleEnv(LOCMDraftEnv):
     def __init__(self, battle_agents=(RandomBattleAgent(), RandomBattleAgent()),

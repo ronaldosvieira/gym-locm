@@ -89,3 +89,11 @@ class LOCMEnv(gym.Env, ABC):
     def _encode_state_battle(self):
         """ Encodes a state object in the battle phase. """
         pass
+
+    @property
+    def _draft_is_finished(self):
+        return self.state.phase > Phase.DRAFT
+
+    @property
+    def _battle_is_finished(self):
+        return self.state.phase > Phase.BATTLE
