@@ -24,7 +24,7 @@ class LOCMBattleEnv(LOCMEnv):
         # 328 features
         self.state_shape = player_features * 2 + cards_in_state * card_features
         self.observation_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=self.state_shape, dtype=np.float32
+            low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
 
         # 163 possible actions
