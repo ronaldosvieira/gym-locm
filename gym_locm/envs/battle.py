@@ -15,7 +15,7 @@ class LOCMBattleEnv(LOCMEnv):
                  seed=None):
         super().__init__(seed=seed)
 
-        self.draft_agents = draft_agents,
+        self.draft_agents = draft_agents
 
         cards_in_state = 8 + 6 + 6  # 20 cards
         card_features = 16
