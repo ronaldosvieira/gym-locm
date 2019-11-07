@@ -110,20 +110,30 @@ class LOCMBattleEnv(LOCMEnv):
 
         p0, p1 = self.state.current_player, self.state.opposing_player
 
+        dummy_card = [0] * 16
+
+        def fill_cards(card_list, up_to):
+            remaining_cards = up_to - len(card_list)
+
+            return card_list + [dummy_card for _ in range(remaining_cards)]
+
+        all_cards = []
+
+        locations = p0.hand, p0.lanes[0], p0.lanes[1], p1.lanes[0], p1.lanes[1]
+        card_limits = 8, 3, 3, 3, 3
+
+        for location, card_limit in zip(locations, card_limits):
+            # convert all cards to features
+            location = list(map(self.encode_card, location))
+
+            # add dummy cards up to the card limit
+            location = fill_cards(location, up_to=card_limit)
+
+            # add to card list
+            all_cards.extend(location)
+
         # players info
         encoded_state[:8] = self.encode_players(p0, p1)
-
-        # current player's hand and board
-        encoded_state[8:8 + 16 * len(p0.hand)] = map(self.encode_card, p0.hand)
-        encoded_state[136:136 + 16 * len(p0.lanes[0])] = \
-            map(self.encode_card, p0.lanes[0])
-        encoded_state[184:184 + 16 * len(p0.lanes[1])] = \
-            map(self.encode_card, p0.lanes[1])
-
-        # opposing player's board
-        encoded_state[232:232 + 16 * len(p1.lanes[0])] = \
-            map(self.encode_card, p1.lanes[0])
-        encoded_state[280:280 + 16 * len(p1.lanes[1])] = \
-            map(self.encode_card, p1.lanes[1])
+        encoded_state[8:] = np.array(all_cards).flatten()
 
         return encoded_state
