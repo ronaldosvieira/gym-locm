@@ -31,12 +31,10 @@ class LOCMEnv(gym.Env, ABC):
             return self._render_native()
 
     def _render_text_draft(self):
-        playing_first = len(self.state.current_player.deck) == \
-                 len(self.state.opposing_player.deck)
-        print(f'######## TURN {self.state.turn} ########')
+        print(f'######## TURN {self.state.turn}: '
+              f'PLAYER {self.state.current_player.id} ########')
         print()
-        print(f"Choosing for player {0 if playing_first else 1}")
-
+        
         table = PrettyTable(['Index', 'Name', 'Cost', 'Description'])
 
         for i, card in enumerate(self.state.current_player.hand):
