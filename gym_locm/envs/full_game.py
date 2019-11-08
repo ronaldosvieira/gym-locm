@@ -101,7 +101,46 @@ class LOCMFullGameEnv(LOCMEnv):
         return self._encode_state(), reward, done, info
 
     def _encode_state_battle(self):
-        pass
+        encoded_state = np.full(self.state_shapes[Phase.BATTLE],
+                                0, dtype=np.float32)
+
+        p0, p1 = self.state.current_player, self.state.opposing_player
+
+        dummy_card = [0] * 16
+
+        def fill_cards(card_list, up_to):
+            remaining_cards = up_to - len(card_list)
+
+            return card_list + [dummy_card for _ in range(remaining_cards)]
+
+        all_cards = []
+
+        locations = p0.hand, p0.lanes[0], p0.lanes[1], p1.lanes[0], p1.lanes[1]
+        card_limits = 8, 3, 3, 3, 3
+
+        for location, card_limit in zip(locations, card_limits):
+            # convert all cards to features
+            location = list(map(self.encode_card, location))
+
+            # add dummy cards up to the card limit
+            location = fill_cards(location, up_to=card_limit)
+
+            # add to card list
+            all_cards.extend(location)
+
+        # players info
+        encoded_state[:8] = self.encode_players(p0, p1)
+        encoded_state[8:] = np.array(all_cards).flatten()
+
+        return encoded_state
 
     def _encode_state_draft(self):
-        pass
+        encoded_state = np.full(self.state_shapes[Phase.DRAFT],
+                                0, dtype=np.float32)
+
+        card_choices = self.state.current_player.hand[0:3]
+
+        for i in range(len(card_choices)):
+            encoded_state[-(3 - i)] = self.encode_card(card_choices[i])
+
+        return encoded_state
