@@ -1,5 +1,3 @@
-**Status**: Work-in-progress
-
 # gym-locm
 
 [Legends of Code and Magic](https://jakubkowalski.tech/Projects/LOCM/) environment for [OpenAI Gym](https://github.com/openai/gym).
@@ -7,14 +5,12 @@
 
 ## Environments
 
-1. LOCM-draft-v0 (draft phase only)
-2. LOCM-draft-2p-v0 (draft phase only, both players)
-3. LOCM-battle-v0 (battle phase only)
-4. LOCM-battle-2p-v0 (battle phase only, both players)
-5. ~LOCM-v0 (full game)~
-6. ~LOCM-2p-v0 (full game, both players)~
-
-(Crossed = not implemented yet)
+1. LOCM-v0 (full game)
+2. LOCM-2p-v0 (full game, both players)
+3. LOCM-draft-v0 (draft phase only)
+4. LOCM-draft-2p-v0 (draft phase only, both players)
+5. LOCM-battle-v0 (battle phase only)
+6. LOCM-battle-2p-v0 (battle phase only, both players)
 
 ## Installation
 ```
