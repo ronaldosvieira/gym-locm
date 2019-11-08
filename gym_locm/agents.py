@@ -176,7 +176,7 @@ class NativeAgent(Agent):
         self.action_buffer = []
 
     @staticmethod
-    def _decode_actions(actions):
+    def decode_actions(actions):
         actions = actions.split(';')
         decoded_actions = []
 
@@ -222,7 +222,7 @@ class NativeAgent(Agent):
         while True:
             raw_output = self._process.readline()
 
-            actions = self._decode_actions(raw_output)
+            actions = self.decode_actions(raw_output)
 
             if actions:
                 break
