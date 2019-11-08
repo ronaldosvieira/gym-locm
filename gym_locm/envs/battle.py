@@ -163,15 +163,22 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         # also reset the battle agent
         self.battle_agent.reset()
 
+        # if playing second, have first player play
+        if not self.play_first:
+            while self.state.current_player.id != PlayerOrder.SECOND:
+                super().step(self.battle_agent.act(self.state))
+
         return encoded_state
 
     def step(self, action):
         """Makes an action in the game."""
-        if self.play_first:
-            super().step(action)
+        player = self.state.current_player.id
+
+        # do the action
+        result = super().step(action)
+
+        # have opponent play until its player's turn or there's a winner
+        while self.state.current_player.id != player and self.state.winner is not None:
             result = super().step(self.battle_agent.act(self.state))
-        else:
-            super().step(self.battle_agent.act(self.state))
-            result = super().step(action)
 
         return result

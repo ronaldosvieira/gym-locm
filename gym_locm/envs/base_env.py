@@ -34,7 +34,7 @@ class LOCMEnv(gym.Env, ABC):
         print(f'######## TURN {self.state.turn}: '
               f'PLAYER {self.state.current_player.id} ########')
         print()
-        
+
         table = PrettyTable(['Index', 'Name', 'Cost', 'Description'])
 
         for i, card in enumerate(self.state.current_player.hand):
