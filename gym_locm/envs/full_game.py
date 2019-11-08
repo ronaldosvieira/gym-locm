@@ -1,8 +1,9 @@
 import gym
 import numpy as np
 
-from gym_locm.engine import Phase, State
+from gym_locm.engine import Phase, State, Action, PlayerOrder, MalformedActionError
 from gym_locm.envs.base_env import LOCMEnv
+from gym_locm.exceptions import GameIsEndedError
 
 
 class LOCMFullGameEnv(LOCMEnv):
@@ -62,7 +63,42 @@ class LOCMFullGameEnv(LOCMEnv):
         return self._encode_state()
 
     def step(self, action):
-        pass
+        """Makes an action in the game."""
+        if self.state.phase == Phase.ENDED:
+            raise GameIsEndedError()
+
+        # check if an action object was passed
+        if not isinstance(action, Action):
+            raise MalformedActionError(f"Action should be an action object, "
+                                       f"not {type(action)}")
+
+        # less property accesses
+        state = self.state
+
+        if state.phase == Phase.DRAFT:
+            # find chosen card and keep track of it
+            chosen_index = 0 if action.origin is None else action.origin
+            chosen_card = state.current_player.hand[chosen_index]
+
+            self.choices[state.current_player.id].append(chosen_card)
+
+        # execute the action
+        state.act(action)
+
+        # init return info
+        winner = state.winner
+        reward = 0
+        done = winner is not None
+        info = {'phase': state.phase,
+                'turn': state.turn,
+                'winner': winner}
+
+        if winner is not None:
+            reward = 1 if winner == PlayerOrder.FIRST else -1
+
+            del info['turn']
+
+        return self._encode_state(), reward, done, info
 
     def _encode_state_battle(self):
         pass
