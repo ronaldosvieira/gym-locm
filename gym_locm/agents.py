@@ -95,7 +95,7 @@ class RuleBasedBattleAgent(Agent):
 
                         return Action(ActionType.ATTACK, origin, target)
 
-                return Action(ActionType.ATTACK, card, None)
+                return Action(ActionType.ATTACK, origin, None)
 
         for card in state.current_player.lanes[Lane.RIGHT]:
             origin = card.instance_id
