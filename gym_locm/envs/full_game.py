@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 
-from gym_locm.engine import Phase
+from gym_locm.engine import Phase, State
 from gym_locm.envs.base_env import LOCMEnv
 
 
@@ -43,7 +43,23 @@ class LOCMFullGameEnv(LOCMEnv):
         return self.action_spaces[self.state.phase]
 
     def reset(self):
-        pass
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # recover random state from current state obj
+        random_state = self.state.np_random
+
+        # start a brand new game
+        self.state = State()
+
+        # apply random state
+        self.state.np_random = random_state
+
+        # empty draft choices
+        self.choices = ([], [])
+
+        return self._encode_state()
 
     def step(self, action):
         pass
