@@ -178,7 +178,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         result = super().step(action)
 
         # have opponent play until its player's turn or there's a winner
-        while self.state.current_player.id != player and self.state.winner is not None:
+        while self.state.current_player.id != player and self.state.winner is None:
             result = super().step(self.battle_agent.act(self.state))
 
         return result
