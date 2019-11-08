@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from operator import attrgetter
 
 import gym
 from prettytable import PrettyTable
 
-from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, State, Phase
+from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, State, Phase, ActionType
 
 
 class LOCMEnv(gym.Env, ABC):
@@ -50,7 +51,82 @@ class LOCMEnv(gym.Env, ABC):
               f'.              *      .     * .         .')
 
     def _render_text_battle(self):
-        pass  # todo: implement
+        player = self.state.current_player
+        opponent = self.state.opposing_player
+
+        print(f'######## TURN {self.state.turn}: '
+              f'PLAYER {player.id} ########')
+        print()
+        print("Stats:")
+        print(f"{player.health} HP, {player.mana}/{player.base_mana} MP")
+        print(f"Next rune: {player.next_rune}, "
+              f"next draw: {1 + player.bonus_draw}")
+        print()
+
+        print("Hand:")
+
+        table = PrettyTable(['Id', 'Name', 'Cost', 'Description'])
+
+        for i, card in enumerate(sorted(player.hand, key=attrgetter('cost'))):
+            table.add_row([card.instance_id, card.name, card.cost, card.text])
+
+        print(table)
+        print()
+        print("Board:")
+
+        table = PrettyTable(['Id', 'Name', 'Lane',
+                             'Stats', 'Can attack?'])
+
+        for lane, cards in zip(['Left', 'Right'], player.lanes):
+            for card in cards:
+                card_text = f"{card.attack}/{card.defense} "
+                card_text += f"{''.join(card.keywords)}"
+
+                table.add_row([card.instance_id, card.name, lane, card_text,
+                               'Yes' if card.able_to_attack() else 'No'])
+
+        print(table)
+        print()
+        print("Opponent's stats:")
+        print(f"{opponent.health} HP, {opponent.mana}/{opponent.base_mana} MP")
+        print(f"Next rune: {opponent.next_rune}, "
+              f"next draw: {1 + opponent.bonus_draw}")
+        print(f"Cards in hand: {len(opponent.hand)}")
+        print()
+
+        last_actions = []
+
+        for action in reversed(opponent.actions[:-1]):
+            if action.type == ActionType.PASS:
+                break
+
+            last_actions.append(action)
+
+        print("Last actions:")
+
+        if last_actions:
+            for a in reversed(last_actions):
+                target_id = -1 if a.target is None else a.target
+
+                print(f"{a.resolved_origin.id} {a.type.name} "
+                      f"{a.origin} {target_id}")
+        else:
+            print("(none)")
+
+        print()
+
+        print("Opponent's board:")
+
+        table = PrettyTable(['Id', 'Name', 'Lane', 'Stats'])
+
+        for lane, cards in zip(['Left', 'Right'], opponent.lanes):
+            for card in cards:
+                card_text = f"{card.attack}/{card.defense} "
+                card_text += f"{''.join(card.keywords)}"
+
+                table.add_row([card.instance_id, card.name, lane, card_text])
+
+        print(table)
 
     def _render_native(self):
         return str(self.state)
