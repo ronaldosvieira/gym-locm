@@ -147,6 +147,13 @@ class LOCMEnv(gym.Env, ABC):
         return card_type + [cost, attack, defense, player_hp,
                             enemy_hp, card_draw] + keywords
 
+    @staticmethod
+    def encode_players(current, opposing):
+        return current.health, current.mana, current.next_rune, \
+               1 + current.bonus_draw, opposing.health, \
+               opposing.base_mana + opposing.bonus_mana, \
+               opposing.next_rune, 1 + opposing.bonus_draw
+
     def _encode_state(self):
         """ Encodes a state object into a numerical matrix. """
         if self.state.phase == Phase.DRAFT:

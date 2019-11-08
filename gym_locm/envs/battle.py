@@ -101,13 +101,6 @@ class LOCMBattleEnv(LOCMEnv):
 
         return self._encode_state()
 
-    @staticmethod
-    def encode_players(current, opposing):
-        return current.health, current.mana, current.next_rune, \
-                1 + current.bonus_draw, opposing.health, \
-                opposing.base_mana + opposing.bonus_mana, \
-                opposing.next_rune, 1 + opposing.bonus_draw
-
     def _encode_state_draft(self):
         pass
 
