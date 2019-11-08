@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 
+from gym_locm.agents import RandomDraftAgent, RandomBattleAgent
 from gym_locm.engine import Phase, State, Action, PlayerOrder, MalformedActionError
 from gym_locm.envs.base_env import LOCMEnv
 from gym_locm.exceptions import GameIsEndedError
@@ -144,3 +145,56 @@ class LOCMFullGameEnv(LOCMEnv):
             encoded_state[-(3 - i)] = self.encode_card(card_choices[i])
 
         return encoded_state
+
+
+class LOCMFullGameSingleEnv(LOCMFullGameEnv):
+    def __init__(self,
+                 draft_agent=RandomDraftAgent(),
+                 battle_agent=RandomBattleAgent(),
+                 play_first=True,
+                 seed=None):
+        # init the env
+        super().__init__(seed=seed)
+
+        # also init the new parameters
+        self.play_first = play_first
+        self.agents = {
+            Phase.DRAFT: draft_agent,
+            Phase.BATTLE: battle_agent
+        }
+
+    @property
+    def agent(self):
+        return self.agents[self.state.phase]
+
+    def reset(self):
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # reset what is needed
+        encoded_state = super().reset()
+
+        # also reset the agents
+        for agent in self.agents.values():
+            agent.reset()
+
+        # if playing second, have first player play
+        if not self.play_first:
+            while self.state.current_player.id != PlayerOrder.SECOND:
+                super().step(self.agent.act(self.state))
+
+        return encoded_state
+
+    def step(self, action):
+        """Makes an action in the game."""
+        player = self.state.current_player.id
+
+        # do the action
+        result = super().step(action)
+
+        # have opponent play until its player's turn or there's a winner
+        while self.state.current_player.id != player and self.state.winner is None:
+            result = super().step(self.agent.act(self.state))
+
+        return result
