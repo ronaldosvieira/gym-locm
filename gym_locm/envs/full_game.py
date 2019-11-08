@@ -20,7 +20,7 @@ class LOCMFullGameEnv(LOCMEnv):
 
         self.state_shapes = {
             Phase.DRAFT: (cards_in_draft_state, card_features),
-            Phase.BATTLE: (player_features * 2 + cards_in_battle_state * card_features)
+            Phase.BATTLE: (player_features * 2 + cards_in_battle_state * card_features,)
         }
 
         self.observation_spaces = {
