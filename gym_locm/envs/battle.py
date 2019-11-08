@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 
-from gym_locm.agents import RandomDraftAgent
+from gym_locm.agents import RandomDraftAgent, RandomBattleAgent
 from gym_locm.engine import State, Phase, Action, PlayerOrder
 from gym_locm.envs.base_env import LOCMEnv
 from gym_locm.exceptions import GameIsEndedError, MalformedActionError
@@ -137,3 +137,41 @@ class LOCMBattleEnv(LOCMEnv):
         encoded_state[8:] = np.array(all_cards).flatten()
 
         return encoded_state
+
+
+class LOCMBattleSingleEnv(LOCMBattleEnv):
+    def __init__(self,
+                 draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
+                 battle_agent=RandomBattleAgent(),
+                 seed=None,
+                 play_first=True):
+        # init the env
+        super().__init__(draft_agents=draft_agents, seed=seed)
+
+        # also init the battle agent and the new parameter
+        self.battle_agent = battle_agent
+        self.play_first = play_first
+
+    def reset(self) -> np.array:
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # reset what is needed
+        encoded_state = super().reset()
+
+        # also reset the battle agent
+        self.battle_agent.reset()
+
+        return encoded_state
+
+    def step(self, action):
+        """Makes an action in the game."""
+        if self.play_first:
+            super().step(action)
+            result = super().step(self.battle_agent.act(self.state))
+        else:
+            super().step(self.battle_agent.act(self.state))
+            result = super().step(action)
+
+        return result
