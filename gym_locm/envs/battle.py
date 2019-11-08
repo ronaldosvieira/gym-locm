@@ -8,7 +8,7 @@ from gym_locm.exceptions import GameIsEndedError, MalformedActionError
 
 
 class LOCMBattleEnv(LOCMEnv):
-    metadata = {'render.modes': []}
+    metadata = {'render.modes': ['text', 'native']}
 
     def __init__(self,
                  draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
