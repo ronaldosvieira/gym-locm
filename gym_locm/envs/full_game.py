@@ -77,7 +77,7 @@ class LOCMFullGameEnv(LOCMEnv):
 
         if state.phase == Phase.DRAFT:
             # find chosen card and keep track of it
-            chosen_index = 0 if action.origin is None else action.origin
+            chosen_index = 0 if action.origin in (0, 1, 2) else action.origin
             chosen_card = state.current_player.hand[chosen_index]
 
             self.choices[state.current_player.id].append(chosen_card)

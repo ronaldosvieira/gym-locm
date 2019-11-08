@@ -81,7 +81,7 @@ class LOCMDraftEnv(LOCMEnv):
         state = self.state
 
         # find appropriate value for the provided card index
-        if action.origin is not None:
+        if action.origin in (0, 1, 2):
             chosen_index = self.draft_ordering[action.origin]
         else:
             chosen_index = 0
