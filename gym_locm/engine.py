@@ -1,5 +1,3 @@
-import copy
-import pickle
 import sys
 
 import numpy as np
@@ -10,7 +8,7 @@ from enum import Enum, IntEnum
 from gym.utils import seeding
 
 from gym_locm.exceptions import *
-from gym_locm.helpers import *
+from gym_locm.helpers import has_enough_mana
 
 instance_counter = 0
 
