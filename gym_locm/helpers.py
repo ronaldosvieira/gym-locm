@@ -71,3 +71,22 @@ def state_from_native_input(game_input):
             state.players[1].lanes[lane].append(card)
 
     return state
+
+
+def encode_card(card):
+    """Encodes a card object into a numerical array."""
+    card_types = (engine.Creature, engine.GreenItem,
+                  engine.RedItem, engine.BlueItem)
+
+    card_type = [1.0 if isinstance(card, card_type) else 0.0
+                 for card_type in card_types]
+    cost = card.cost / 12
+    attack = card.attack / 12
+    defense = max(-12, card.defense) / 12
+    keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
+    player_hp = card.player_hp / 12
+    enemy_hp = card.enemy_hp / 12
+    card_draw = card.card_draw / 12
+
+    return card_type + [cost, attack, defense, player_hp,
+                        enemy_hp, card_draw] + keywords
