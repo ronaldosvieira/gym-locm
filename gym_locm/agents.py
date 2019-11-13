@@ -8,6 +8,8 @@ import pexpect
 import time
 import random
 
+from gym_locm.helpers import is_it
+
 
 class Agent(ABC):
     @abstractmethod
