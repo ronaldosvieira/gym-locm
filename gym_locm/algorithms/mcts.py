@@ -185,12 +185,16 @@ class MCTS:
         amount_deck = len(new_state.opposing_player.deck)
         amount_hand = len(new_state.opposing_player.hand)
 
+        ids = map(attrgetter('instance_id'),
+                  new_state.opposing_player.hand +
+                  new_state.opposing_player.deck)
+
         new_deck = []
 
-        for i in range(amount_deck + amount_hand):
+        for i, id in zip(range(amount_deck + amount_hand), ids):
             random_index = int(3 * random.random())
 
-            card = new_state._draft_cards[i][random_index].make_copy()
+            card = new_state._draft_cards[i][random_index].make_copy(id)
 
             new_deck.append(card)
 

@@ -10,19 +10,9 @@ from gym.utils import seeding
 from gym_locm.exceptions import *
 from gym_locm.helpers import has_enough_mana
 
-instance_counter = 0
-
 
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
-
-
-def _next_instance_id():
-    global instance_counter
-
-    instance_counter += 1
-
-    return instance_counter
 
 
 class Phase(IntEnum):
@@ -175,7 +165,7 @@ class Card:
         if instance_id is not None:
             cloned_card.instance_id = instance_id
         else:
-            cloned_card.instance_id = _next_instance_id()
+            cloned_card.instance_id = None
 
         return cloned_card
 
@@ -312,6 +302,8 @@ class State:
     )
 
     def __init__(self, seed=None):
+        self.instance_counter = 0
+
         self.np_random = None
         self.seed(seed)
 
@@ -444,6 +436,11 @@ class State:
 
         self.__available_actions = None
 
+    def _next_instance_id(self):
+        self.instance_counter += 1
+
+        return self.instance_counter
+
     def _new_draft(self) -> List[List[Card]]:
         cards = list(_cards)
 
@@ -470,8 +467,8 @@ class State:
         d1, d2 = [], []
 
         for card1, card2 in zip(*(p.deck for p in self.players)):
-            d1.append(card1.make_copy())
-            d2.append(card2.make_copy())
+            d1.append(card1.make_copy(self._next_instance_id()))
+            d2.append(card2.make_copy(self._next_instance_id()))
 
         self.players[0].deck = list(reversed(d1))
         self.players[1].deck = list(reversed(d2))
