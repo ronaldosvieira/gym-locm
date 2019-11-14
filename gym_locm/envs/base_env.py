@@ -4,7 +4,8 @@ from operator import attrgetter
 import gym
 from prettytable import PrettyTable
 
-from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, State, Phase, ActionType
+from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, State, Phase, ActionType, Action, Lane
+from gym_locm.exceptions import MalformedActionError
 
 
 class LOCMEnv(gym.Env, ABC):
@@ -130,6 +131,96 @@ class LOCMEnv(gym.Env, ABC):
 
     def _render_native(self):
         return str(self.state)
+
+    def decode_action(self, action_number):
+        """
+        Decodes an action number from either phases into the
+        corresponding action object, if possible. Raises
+        MalformedActionError otherwise.
+        """
+        try:
+            if self.state.phase == Phase.DRAFT:
+                return self.decode_draft_action(action_number)
+            elif self.state.phase == Phase.BATTLE:
+                return self.decode_battle_action(action_number)
+            else:
+                raise IndexError()
+        except IndexError:
+            raise MalformedActionError("Invalid action number")
+
+    def decode_draft_action(self, action_number):
+        """
+        Decodes an action number (0-2) from draft phase into the
+        corresponding action object, if possible. Raises
+        MalformedActionError otherwise.
+        """
+
+        if action_number not in (0, 1, 2):
+            raise MalformedActionError("Invalid action number")
+
+        return Action(ActionType.PICK, action_number)
+
+    def decode_battle_action(self, action_number):
+        """
+        Decodes an action number (0-162) from battle phase into
+        the corresponding action object, if possible. Raises
+        MalformedActionError otherwise.
+        """
+        player = self.state.current_player
+        opponent = self.state.opposing_player
+
+        try:
+            if action_number == 0:
+                return Action(ActionType.PASS)
+            elif 1 <= action_number <= 16:
+                action_number -= 1
+
+                origin = int(action_number / 2)
+                target = Lane(action_number % 2)
+
+                origin = player.hand[origin].instance_id
+
+                return Action(ActionType.SUMMON, origin, target)
+            elif 17 <= action_number <= 120:
+                action_number -= 17
+
+                origin = int(action_number / 13)
+                target = action_number % 13
+
+                origin = player.hand[origin].instance_id
+
+                if target == 0:
+                    target = None
+                else:
+                    target -= 1
+
+                    side = [player, opponent][int(target / 6)]
+                    lane = int((target % 6) / 3)
+                    index = target % 3
+
+                    target = side.lanes[lane][index].instance_id
+
+                return Action(ActionType.USE, origin, target)
+            elif 121 <= action_number <= 162:
+                action_number -= 121
+
+                origin = int(action_number / 7)
+                target = action_number % 7
+
+                origin = player.lanes[int(origin / 3)][origin % 3].instance_id
+
+                if target == 0:
+                    target = None
+                else:
+                    target -= 1
+
+                    target = opponent.lanes[int(target / 3)][target % 3].instance_id
+
+                return Action(ActionType.ATTACK, origin, target)
+            else:
+                raise MalformedActionError("Invalid action number")
+        except IndexError:
+            raise MalformedActionError("Invalid action number")
 
     @staticmethod
     def encode_card(card):
