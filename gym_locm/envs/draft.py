@@ -73,9 +73,17 @@ class LOCMDraftEnv(LOCMEnv):
         if self._draft_is_finished:
             raise GameIsEndedError()
 
-        # if it's an integer, wrap it in an action object
+        # check if an action object or an integer was passed
         if not isinstance(action, Action):
-            action = Action(ActionType.PICK, action)
+            try:
+                action = int(action)
+            except ValueError:
+                error = f"Action should be an action object " \
+                    f"or an integer, not {type(action)}"
+
+                raise MalformedActionError(error)
+
+            action = self.decode_action(action)
 
         # less property accesses
         state = self.state

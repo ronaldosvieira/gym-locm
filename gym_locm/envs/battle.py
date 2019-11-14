@@ -47,10 +47,17 @@ class LOCMBattleEnv(LOCMEnv):
         if self._battle_is_finished:
             raise GameIsEndedError()
 
-        # check if an action object was passed
+        # check if an action object or an integer was passed
         if not isinstance(action, Action):
-            raise MalformedActionError(f"Action should be an action object, "
-                                       f"not {type(action)}")
+            try:
+                action = int(action)
+            except ValueError:
+                error = f"Action should be an action object " \
+                    f"or an integer, not {type(action)}"
+
+                raise MalformedActionError(error)
+
+            action = self.decode_action(action)
 
         # less property accesses
         state = self.state
