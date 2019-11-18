@@ -30,7 +30,7 @@ A match of LOCM has two phases: the **draft**, where the players build their dec
 
 A reward of *1* is given if the controlled player wins the battle phase, and *-1* otherwise. There are no draws. 
 
-#### Draft phase only
+### Draft phase only
  ```python
 env = gym.make("LOCM-draft-v0")
 ```
@@ -41,7 +41,7 @@ The draft phase is played. A default (configurable) policy is used in the battle
 
 **Actions**: 0-2 (chooses first, second or third card).
 
-#### Battle phase only
+### Battle phase only
  ```python
 env = gym.make("LOCM-battle-v0")
 ```
@@ -52,7 +52,7 @@ The battle phase is played. A default (configurable) policy is used in the draft
 
 **Actions**: 0-162 (pass, summon, use and attack with all possible origins and targets).
 
-#### Full match
+### Full match
 ```python
 env = gym.make("LOCM-v0")
 ```
@@ -61,7 +61,7 @@ A full match is played. The draft phase happens in the first 30 turns, with the 
 
 States and actions are the same as listed above, changing according to the current phase.
 
-#### Two-player variations
+### Two-player variations
  ```python
 env = gym.make("LOCM-draft-2p-v0")
 env = gym.make("LOCM-battle-2p-v0")
