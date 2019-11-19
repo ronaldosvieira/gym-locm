@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from operator import attrgetter
+from sty import fg
 
 import gym
 from prettytable import PrettyTable
@@ -128,6 +129,68 @@ class LOCMEnv(gym.Env, ABC):
                 table.add_row([card.instance_id, card.name, lane, card_text])
 
         print(table)
+
+    def _render_ascii_draft(self):
+        card_template = [
+            '+---------+',
+            '|         |',
+            '|         |',
+            '|         |',
+            '+---{}---+',
+            '| {} {} |',
+            '| {} |',
+            '| {} {} {} |',
+            '+---------+'
+        ]
+
+        hand = self.state.current_player.hand
+
+        cards_ascii = []
+
+        for i, card in enumerate(hand):
+            card_ascii = list(card_template)
+
+            cost = f"{{{card.cost}}}" if card.cost < 10 else card.cost
+            attack = format(str(card.attack), '<3')
+            defense = format(str(card.defense), '>3')
+            keywords = "".join(a if card.has_ability(a) else " " for a in 'BCDXGLW')
+            player_hp, enemy_hp, card_draw = "  ", "  ", " "
+
+            if card.player_hp > 0:
+                player_hp = f"+{card.player_hp}"
+            elif card.player_hp < 0:
+                player_hp = card.player_hp
+
+            if card.enemy_hp > 0:
+                enemy_hp = f"+{card.enemy_hp}"
+            elif card.enemy_hp < 0:
+                enemy_hp = card.enemy_hp
+
+            if card.card_draw > 0:
+                card_draw = str(card.card_draw)
+
+            colors = {Creature: fg.li_yellow, GreenItem: fg.li_green,
+                      RedItem: fg.li_red, BlueItem: fg.li_blue}
+            color = colors[type(card)]
+
+            name = format(card.name[:27], '<27')
+
+            card_ascii[1] = '|' + name[:9] + '|'
+            card_ascii[2] = '|' + name[9:18] + '|'
+            card_ascii[3] = '|' + name[18:27] + '|'
+            card_ascii[4] = card_ascii[4].format(cost)
+            card_ascii[5] = card_ascii[5].format(attack, defense)
+            card_ascii[6] = card_ascii[6].format(keywords)
+            card_ascii[7] = card_ascii[7].format(player_hp, enemy_hp, card_draw)
+
+            card_ascii = list(map(lambda l: color + l + fg.rs, card_ascii))
+
+            cards_ascii.append(card_ascii)
+
+        for line in zip(*cards_ascii):
+            print(" ".join(line))
+
+        print("  card 0  ", "  card 1  ", "  card 2  ")
 
     def _render_native(self):
         return str(self.state)
