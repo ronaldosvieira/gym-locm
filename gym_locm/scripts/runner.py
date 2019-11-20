@@ -2,13 +2,14 @@ import argparse
 import cProfile
 import io
 import sys
-from threading import Thread
 from datetime import datetime
 from pstats import Stats
+from multiprocessing import Pool, Manager, Lock
 
 from gym_locm import agents, engine
 
-i, wins = 0, 0
+wins_by_p0 = Manager().list([0, 0])
+lock = Lock()
 
 
 def get_arg_parser():
@@ -43,7 +44,7 @@ def get_arg_parser():
 
     p.add_argument("--games", type=int, help="amount of games to run",
                    default=1)
-    p.add_argument("--threads", type=int, help="amount of threads to use",
+    p.add_argument("--processes", type=int, help="amount of processes to use",
                    default=1)
     p.add_argument("--seed", type=int, help="seed to use on episodes", default=0)
     p.add_argument("--profile", action="store_true",
@@ -75,37 +76,39 @@ def parse_agent(draft_agent, battle_agent):
     return draft_choices[draft_agent](), battle_choices[battle_agent]()
 
 
-def evaluate(player_1, player_2, games, seed):
-    global i, wins
+def evaluate(params):
+    game_id, player_1, player_2, seed = params
 
     draft_bots = (player_1[0], player_2[0])
     battle_bots = (player_1[1], player_2[1])
 
-    while i < games:
-        i += 1
-        current_episode = i
+    game = engine.Game(seed=seed + game_id)
 
-        game = engine.Game(seed=seed + i - 1)
+    for bot in draft_bots + battle_bots:
+        bot.reset()
 
-        for bot in draft_bots + battle_bots:
-            bot.reset()
+    while game.winner is None:
+        if game.phase == engine.Phase.DRAFT:
+            bot = draft_bots[game.current_player.id]
+        else:
+            bot = battle_bots[game.current_player.id]
 
-        while game.winner is None:
-            if game.phase == engine.Phase.DRAFT:
-                bot = draft_bots[game.current_player.id]
-            else:
-                bot = battle_bots[game.current_player.id]
+        action = bot.act(game)
 
-            action = bot.act(game)
+        game.act(action)
 
-            game.act(action)
+    with lock:
+        wins_by_p0[0] += 1 if game.winner == engine.PlayerOrder.FIRST else 0
+        wins_by_p0[1] += 1
 
-        if game.winner == engine.PlayerOrder.FIRST:
-            wins += 1
+        wins, games = wins_by_p0
 
-        ratio = round(100 * wins / i, 2)
+    ratio = 100 * wins / games
 
-        print(f"{datetime.now()} Episode {current_episode}: {'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
+    print(f"{datetime.now()} Episode {games}: "
+          f"{'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
+
+    return game.winner
 
 
 def run():
@@ -137,15 +140,14 @@ def run():
     else:
         player_2 = parse_agent(args.p2_draft, args.p2_player)
 
-    params = (player_1, player_2, args.games, args.seed)
-
     if args.profile:
         profiler = cProfile.Profile()
         result = io.StringIO()
 
         profiler.enable()
 
-        evaluate(*params)
+        for i in range(args.games):
+            evaluate((i, player_1, player_2, args.seed))
 
         profiler.disable()
 
@@ -156,16 +158,10 @@ def run():
 
         print(result.getvalue())
     else:
-        threads = []
+        params = ((j, player_1, player_2, args.seed) for j in range(args.games))
 
-        for _ in range(args.threads):
-            thread = Thread(target=evaluate, args=params, daemon=True)
-            thread.start()
-
-            threads.append(thread)
-
-        for thread in threads:
-            thread.join()
+        with Pool(args.processes) as pool:
+            pool.map(evaluate, params)
 
 
 if __name__ == '__main__':
