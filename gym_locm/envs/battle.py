@@ -86,25 +86,17 @@ class LOCMBattleEnv(LOCMEnv):
         Resets the environment.
         The game is put into its initial state and all agents are reset.
         """
-        # recover random state from current state obj
-        random_state = self.state.np_random
-
-        # start a brand new game
-        state = State()
-
-        # apply random state
-        self.state.np_random = random_state
+        # reset the state
+        super().reset()
 
         # reset all agents' internal state
         for agent in self.draft_agents:
             agent.reset()
 
         # play through draft
-        while state.phase == Phase.DRAFT:
+        while self.state.phase == Phase.DRAFT:
             for agent in self.draft_agents:
-                state.act(agent.act(state))
-
-        self.state = state
+                self.state.act(agent.act(self.state))
 
         return self._encode_state()
 

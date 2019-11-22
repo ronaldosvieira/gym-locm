@@ -13,11 +13,33 @@ class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(self, seed=None):
+        self._seed = seed
+
         self.state = State(seed=seed)
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
         self.state.seed(seed)
+
+    def reset(self):
+        """
+        Resets the environment.
+        The game is put into its initial state
+        """
+        if self._seed is None:
+            # recover random state from current state obj
+            random_state = self.state.np_random
+
+            # start a brand new game
+            self.state = State()
+
+            # apply random state
+            self.state.np_random = random_state
+        else:
+            # start a brand new game with next seed
+            self._seed += 1
+
+            self.state = State(seed=self._seed)
 
     def render(self, mode: str = 'text'):
         """Builds a representation of the current state."""
