@@ -48,7 +48,7 @@ def get_arg_parser():
                    default=1)
     p.add_argument("--seed", type=int, help="seed to use on episodes", default=0)
     p.add_argument("--profile", action="store_true",
-                   help="whether to profile the runs (ignores thread parameter)")
+                   help="whether to profile the runs (runs in a single process)")
 
     return p
 
