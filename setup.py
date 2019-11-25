@@ -8,6 +8,6 @@ setup(name='gym_locm',
       },
       entry_points={
             'console_scripts': [
-                  'locm-runner=gym_locm.scripts.runner:run'
+                  'locm-runner=gym_locm.util.runner:run'
             ]
       })
