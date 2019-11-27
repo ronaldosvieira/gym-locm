@@ -62,7 +62,7 @@ class Configuration:
         model = self.model_builder(env)
 
         if self.before is not None:
-            self.before()
+            self.before(model, env)
 
         os.makedirs(path + '/' + str(seed), exist_ok=True)
         model.save(path + '/' + str(seed) + '/0-steps')
@@ -104,7 +104,7 @@ class Configuration:
                 stdevs.append(std)
 
                 if self.each_eval is not None:
-                    self.each_eval()
+                    self.each_eval(model, env)
 
                 model.save(path + '/' + str(seed) + f'/{timestep}-steps')
 
@@ -119,7 +119,7 @@ class Configuration:
         model.save(path + '/' + str(seed) + '/final')
 
         if self.after is not None:
-            self.after()
+            self.after(model, env)
 
         env.close()
 
