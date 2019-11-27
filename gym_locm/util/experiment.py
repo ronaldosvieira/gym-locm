@@ -64,12 +64,7 @@ class Configuration:
         if self.before is not None:
             self.before()
 
-        if not os.path.exists(path):
-            os.mkdir(path)
-
-        if not os.path.exists(path + '/' + str(seed)):
-            os.mkdir(path + '/' + str(seed))
-
+        os.makedirs(path + '/' + str(seed), exist_ok=True)
         model.save(path + '/' + str(seed) + '/0-steps')
 
         means, stdevs = [], []
