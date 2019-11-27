@@ -62,6 +62,7 @@ class Experiment:
             statistics.append(statistic)
             p_values.append(p_value)
 
+        # save the samples and the results in a text file
         with open(self.path + '/' + 'results.txt', 'w') as file:
             file.write(json.dumps({'samples': all_results.tolist(),
                                    'statistics': statistics,
