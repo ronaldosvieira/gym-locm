@@ -91,13 +91,13 @@ class Configuration:
             timestep = _locals["timestep"] + 1
 
             if timestep % self.eval_frequency == 0:
-                if self.each_eval is not None:
-                    self.each_eval()
-
                 mean, std = evaluate(model)
 
                 means.append(mean)
                 stdevs.append(std)
+
+                if self.each_eval is not None:
+                    self.each_eval()
 
                 model.save(path + '/' + str(seed) + f'/{timestep}-steps')
 
