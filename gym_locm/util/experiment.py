@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from random import randint
 from stable_baselines.common.vec_env import SubprocVecEnv
 from scipy.stats import ttest_ind
@@ -11,7 +12,7 @@ class Experiment:
         self.seeds = [randint(0, 10e8) for _ in range(sample_size)]
         self.path = path
 
-    def run(self):
+    def run(self, analyze_curve=False):
         all_results = []
 
         for i, config in enumerate(self.configs):
@@ -21,13 +22,24 @@ class Experiment:
                 _, means, stdevs = config.run(path=self.path + f'/cfg{i}',
                                               seed=seed)
 
-                results.append(means[-1])
+                results.append(means)
 
             all_results.append(results)
 
-        statistic, p_value = ttest_ind(*all_results, equal_var=False)
+        all_results = np.moveaxis(np.array(all_results), -1, 0)
 
-        return all_results, statistic, p_value
+        if not analyze_curve:
+            all_results = all_results[-1:]
+
+        statistics, p_values = [], []
+
+        for evaluation in all_results:
+            statistic, p_value = ttest_ind(*evaluation, equal_var=False)
+
+            statistics.append(statistic)
+            p_values.append(p_value)
+
+        return all_results, statistics, p_values
 
 
 class Configuration:
