@@ -18,10 +18,12 @@ class Experiment:
             results = []
 
             for seed in self.seeds:
-                result = config.run(path=self.path + f'/cfg{i}',
-                                    file_name=seed, seed=seed)
+                _, means, stdevs = config.run(path=self.path + f'/cfg{i}',
+                                              seed=seed)
 
-                results.append(result)
+                results.append(means[-1])
+
+            all_results.append(results)
 
         statistic, p_value = ttest_ind(*all_results, equal_var=False)
 
@@ -58,7 +60,7 @@ class Configuration:
 
         model.save(path + '/' + str(seed) + '/0-steps')
 
-        evaluations = []
+        means, stdevs = [], []
 
         def evaluate(model):
             episode_rewards = [[0.0] for _ in range(env.num_envs)]
@@ -92,13 +94,20 @@ class Configuration:
                 if self.each_eval is not None:
                     self.each_eval()
 
-                result = evaluate(model)
-                evaluations.append(result)
+                mean, std = evaluate(model)
+
+                means.append(mean)
+                stdevs.append(std)
 
                 model.save(path + '/' + str(seed) + f'/{timestep}-steps')
 
         model.learn(total_timesteps=self.train_steps,
                     callback=callback, seed=seed)
+
+        mean_reward, std_reward = evaluate(model)
+
+        means.append(mean_reward)
+        stdevs.append(std_reward)
 
         model.save(path + '/' + str(seed) + '/final')
 
@@ -107,4 +116,4 @@ class Configuration:
 
         env.close()
 
-        return model, evaluations
+        return model, means, stdevs
