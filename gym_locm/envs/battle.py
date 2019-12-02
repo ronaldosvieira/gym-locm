@@ -177,3 +177,34 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
             result = super().step(self.battle_agent.act(self.state))
 
         return result
+
+
+class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
+    def __init__(self, play_first=True, **kwargs):
+        # init the env
+        super().__init__(**kwargs)
+
+        # also init the new parameters
+        self.play_first = play_first
+        self.model = None
+
+    def set_model(self, model_builder, env_builder):
+        self.model = model_builder(env_builder(self))
+
+    def update_parameters(self, parameters):
+        """Update the current parameters in the model with new ones."""
+        self.model.load_parameters(parameters, exact_match=True)
+
+    def step(self, action):
+        """Makes an action in the game."""
+        obs = self._encode_state()
+
+        # act according to first and second players
+        if self.play_first:
+            super().step(action)
+            result = super().step(self.model.predict(obs)[0])
+        else:
+            super().step(self.model.predict(obs)[0])
+            result = super().step(action)
+
+        return result
