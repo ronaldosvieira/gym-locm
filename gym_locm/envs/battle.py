@@ -138,13 +138,10 @@ class LOCMBattleEnv(LOCMEnv):
 
 
 class LOCMBattleSingleEnv(LOCMBattleEnv):
-    def __init__(self,
-                 draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
-                 battle_agent=RandomBattleAgent(),
-                 seed=None,
-                 play_first=True):
+    def __init__(self, battle_agent=RandomBattleAgent(),
+                 play_first=True, **kwargs):
         # init the env
-        super().__init__(draft_agents=draft_agents, seed=seed)
+        super().__init__(**kwargs)
 
         # also init the battle agent and the new parameter
         self.battle_agent = battle_agent

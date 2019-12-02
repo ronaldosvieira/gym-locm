@@ -187,16 +187,10 @@ class LOCMDraftEnv(LOCMEnv):
 
 
 class LOCMDraftSingleEnv(LOCMDraftEnv):
-    def __init__(self, battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-                 draft_agent=RandomDraftAgent(),
-                 use_draft_history=True,
-                 sort_cards=True,
-                 evaluation_battles=1,
-                 seed=None,
-                 play_first=True):
+    def __init__(self, draft_agent=RandomDraftAgent(),
+                 play_first=True, **kwargs):
         # init the env
-        super().__init__(battle_agents, use_draft_history, sort_cards,
-                         evaluation_battles, seed)
+        super().__init__(**kwargs)
 
         # also init the draft agent and the new parameter
         self.draft_agent = draft_agent
@@ -229,15 +223,9 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
 
 
 class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
-    def __init__(self, battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-                 use_draft_history=True,
-                 sort_cards=True,
-                 evaluation_battles=1,
-                 seed=None,
-                 play_first=True):
+    def __init__(self, play_first=True, **kwargs):
         # init the env
-        super().__init__(battle_agents, use_draft_history, sort_cards,
-                         evaluation_battles, seed)
+        super().__init__(**kwargs)
 
         # also init the new parameters
         self.play_first = play_first
