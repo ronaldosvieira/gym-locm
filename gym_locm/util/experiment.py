@@ -112,6 +112,11 @@ class Configuration:
                for _ in range(self.num_processes)]
         env = SubprocVecEnv(env, start_method='spawn')
 
+        eval_seed = (seed + self.train_steps) * 2
+        eval_env = [lambda: self.env_builder(eval_seed)
+                    for _ in range(self.num_processes)]
+        eval_env = SubprocVecEnv(eval_env, start_method='spawn')
+
         # build the model
         model = self.model_builder(env)
 
@@ -132,11 +137,12 @@ class Configuration:
             :return: The mean (win rate) and standard deviation.
             """
             # initialize structures
-            episode_rewards = [[0.0] for _ in range(env.num_envs)]
+            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
             num_steps = int(self.eval_steps / self.num_processes)
 
             # reset the env
-            obs = env.reset()
+            eval_env.env_method('seed', eval_seed)
+            obs = eval_env.reset()
 
             # runs `num_steps` steps
             for j in range(num_steps):
@@ -144,10 +150,10 @@ class Configuration:
                 actions, _ = model.predict(obs, deterministic=True)
 
                 # do the predicted action and save the outcome
-                obs, rewards, dones, _ = env.step(actions)
+                obs, rewards, dones, _ = eval_env.step(actions)
 
                 # save current reward into episode rewards
-                for i in range(env.num_envs):
+                for i in range(eval_env.num_envs):
                     episode_rewards[i][-1] += rewards[i]
 
                     if dones[i]:
@@ -200,5 +206,6 @@ class Configuration:
 
         # close the env
         env.close()
+        eval_env.close()
 
         return model, means, stdevs
