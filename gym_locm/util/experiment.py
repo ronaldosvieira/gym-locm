@@ -72,7 +72,7 @@ class Experiment:
 
 
 class Configuration:
-    def __init__(self, env_builder, model_builder, *,
+    def __init__(self, env_builder, model_builder, eval_env_builder=None, *,
                  before=None, after=None, each_eval=None,
                  train_steps=30 * 333334, eval_steps=30 * 33334,
                  eval_frequency=30 * 33334, num_processes=1):
@@ -82,6 +82,8 @@ class Configuration:
         :param model_builder: (env -> model) Function that builds a model.
         Model should follow the stable_baselines interface. See more at
         https://github.com/hill-a/stable-baselines.
+        :param eval_env_builder: (seed -> env) Function that builds an env for
+        evaluation.
         :param before: (model, env -> None) Function to be run before training.
         :param after: (model, env -> None) Function to be run after training.
         :param each_eval: (model, env -> None) Function to be run after each
@@ -94,6 +96,9 @@ class Configuration:
         """
         self.env_builder = env_builder
         self.model_builder = model_builder
+        self.eval_env_builder = \
+            env_builder if eval_env_builder is None else eval_env_builder
+
         self.num_processes = num_processes
         self.train_steps, self.eval_steps = train_steps, eval_steps
         self.eval_frequency = eval_frequency
@@ -113,7 +118,7 @@ class Configuration:
         env = SubprocVecEnv(env, start_method='spawn')
 
         eval_seed = (seed + self.train_steps) * 2
-        eval_env = [lambda: self.env_builder(eval_seed)
+        eval_env = [lambda: self.eval_env_builder(eval_seed)
                     for _ in range(self.num_processes)]
         eval_env = SubprocVecEnv(eval_env, start_method='spawn')
 
