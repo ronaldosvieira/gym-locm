@@ -72,7 +72,7 @@ class Experiment:
 
 
 class Configuration:
-    def __init__(self, env_builder, model_builder,
+    def __init__(self, env_builder, model_builder, *,
                  before=None, after=None, each_eval=None,
                  train_steps=30 * 333334, eval_steps=30 * 33334,
                  eval_frequency=30 * 33334, num_processes=1):
