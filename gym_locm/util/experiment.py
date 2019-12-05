@@ -187,7 +187,7 @@ class Configuration:
 
                 # call `each_eval` callback
                 if self.each_eval is not None:
-                    self.each_eval(model, env)
+                    self.each_eval(model, env, _locals)
 
                 # save current model
                 model.save(path + '/' + str(seed) + f'/{timestep}-steps')
