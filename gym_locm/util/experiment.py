@@ -1,14 +1,16 @@
+import itertools
 import os
 import json
 import numpy as np
 from random import randint
 from stable_baselines.common.vec_env import SubprocVecEnv
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, ttest_rel
 from statistics import mean, stdev
 
 
 class Experiment:
-    def __init__(self, config1, config2, sample_size=50, path='.'):
+    def __init__(self, config1, config2, sample_size=50, path='.',
+                 paired=False):
         """
         Experiment class. Checks whether two configurations yield
         significantly different results.
@@ -21,6 +23,7 @@ class Experiment:
         self.configs = config1, config2
         self.seeds = [randint(0, 10e8) for _ in range(sample_size)]
         self.path = path
+        self.paired = paired
 
     def run(self, analyze_curve=False):
         """
@@ -57,7 +60,10 @@ class Experiment:
 
         # for each sample from the two configurations, do the welch's test
         for evaluation in all_results:
-            statistic, p_value = ttest_ind(*evaluation, equal_var=False)
+            if self.paired:
+                statistic, p_value = ttest_rel(*evaluation)
+            else:
+                statistic, p_value = ttest_ind(*evaluation, equal_var=False)
 
             statistics.append(statistic)
             p_values.append(p_value)
