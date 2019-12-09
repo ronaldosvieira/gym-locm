@@ -10,7 +10,7 @@ from statistics import mean, stdev
 
 class Experiment:
     def __init__(self, config1, config2, sample_size=50, path='.',
-                 paired=False):
+                 paired=False, seeds=None):
         """
         Experiment class. Checks whether two configurations yield
         significantly different results.
@@ -21,9 +21,13 @@ class Experiment:
         :param path: Path to save the resulting models.
         """
         self.configs = config1, config2
-        self.seeds = [randint(0, 10e8) for _ in range(sample_size)]
         self.path = path
         self.paired = paired
+
+        if seeds is None:
+            self.seeds = [randint(0, 10e8) for _ in range(sample_size)]
+        else:
+            self.seeds = seeds
 
     def run(self, analyze_curve=False):
         """
