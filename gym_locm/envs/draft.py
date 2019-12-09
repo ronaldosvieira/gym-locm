@@ -12,8 +12,8 @@ class LOCMDraftEnv(LOCMEnv):
 
     def __init__(self,
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-                 use_draft_history=True,
-                 sort_cards=True,
+                 use_draft_history=False,
+                 sort_cards=False,
                  evaluation_battles=1,
                  seed=None):
         super().__init__(seed=seed)
