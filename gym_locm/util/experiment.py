@@ -62,7 +62,7 @@ class Experiment:
 
         statistics, p_values = [], []
 
-        # for each sample from the two configurations, do the welch's test
+        # for each sample from the two configurations, do the appropriate test
         for evaluation in all_results:
             if self.paired:
                 statistic, p_value = ttest_rel(*evaluation)
@@ -213,7 +213,7 @@ class Configuration:
         stdevs.append(std_reward)
 
         # save the final model
-        model.save(path + '/' + str(seed) + '/final')
+        model.save(path + '/' + str(seed) + f'/{model.num_timesteps}-steps')
 
         # call `after` callback
         if self.after is not None:
