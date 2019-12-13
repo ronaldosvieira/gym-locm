@@ -1,6 +1,8 @@
 import itertools
 import os
 import json
+from datetime import datetime
+
 import numpy as np
 from random import randint
 from stable_baselines.common.vec_env import SubprocVecEnv
@@ -38,6 +40,14 @@ class Experiment:
         :return: The samples, the t-statistic and the p-value. If
         `analyze_curve=True`, multiple t-statistics and p-values are returned.
         """
+        # create dirs
+        os.makedirs(self.path, exist_ok=True)
+
+        def write_result(info):
+            with open(self.path + '/' + 'results.csv', 'a') as file:
+                file.write(';'.join(map(str, info)) + '\n')
+
+        write_title = True
         all_results = []
 
         # for each config,
@@ -50,6 +60,13 @@ class Experiment:
                                          seed=seed)
 
                 results.append(means)
+
+                if write_title:
+                    write_result(['timestamp', 'cfg_num', 'seed',
+                                  *[f'eval{i}' for i in range(len(means))]])
+                    write_title = False
+
+                write_result([datetime.now(), i, seed, *means])
 
             all_results.append(results)
 
@@ -73,7 +90,7 @@ class Experiment:
             p_values.append(p_value)
 
         # save the samples and the results in a text file
-        with open(self.path + '/' + 'results.txt', 'w') as file:
+        with open(self.path + '/' + 'stats.txt', 'w') as file:
             file.write(json.dumps({'samples': all_results.tolist(),
                                    'statistics': statistics,
                                    'p-values': p_values}))
