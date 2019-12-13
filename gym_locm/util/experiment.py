@@ -93,7 +93,8 @@ class Experiment:
         with open(self.path + '/' + 'stats.txt', 'w') as file:
             file.write(json.dumps({'samples': all_results.tolist(),
                                    'statistics': statistics,
-                                   'p-values': p_values}))
+                                   'p-values': p_values},
+                                  indent=4))
 
         return all_results, statistics, p_values
 
