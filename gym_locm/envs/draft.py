@@ -24,6 +24,11 @@ class LOCMDraftEnv(LOCMEnv):
         self.draft_ordering = list(range(3))
 
         self.battle_agents = battle_agents
+
+        for battle_agent in self.battle_agents:
+            battle_agent.reset()
+            battle_agents.seed(seed)
+
         self.evaluation_battles = evaluation_battles
         self.sort_cards = sort_cards
         self.use_draft_history = use_draft_history
@@ -58,6 +63,7 @@ class LOCMDraftEnv(LOCMEnv):
         # reset all agents' internal state
         for agent in self.battle_agents:
             agent.reset()
+            agent.seed(self._seed)
 
         return self._encode_state()
 

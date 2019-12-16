@@ -17,6 +17,10 @@ class LOCMBattleEnv(LOCMEnv):
 
         self.draft_agents = draft_agents
 
+        for draft_agents in self.draft_agents:
+            draft_agents.reset()
+            draft_agents.seed(seed)
+
         cards_in_state = 8 + 6 + 6  # 20 cards
         card_features = 16
         player_features = 4  # hp, mana, next_rune, next_draw
@@ -92,6 +96,7 @@ class LOCMBattleEnv(LOCMEnv):
         # reset all agents' internal state
         for agent in self.draft_agents:
             agent.reset()
+            agent.seed(self._seed)
 
         # play through draft
         while self.state.phase == Phase.DRAFT:
