@@ -163,6 +163,9 @@ class Configuration:
 
         means, stdevs = [], []
 
+        model.callback_counter = 0
+        eval_every = self.eval_frequency // (model.n_steps * self.num_processes)
+
         def evaluate(model):
             """
             Evaluates a model.
@@ -205,8 +208,10 @@ class Configuration:
             model = _locals['self']
             timestep = _locals["timestep"] + 1
 
+            model.callback_counter += 1
+
             # if it is time to evaluate, do so
-            if timestep % self.eval_frequency == 0:
+            if model.callback_counter % eval_every == 0:
                 # evaluate the model and get the metrics
                 mean, std = evaluate(model)
 
