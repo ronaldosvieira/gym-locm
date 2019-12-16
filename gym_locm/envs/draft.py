@@ -27,7 +27,7 @@ class LOCMDraftEnv(LOCMEnv):
 
         for battle_agent in self.battle_agents:
             battle_agent.reset()
-            battle_agents.seed(seed)
+            battle_agent.seed(seed)
 
         self.evaluation_battles = evaluation_battles
         self.sort_cards = sort_cards

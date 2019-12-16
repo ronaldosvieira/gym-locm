@@ -17,9 +17,9 @@ class LOCMBattleEnv(LOCMEnv):
 
         self.draft_agents = draft_agents
 
-        for draft_agents in self.draft_agents:
-            draft_agents.reset()
-            draft_agents.seed(seed)
+        for draft_agent in self.draft_agents:
+            draft_agent.reset()
+            draft_agent.seed(seed)
 
         cards_in_state = 8 + 6 + 6  # 20 cards
         card_features = 16
