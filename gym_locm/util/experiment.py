@@ -103,7 +103,7 @@ class Configuration:
     def __init__(self, env_builder, model_builder, eval_env_builder=None, *,
                  before=None, after=None, each_eval=None,
                  train_steps=30 * 333334, eval_steps=30 * 33334,
-                 eval_frequency=30 * 33334, num_processes=1):
+                 num_evals=10, num_processes=1):
         """
         Configuration class. Saves all the relevant hyperparameters.
         :param env_builder: (seed -> env) Function that builds an env.
@@ -118,8 +118,7 @@ class Configuration:
         evaluation.
         :param train_steps: (int) Amount of timesteps to train for.
         :param eval_steps: (int) Amount of timesteps to evaluate for.
-        :param eval_frequency: (int) Amount of timesteps between each
-        evaluation.
+        :param num_evals: (int) Amount of evaluations throughout training.
         :param num_processes: (int) Amount of processes to use.
         """
         self.env_builder = env_builder
@@ -129,7 +128,7 @@ class Configuration:
 
         self.num_processes = num_processes
         self.train_steps, self.eval_steps = train_steps, eval_steps
-        self.eval_frequency = eval_frequency
+        self.num_evals = num_evals
         self.before, self.after, self.each_eval = before, after, each_eval
 
     def run(self, path='.', seed=None):
@@ -164,7 +163,8 @@ class Configuration:
         means, stdevs = [], []
 
         model.callback_counter = 0
-        eval_every = self.eval_frequency // (model.n_steps * self.num_processes)
+        eval_every = model.train_steps // (model.n_steps * self.num_processes)
+        eval_every //= self.num_evals
 
         def evaluate(model):
             """
@@ -296,8 +296,8 @@ class RandomSearch(Configuration):
 
         model.callback_counter = 0
 
-        eval_every = self.eval_frequency // (model.n_steps * self.num_processes)
-        eval_every = max(1, eval_every)
+        eval_every = self.train_steps // (model.n_steps * self.num_processes)
+        eval_every //= self.num_evals
 
         def evaluate(model):
             """
