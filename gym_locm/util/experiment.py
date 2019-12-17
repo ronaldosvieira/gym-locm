@@ -357,7 +357,7 @@ class RandomSearch(Configuration):
 
                 # call `each_eval` callback
                 if self.each_eval is not None:
-                    self.each_eval(model, env)
+                    self.each_eval(model, env, _locals)
 
                 # save current model
                 model.save(path + '/' + model_name + f'/{timestep}-steps')
