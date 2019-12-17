@@ -273,6 +273,7 @@ class RandomSearch(Configuration):
                for _ in range(self.num_processes)]
         env = SubprocVecEnv(env, start_method='spawn')
 
+        # build the evaluation env
         eval_seed = (seed + self.train_steps) * 2
         eval_env = [lambda: self.eval_env_builder(eval_seed, **hyparams)
                     for _ in range(self.num_processes)]
@@ -396,41 +397,52 @@ class RandomSearch(Configuration):
         :return: the final version of the best model, the means and the
         standard deviations obtained from it in the evaluations.
         """
+        # initialize variables
         best_model = None
         best_mean = float("-inf")
 
+        # for each run in the budget
         for run in range(times):
+            # generate a set of hyperparameters
             hyparam_set = dict((k, v()) for k, v in self.param_dict.items())
 
+            # ensure integer hyperparams
             hyparam_set['n_steps'] = int(hyparam_set['n_steps'])
             hyparam_set['nminibatches'] = int(hyparam_set['nminibatches'])
             hyparam_set['noptepochs'] = int(hyparam_set['noptepochs'])
 
+            # ensure nminibatches <= n_steps
             hyparam_set['nminibatches'] = min(hyparam_set['nminibatches'],
                                               hyparam_set['n_steps'])
 
+            # ensure n_steps % nminibatches == 0
             while hyparam_set['n_steps'] % hyparam_set['nminibatches'] != 0:
                 hyparam_set['nminibatches'] -= 1
 
+            # print generated hyperparameters
             print(f'### RUN {run} ###')
             print(hyparam_set)
 
+            # get and print start time
             start_time = str(datetime.now())
-
             print('Start time:', start_time)
 
+            # train and eval a model with the generated hyperparameters
             model, means, stdevs = self._train(hyparam_set, path, seed)
 
+            # get and print end time
             end_time = str(datetime.now())
-
             print('End time:', end_time)
 
+            # check if it's better than current best model
             if means[-1] > best_mean:
                 best_mean, best_model = means[-1], model
 
+            # save model info to results file
             with open(path + '/' + 'results.txt', 'a') as file:
                 file.write(json.dumps(dict(**hyparam_set, means=means,
                                            stdevs=stdevs,
                                            start_time=start_time,
                                            end_time=end_time), indent=2))
+
         return best_model, best_mean
