@@ -288,6 +288,9 @@ class RandomSearch(Configuration):
         # create the model name
         model_name = '-'.join(map(str, hyparams.values()))
 
+        # set tensorflow log dir
+        model.tensorboard_log = path + '/' + model_name
+
         # create necessary folders and save the starting model
         os.makedirs(path + '/' + model_name, exist_ok=True)
         model.save(path + '/' + model_name + '/0-steps')
@@ -362,7 +365,7 @@ class RandomSearch(Configuration):
         model.learn(total_timesteps=self.train_steps,
                     callback=callback,
                     seed=seed,
-                    tb_log_name=path + '/' + model_name)
+                    tb_log_name='tf')
 
         # evaluate the final model
         mean_reward, std_reward = evaluate(model)
