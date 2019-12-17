@@ -237,8 +237,8 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         self.play_first = play_first
         self.model = None
 
-    def set_model(self, model_builder, env_builder):
-        self.model = model_builder(env_builder(self))
+    def set_model(self, model_builder, env_builder, **kwargs):
+        self.model = model_builder(env_builder(self), **kwargs)
 
     def update_parameters(self, parameters):
         """Update the current parameters in the model with new ones."""

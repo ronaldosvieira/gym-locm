@@ -247,3 +247,187 @@ class Configuration:
         eval_env.close()
 
         return model, means, stdevs
+
+
+class RandomSearch(Configuration):
+    def __init__(self, env_builder, model_builder, eval_env_builder,
+                 param_dict, **kwargs):
+        super(RandomSearch, self).__init__(env_builder, model_builder,
+                                           eval_env_builder, **kwargs)
+
+        self.param_dict = param_dict
+
+    def hyparams_product(self):
+        keys, values = self.param_dict.keys(), self.param_dict.values()
+
+        for instance in itertools.product(*values):
+            yield dict(zip(keys, instance))
+
+    def _train(self, hyparams, path, seed=None):
+        # pick a random seed, if none
+        if seed is None:
+            seed = randint(0, 10e8)
+
+        # build the env
+        env = [lambda: self.env_builder(seed, **hyparams)
+               for _ in range(self.num_processes)]
+        env = SubprocVecEnv(env, start_method='spawn')
+
+        eval_seed = (seed + self.train_steps) * 2
+        eval_env = [lambda: self.eval_env_builder(eval_seed, **hyparams)
+                    for _ in range(self.num_processes)]
+        eval_env = SubprocVecEnv(eval_env, start_method='spawn')
+
+        # build the model
+        model = self.model_builder(env=env, **hyparams)
+
+        # call `before` callback
+        if self.before is not None:
+            self.before(model, env)
+
+        # create the model name
+        model_name = '-'.join(map(str, hyparams.values()))
+
+        # create necessary folders and save the starting model
+        os.makedirs(path + '/' + model_name, exist_ok=True)
+        model.save(path + '/' + model_name + '/0-steps')
+
+        means, stdevs = [], []
+
+        model.callback_counter = 0
+
+        eval_every = self.eval_frequency // (model.n_steps * self.num_processes)
+        eval_every = max(1, eval_every)
+
+        def evaluate(model):
+            """
+            Evaluates a model.
+            :param model: (stable_baselines model) Model to be evaluated.
+            :return: The mean (win rate) and standard deviation.
+            """
+            # initialize structures
+            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
+            num_steps = int(self.eval_steps / self.num_processes)
+
+            # reset the env
+            eval_env.env_method('seed', eval_seed)
+            obs = eval_env.reset()
+
+            # runs `num_steps` steps
+            for j in range(num_steps):
+                # get a deterministic prediction from model
+                actions, _ = model.predict(obs, deterministic=True)
+
+                # do the predicted action and save the outcome
+                obs, rewards, dones, _ = eval_env.step(actions)
+
+                # save current reward into episode rewards
+                for i in range(eval_env.num_envs):
+                    episode_rewards[i][-1] += rewards[i]
+
+                    if dones[i]:
+                        episode_rewards[i].append(0.0)
+
+            all_rewards = []
+
+            # flatten episode rewards lists
+            for part in episode_rewards:
+                all_rewards.extend(part)
+
+            # return the mean reward and standard deviation from all episodes
+            return mean(all_rewards), stdev(all_rewards)
+
+        def callback(_locals, _globals):
+            model = _locals['self']
+            timestep = _locals["timestep"] + 1
+
+            model.callback_counter += 1
+
+            # if it is time to evaluate, do so
+            if model.callback_counter % eval_every == 0:
+                # evaluate the model and get the metrics
+                mean, std = evaluate(model)
+
+                means.append(mean)
+                stdevs.append(std)
+
+                # call `each_eval` callback
+                if self.each_eval is not None:
+                    self.each_eval(model, env)
+
+                # save current model
+                model.save(path + '/' + model_name + f'/{timestep}-steps')
+
+        # train the model
+        model.learn(total_timesteps=self.train_steps,
+                    callback=callback,
+                    seed=seed,
+                    tb_log_name=path + '/' + model_name)
+
+        # evaluate the final model
+        mean_reward, std_reward = evaluate(model)
+
+        means.append(mean_reward)
+        stdevs.append(std_reward)
+
+        # save the final model
+        model.save(path + '/' + model_name + '/final')
+
+        # call `after` callback
+        if self.after is not None:
+            self.after(model, env)
+
+        # close the env
+        env.close()
+        eval_env.close()
+
+        return model, means, stdevs
+
+    def run(self, path='.', seed=None, times=50):
+        """
+        Trains models with the specified configuration and distribution
+        of hyperparameters.
+        :param path: Path to save the resulting models.
+        :param seed: Seed to use on the training and envs.
+        :param times: Amount of hyperparameters to test.
+        :return: the final version of the best model, the means and the
+        standard deviations obtained from it in the evaluations.
+        """
+        best_model = None
+        best_mean = float("-inf")
+
+        for run in range(times):
+            hyparam_set = dict((k, v()) for k, v in self.param_dict.items())
+
+            hyparam_set['n_steps'] = int(hyparam_set['n_steps'])
+            hyparam_set['nminibatches'] = int(hyparam_set['nminibatches'])
+            hyparam_set['noptepochs'] = int(hyparam_set['noptepochs'])
+
+            hyparam_set['nminibatches'] = min(hyparam_set['nminibatches'],
+                                              hyparam_set['n_steps'])
+
+            while hyparam_set['n_steps'] % hyparam_set['nminibatches'] != 0:
+                hyparam_set['nminibatches'] -= 1
+
+            print(f'### RUN {run} ###')
+            print(hyparam_set)
+
+            start_time = str(datetime.now())
+
+            print('Start time:', start_time)
+
+            model, means, stdevs = self._train(hyparam_set, path, seed)
+
+            end_time = str(datetime.now())
+
+            print('End time:', end_time)
+
+            if means[-1] > best_mean:
+                best_mean, best_model = means[-1], model
+
+            with open(path + '/' + 'results.txt', 'a') as file:
+                file.write(json.dumps(dict(**hyparam_set, means=means,
+                                           stdevs=stdevs,
+                                           start_time=start_time,
+                                           end_time=end_time)))
+        return best_model, best_mean
