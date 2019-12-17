@@ -429,5 +429,5 @@ class RandomSearch(Configuration):
                 file.write(json.dumps(dict(**hyparam_set, means=means,
                                            stdevs=stdevs,
                                            start_time=start_time,
-                                           end_time=end_time)))
+                                           end_time=end_time), indent=2))
         return best_model, best_mean
