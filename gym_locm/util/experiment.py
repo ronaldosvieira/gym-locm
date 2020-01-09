@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 import numpy as np
-from random import randint
+from random import randint, choice
 from stable_baselines.common.vec_env import SubprocVecEnv
 from scipy.stats import ttest_ind, ttest_rel
 from statistics import mean, stdev
@@ -404,7 +404,8 @@ class RandomSearch(Configuration):
         # for each run in the budget
         for run in range(times):
             # generate a set of hyperparameters
-            hyparam_set = dict((k, v()) for k, v in self.param_dict.items())
+            hyparam_set = dict((k, choice(v))
+                               for k, v in self.param_dict.items())
 
             # ensure integer hyperparams
             hyparam_set['n_steps'] = int(hyparam_set['n_steps'])
