@@ -220,12 +220,13 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            result = super().step(self.draft_agent.act(self.state))
+            state, reward, done, info = super().step(self.draft_agent.act(self.state))
         else:
             super().step(self.draft_agent.act(self.state))
-            result = super().step(action)
+            state, reward, done, info = super().step(action)
+            reward = -reward
 
-        return result
+        return state, reward, done, info
 
 
 class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
@@ -251,9 +252,10 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            result = super().step(self.model.predict(obs)[0])
+            state, reward, done, info = super().step(self.model.predict(obs)[0])
         else:
             super().step(self.model.predict(obs)[0])
-            result = super().step(action)
+            state, reward, done, info = super().step(action)
+            reward = -reward
 
-        return result
+        return state, reward, done, info
