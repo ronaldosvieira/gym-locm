@@ -32,6 +32,7 @@ num_trials = 150
 path = 'models/hyp-search/baseline-interleaved'
 
 param_dict = {
+    'switch_freq': hp.choice('switch_freq', [100, 1000, 10000, 100000]),
     'layers': hp.uniformint('layers', 1, 3),
     'neurons': hp.uniformint('neurons', 24, 128),
     'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
@@ -158,8 +159,9 @@ def train_and_eval(params):
 
     model1.callback_counter = 0
 
-    eval_every = train_steps // (model1.n_steps * num_processes)
-    eval_every //= num_evals
+    total_callbacks = train_steps // (model1.n_steps * num_processes)
+    eval_every = total_callbacks // num_evals
+    switch_every = params['switch_freq'] // (model1.n_steps * num_processes)
 
     def make_evaluate(eval_env):
         def evaluate(model):
@@ -207,8 +209,8 @@ def train_and_eval(params):
 
         model.callback_counter += 1
 
-        # if it is time to evaluate, do so
-        if model.callback_counter % eval_every == 0:
+        # if it is time to switch, do so
+        if model.callback_counter % switch_every == 0:
             # update second player's opponent
             env2.env_method('update_parameters', model1.get_parameters())
 
@@ -220,6 +222,8 @@ def train_and_eval(params):
             # update first player's opponent
             env1.env_method('update_parameters', model2.get_parameters())
 
+        # if it is time to evaluate, do so
+        if model.callback_counter % eval_every == 0:
             # evaluate the models and get the metrics
             mean1, std1 = make_evaluate(eval_env1)(model)
             mean2, std2 = make_evaluate(eval_env2)(model2)
