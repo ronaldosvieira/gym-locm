@@ -5,7 +5,7 @@ setup(name='gym_locm',
       install_requires=['gym', 'numpy', 'prettytable', 'pexpect', 'sty'],
       extras_require={
             'pca': ['mplcursors', 'pandas', 'matplotlib', 'scikit-learn'],
-            'experiment': ['numpy', 'scipy', 'stable_baselines']
+            'rl': ['numpy', 'scipy', 'stable_baselines'],
       },
       entry_points={
             'console_scripts': [
