@@ -121,11 +121,11 @@ def run():
 
     if not args.p1_path and (not args.p1_draft or not args.p1_player):
         sys.stderr.write("You should use either p1-path or both "
-                         "p1-draft and p1-battle or p1-path.\n")
+                         "p1-draft and p1-player or p1-path.\n")
         sys.exit(1)
     elif not args.p2_path and (not args.p2_draft or not args.p2_player):
         sys.stderr.write("You should use either p2-path or both "
-                         "p2-draft and p2-battle.\n")
+                         "p2-draft and p2-player.\n")
         sys.exit(1)
 
     if args.p1_path is not None:
