@@ -2,6 +2,7 @@ import json
 import os
 import warnings
 from datetime import datetime
+from operator import itemgetter
 
 warnings.filterwarnings('ignore')
 warnings.filterwarnings(action='ignore', category=DeprecationWarning)
@@ -276,8 +277,8 @@ def train_and_eval(params):
                                    start_time=start_time,
                                    end_time=end_time), indent=2))
 
-    return {'loss': -max(results[0]),
-            'loss2': -max(results[1]),
+    return {'loss': -max(results[0])[0],
+            'loss2': -max(results[1])[0],
             'status': STATUS_OK}
 
 
