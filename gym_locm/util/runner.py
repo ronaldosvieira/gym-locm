@@ -19,7 +19,7 @@ def get_arg_parser():
 
     draft_choices = ["pass", "random", "rule-based", "max-attack",
                      "icebox", "closet-ai", "coac"]
-    battle_choices = ["pass", "random", "rule-based", "max-attack",
+    battle_choices = ["pass", "random", "greedy", "rule-based", "max-attack",
                       "coac", "mcts"]
 
     p.add_argument("--p1-draft", help="draft strategy used by player 1",
@@ -67,6 +67,7 @@ def parse_agent(draft_agent, battle_agent):
     battle_choices = {
         "pass": agents.PassBattleAgent,
         "random": agents.RandomBattleAgent,
+        "greedy": agents.GreedyBattleAgent,
         "rule-based": agents.RuleBasedBattleAgent,
         "max-attack": agents.MaxAttackBattleAgent,
         "coac": agents.CoacBattleAgent,
