@@ -137,6 +137,10 @@ def train_and_eval(params):
     model1 = model_builder(env1, **params)
     model2 = model_builder(env2, **params)
 
+    # update parameters on surrogate models
+    env1.env_method('update_parameters', model2.get_parameters())
+    env2.env_method('update_parameters', model1.get_parameters())
+
     # create the model name
     model_name = f'{counter}'
 
@@ -212,16 +216,14 @@ def train_and_eval(params):
 
         # if it is time to switch, do so
         if model.callback_counter % switch_every == 0:
-            # update second player's opponent
-            env2.env_method('update_parameters', model1.get_parameters())
-
             # train the second player model
             model2.learn(total_timesteps=train_steps // (num_evals + 1),
                          seed=seed, tb_log_name='tf',
                          reset_num_timesteps=False)
 
-            # update first player's opponent
+            # update parameters on surrogate models
             env1.env_method('update_parameters', model2.get_parameters())
+            env2.env_method('update_parameters', model1.get_parameters())
 
         # if it is time to evaluate, do so
         if model.callback_counter % eval_every == 0:
