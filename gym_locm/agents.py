@@ -52,6 +52,56 @@ class RandomBattleAgent(Agent):
         return state.available_actions[index]
 
 
+class GreedyBattleAgent(Agent):
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        pass
+
+    @staticmethod
+    def eval_state(state):
+        score = 0
+
+        pl = state.current_player
+        op = state.opposing_player
+
+        # check opponent's death
+        if op.health <= 0:
+            score += 1000
+
+        # check own death
+        if pl.health <= 0:
+            score -= 1000
+
+        # health difference
+        score += (pl.health - op.health) * 2
+
+        for pl_lane, op_lane in zip(pl.lanes, op.lanes):
+            # card count
+            score += (len(pl_lane) - len(pl_lane)) * 10
+
+            # card strength
+            score += sum(c.attack + c.defense for c in pl_lane)
+            score -= sum(c.attack + c.defense for c in op_lane)
+
+        return score
+
+    def act(self, state):
+        best_action, best_score = None, float("-inf")
+
+        for action in state.available_actions:
+            state_copy = state.clone()
+            state_copy.act(action)
+
+            score = self.eval_state(state_copy)
+
+            if score > best_score:
+                best_action, best_score = action, score
+
+        return best_action
+
+
 class RuleBasedBattleAgent(Agent):
     def seed(self, seed):
         pass
