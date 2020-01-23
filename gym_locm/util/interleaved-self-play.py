@@ -1,8 +1,9 @@
 import json
 import os
+import pickle
 import warnings
 from datetime import datetime
-from operator import itemgetter
+from functools import partial
 
 warnings.filterwarnings('ignore')
 warnings.filterwarnings(action='ignore', category=DeprecationWarning)
@@ -296,14 +297,35 @@ def train_and_eval(params):
 
 
 if __name__ == '__main__':
-    trials = Trials()
-    best_param = fmin(train_and_eval, param_dict, algo=tpe.suggest,
-                      max_evals=num_trials, trials=trials,
-                      rstate=np.random.RandomState(seed))
-    loss = [x['result']['loss'] for x in trials.trials]
-    loss2 = [x['result']['loss2'] for x in trials.trials]
+    try:
+        trials = pickle.load(open(path + '/trials.p', 'rb'))
+        random_state = pickle.load(open(path + '/rstate.p', 'rb'))
+        finished_trials = len(trials.trials)
+        print(f'Found run state file with {finished_trials} trials.')
 
-    print("")
-    print("##### Results")
-    print("Score best parameters: ", min(loss)*-1)
-    print("Best parameters: ", best_param)
+        num_trials -= finished_trials
+    except FileNotFoundError:
+        trials = Trials()
+        finished_trials = 0
+        random_state = np.random.RandomState(seed)
+
+    # noinspection PyBroadException
+    try:
+        algo = partial(tpe.suggest, n_startup_jobs=max(0, 10 - finished_trials))
+
+        best_param = fmin(train_and_eval, param_dict, algo=algo,
+                          max_evals=num_trials, trials=trials,
+                          rstate=random_state)
+
+        loss = [x['result']['loss'] for x in trials.trials]
+        loss2 = [x['result']['loss2'] for x in trials.trials]
+
+        print("")
+        print("##### Results")
+        print("Score best parameters: ", min(loss) * -1)
+        print("Best parameters: ", best_param)
+    except Exception as e:
+        pickle.dump(trials, open(path + '/trials.p', 'wb'))
+        pickle.dump(random_state, open(path + '/rstate.p', 'wb'))
+
+        raise e
