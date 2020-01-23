@@ -234,7 +234,9 @@ def train_and_eval(params):
         # if it is time to switch, do so
         if model.callback_counter % switch_every == 0:
             # train the second player model
-            model2.learn(total_timesteps=train_steps // params['n_switches'],
+            steps_to_train = int(model1.num_timesteps - model2.num_timesteps)
+
+            model2.learn(total_timesteps=steps_to_train,
                          seed=seed * model1.callback_counter, tb_log_name='tf',
                          reset_num_timesteps=False)
 
@@ -267,7 +269,9 @@ def train_and_eval(params):
     env2.env_method('update_parameters', model1.get_parameters())
 
     # train the second player model
-    model2.learn(total_timesteps=train_steps // params['n_switches'],
+    steps_to_train = int(model1.num_timesteps - model2.num_timesteps)
+
+    model2.learn(total_timesteps=steps_to_train,
                  seed=seed * model1.callback_counter, tb_log_name='tf',
                  reset_num_timesteps=False)
 
