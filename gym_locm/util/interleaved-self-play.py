@@ -160,7 +160,7 @@ def train_and_eval(params):
     model1.save(model_path1 + '/0-steps')
     model2.save(model_path2 + '/0-steps')
 
-    results = [[], []]
+    results = [[[], []], [[], []]]
 
     model1.callback_counter = 0
 
@@ -231,8 +231,10 @@ def train_and_eval(params):
             mean1, std1 = make_evaluate(eval_env1)(model)
             mean2, std2 = make_evaluate(eval_env2)(model2)
 
-            results[0].append((mean1, std1))
-            results[1].append((mean2, std2))
+            results[0][0].append(mean1)
+            results[1][0].append(mean2)
+            results[0][1].append(std1)
+            results[1][1].append(std2)
 
             # save models
             model1.save(model_path1 + f'/{model1.num_timesteps}-steps')
@@ -258,8 +260,10 @@ def train_and_eval(params):
     mean_reward1, std_reward1 = make_evaluate(eval_env1)(model1)
     mean_reward2, std_reward2 = make_evaluate(eval_env2)(model2)
 
-    results[0].append((mean_reward1, std_reward1))
-    results[1].append((mean_reward2, std_reward2))
+    results[0][0].append(mean_reward1)
+    results[1][0].append(mean_reward2)
+    results[0][1].append(std_reward1)
+    results[1][1].append(std_reward2)
 
     # save the final models
     model1.save(model_path1 + '/final')
@@ -279,8 +283,8 @@ def train_and_eval(params):
                                    start_time=start_time,
                                    end_time=end_time), indent=2))
 
-    return {'loss': -max(results[0])[0],
-            'loss2': -max(results[1])[0],
+    return {'loss': -max(results[0][0]),
+            'loss2': -max(results[1][0]),
             'status': STATUS_OK}
 
 
