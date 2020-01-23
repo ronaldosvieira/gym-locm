@@ -92,9 +92,6 @@ def train_and_eval(params):
 
     counter += 1
 
-    # print generated hyperparameters
-    print(params)
-
     # get and print start time
     start_time = str(datetime.now())
     print('Start time:', start_time)
@@ -164,9 +161,19 @@ def train_and_eval(params):
 
     model1.callback_counter = 0
 
-    total_callbacks = train_steps // (model1.n_steps * num_processes)
+    # calculate utilities
+    callback_freq = model1.n_steps * num_processes
+    total_callbacks = train_steps // callback_freq
     eval_every = total_callbacks // num_evals
-    switch_every = params['switch_freq'] // (model1.n_steps * num_processes)
+
+    # ensure switch_freq >= callback_freq
+    while params['switch_freq'] < callback_freq:
+        params['switch_freq'] *= 10
+
+    switch_every = params['switch_freq'] // callback_freq
+
+    # print hyperparameters
+    print(params)
 
     def make_evaluate(eval_env):
         def evaluate(model):
