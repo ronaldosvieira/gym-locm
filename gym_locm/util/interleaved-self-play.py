@@ -33,7 +33,7 @@ num_trials = 150
 path = 'models/hyp-search/baseline-interleaved'
 
 param_dict = {
-    'switch_freq': hp.choice('switch_freq', [100, 1000, 10000, 100000]),
+    'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
     'layers': hp.uniformint('layers', 1, 3),
     'neurons': hp.uniformint('neurons', 24, 128),
     'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
@@ -166,11 +166,11 @@ def train_and_eval(params):
     total_callbacks = train_steps // callback_freq
     eval_every = total_callbacks // num_evals
 
-    # ensure switch_freq >= callback_freq
-    while params['switch_freq'] < callback_freq:
-        params['switch_freq'] *= 10
+    # ensure num of switches <= num of callbacks
+    while params['n_switches'] > total_callbacks:
+        params['n_switches'] /= 10
 
-    switch_every = params['switch_freq'] // callback_freq
+    switch_every = total_callbacks // params['n_switches']
 
     # print hyperparameters
     print(params)
@@ -224,7 +224,7 @@ def train_and_eval(params):
         # if it is time to switch, do so
         if model.callback_counter % switch_every == 0:
             # train the second player model
-            model2.learn(total_timesteps=train_steps // (num_evals + 1),
+            model2.learn(total_timesteps=train_steps // params['n_switches'],
                          seed=seed, tb_log_name='tf',
                          reset_num_timesteps=False)
 
@@ -257,7 +257,7 @@ def train_and_eval(params):
     env2.env_method('update_parameters', model1.get_parameters())
 
     # train the second player model
-    model2.learn(total_timesteps=train_steps // (num_evals + 1),
+    model2.learn(total_timesteps=train_steps // params['n_switches'],
                  seed=seed, tb_log_name='tf', reset_num_timesteps=False)
 
     # update first player's opponent
