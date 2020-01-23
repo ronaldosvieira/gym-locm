@@ -23,7 +23,6 @@ from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv
 
 # parameters
 seed = 156123055
-eval_seed = 402455446
 num_processes = 4
 
 train_steps = 30 * 30000
@@ -114,10 +113,10 @@ def train_and_eval(params):
         params['nminibatches'] -= 1
 
     # build the envs
-    env1 = [env_builder(seed, True, **params)
-            for _ in range(num_processes)]
-    env2 = [env_builder(seed, False, **params)
-            for _ in range(num_processes)]
+    env1 = [env_builder(seed + train_steps * i, True, **params)
+            for i in range(num_processes)]
+    env2 = [env_builder(seed + train_steps * i, False, **params)
+            for i in range(num_processes)]
 
     env1 = SubprocVecEnv(env1, start_method='spawn')
     env2 = SubprocVecEnv(env2, start_method='spawn')
@@ -126,10 +125,12 @@ def train_and_eval(params):
     env2.env_method('create_model', **params)
 
     # build the evaluation envs
-    eval_env1 = [eval_env_builder(seed, True, **params)
-                 for _ in range(num_processes)]
-    eval_env2 = [eval_env_builder(seed, False, **params)
-                 for _ in range(num_processes)]
+    eval_seed = seed + train_steps * num_processes
+
+    eval_env1 = [eval_env_builder(eval_seed + eval_steps * i,  True, **params)
+                 for i in range(num_processes)]
+    eval_env2 = [eval_env_builder(eval_seed + eval_steps * i, False, **params)
+                 for i in range(num_processes)]
 
     eval_env1 = SubprocVecEnv(eval_env1, start_method='spawn')
     eval_env2 = SubprocVecEnv(eval_env2, start_method='spawn')
@@ -190,8 +191,13 @@ def train_and_eval(params):
             episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
             num_steps = int(eval_steps / num_processes)
 
+            # set seeds
+            for i in range(num_processes):
+                eval_env.env_method('seed',
+                                    eval_seed + eval_steps * i,
+                                    indices=[i])
+
             # reset the env
-            eval_env.env_method('seed', eval_seed)
             obs = eval_env.reset()
 
             # runs `num_steps` steps
@@ -229,7 +235,7 @@ def train_and_eval(params):
         if model.callback_counter % switch_every == 0:
             # train the second player model
             model2.learn(total_timesteps=train_steps // params['n_switches'],
-                         seed=seed, tb_log_name='tf',
+                         seed=seed * model1.callback_counter, tb_log_name='tf',
                          reset_num_timesteps=False)
 
             # update parameters on surrogate models
@@ -262,7 +268,8 @@ def train_and_eval(params):
 
     # train the second player model
     model2.learn(total_timesteps=train_steps // params['n_switches'],
-                 seed=seed, tb_log_name='tf', reset_num_timesteps=False)
+                 seed=seed * model1.callback_counter, tb_log_name='tf',
+                 reset_num_timesteps=False)
 
     # update first player's opponent
     env1.env_method('update_parameters', model2.get_parameters())
