@@ -17,6 +17,7 @@ from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from statistics import mean, stdev
 
+from gym_locm.engine import PlayerOrder
 from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv
 
@@ -29,9 +30,11 @@ train_steps = 30 * 30000
 eval_steps = 30 * 30000
 num_evals = 10
 
-num_trials = 150
+num_trials = 20
 
-path = 'models/hyp-search/baseline-interleaved'
+path = 'models/hyp-search/basic_draft_1nd'
+
+optimize_for = PlayerOrder.FIRST
 
 param_dict = {
     'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
@@ -291,9 +294,13 @@ def train_and_eval(params):
                                    start_time=start_time,
                                    end_time=end_time), indent=2))
 
-    return {'loss': -max(results[0][0]),
-            'loss2': -max(results[1][0]),
-            'status': STATUS_OK}
+    # calculate and return the metrics
+    main_metric, aux_metric = -max(results[0][0]), -max(results[1][0])
+
+    if optimize_for == PlayerOrder.SECOND:
+        main_metric, aux_metric = aux_metric, main_metric
+
+    return {'loss': main_metric, 'loss2': aux_metric, 'status': STATUS_OK}
 
 
 if __name__ == '__main__':
