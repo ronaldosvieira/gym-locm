@@ -316,8 +316,12 @@ def train_and_eval(params):
 
 if __name__ == '__main__':
     try:
-        trials = pickle.load(open(path + '/trials.p', 'rb'))
-        random_state = pickle.load(open(path + '/rstate.p', 'rb'))
+        with open(path + '/trials.p', 'rb') as trials_file:
+            trials = pickle.load(trials_file)
+
+        with open(path + '/rstate.p', 'rb') as random_state_file:
+            random_state = pickle.load(random_state_file)
+
         finished_trials = len(trials.trials)
         print(f'Found run state file with {finished_trials} trials.')
 
@@ -343,5 +347,8 @@ if __name__ == '__main__':
         print("Score best parameters: ", min(loss) * -1)
         print("Best parameters: ", best_param)
     finally:
-        pickle.dump(trials, open(path + '/trials.p', 'wb'))
-        pickle.dump(random_state, open(path + '/rstate.p', 'wb'))
+        with open(path + '/trials.p', 'wb') as trials_file:
+            pickle.dump(trials, trials_file)
+
+        with open(path + '/rstate.p', 'wb') as random_state_file:
+            pickle.dump(random_state, random_state_file)
