@@ -331,8 +331,6 @@ if __name__ == '__main__':
         print("##### Results")
         print("Score best parameters: ", min(loss) * -1)
         print("Best parameters: ", best_param)
-    except Exception as e:
+    finally:
         pickle.dump(trials, open(path + '/trials.p', 'wb'))
         pickle.dump(random_state, open(path + '/rstate.p', 'wb'))
-
-        raise e
