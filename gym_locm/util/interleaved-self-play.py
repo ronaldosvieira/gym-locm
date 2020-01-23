@@ -25,8 +25,8 @@ seed = 156123055
 eval_seed = 402455446
 num_processes = 4
 
-train_steps = 30 * 33334
-eval_steps = 30 * 33334
+train_steps = 30 * 30000
+eval_steps = 30 * 30000
 num_evals = 10
 
 num_trials = 150
