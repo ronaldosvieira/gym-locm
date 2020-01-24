@@ -29,7 +29,8 @@ train_steps = 30 * 30000
 eval_steps = 30 * 30000
 num_evals = 10
 
-num_trials = 20
+num_trials = 50
+num_warmup_trials = 20
 
 path = 'models/hyp-search/basic_draft_1nd'
 
@@ -333,7 +334,8 @@ if __name__ == '__main__':
 
     # noinspection PyBroadException
     try:
-        algo = partial(tpe.suggest, n_startup_jobs=max(0, 10 - finished_trials))
+        algo = partial(tpe.suggest,
+                       n_startup_jobs=max(0, num_warmup_trials - finished_trials))
 
         best_param = fmin(train_and_eval, param_dict, algo=algo,
                           max_evals=num_trials, trials=trials,
