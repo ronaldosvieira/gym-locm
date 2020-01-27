@@ -51,6 +51,14 @@ class LOCMEnv(gym.Env, ABC):
                 self._render_text_battle()
             elif self.state.phase == Phase.ENDED:
                 self._render_text_ended()
+        # if ascii mode, print appropriate representation
+        if mode == 'ascii':
+            if self.state.phase == Phase.DRAFT:
+                self._render_ascii_draft()
+            elif self.state.phase == Phase.BATTLE:
+                pass  # todo: implement
+            elif self.state.phase == Phase.ENDED:
+                self._render_text_ended()
         # if native mode, build and return input string
         elif mode == 'native':
             return self._render_native()
