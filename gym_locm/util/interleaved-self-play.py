@@ -141,6 +141,9 @@ def train_and_eval(params):
     model1 = model_builder(env1, **params)
     model2 = model_builder(env2, **params)
 
+    if optimize_for == PlayerOrder.SECOND:
+        model1, model2 = model2, model1
+
     # update parameters on surrogate models
     env1.env_method('update_parameters', model2.get_parameters())
     env2.env_method('update_parameters', model1.get_parameters())
@@ -151,6 +154,9 @@ def train_and_eval(params):
     # build model paths
     model_path1 = path + '/' + model_name + '/1st'
     model_path2 = path + '/' + model_name + '/2nd'
+
+    if optimize_for == PlayerOrder.SECOND:
+        model_path1, model_path2 = model_path2, model_path1
 
     # set tensorflow log dir
     model1.tensorboard_log = model_path1
@@ -308,9 +314,6 @@ def train_and_eval(params):
 
     # calculate and return the metrics
     main_metric, aux_metric = -max(results[0][0]), -max(results[1][0])
-
-    if optimize_for == PlayerOrder.SECOND:
-        main_metric, aux_metric = aux_metric, main_metric
 
     return {'loss': main_metric, 'loss2': aux_metric, 'status': STATUS_OK}
 
