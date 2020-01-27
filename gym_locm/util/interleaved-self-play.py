@@ -305,7 +305,7 @@ def train_and_eval(params):
             steps_to_train = int(model1.num_timesteps - model2.num_timesteps)
 
             model2.learn(total_timesteps=steps_to_train,
-                         seed=seed * model1.callback_counter, tb_log_name='tf',
+                         seed=seed * model1.callback_counter,
                          reset_num_timesteps=False)
 
             # update parameters on surrogate models
