@@ -80,7 +80,8 @@ def model_builder(env, **params):
                 cliprange=params['cliprange'],
                 vf_coef=params['vf_coef'],
                 ent_coef=params['ent_coef'],
-                learning_rate=params['learning_rate'])
+                learning_rate=params['learning_rate'],
+                tensorboard_log=None)
 
 
 class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
@@ -263,8 +264,7 @@ def train_and_eval(params):
     # train the first player model
     model1.learn(total_timesteps=train_steps,
                  callback=callback,
-                 seed=seed,
-                 tb_log_name='tf')
+                 seed=seed)
 
     # update second player's opponent
     env2.env_method('update_parameters', model1.get_parameters())
@@ -273,7 +273,7 @@ def train_and_eval(params):
     steps_to_train = int(model1.num_timesteps - model2.num_timesteps)
 
     model2.learn(total_timesteps=steps_to_train,
-                 seed=seed * model1.callback_counter, tb_log_name='tf',
+                 seed=seed * model1.callback_counter,
                  reset_num_timesteps=False)
 
     # update first player's opponent
