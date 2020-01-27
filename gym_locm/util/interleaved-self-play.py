@@ -13,7 +13,7 @@ import numpy as np
 from hyperopt import hp, STATUS_OK, Trials, fmin, tpe
 from hyperopt.pyll import scope
 from stable_baselines import PPO2
-from stable_baselines.common.policies import MlpPolicy
+from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from statistics import mean, stdev
 
@@ -22,17 +22,19 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv
 
 # parameters
-seed = 156123055
+seed = 96730
 num_processes = 4
 
+lstm = True
+
 train_steps = 30 * 30000
-eval_steps = 30 * 30000
+eval_steps = 30 * 3000
 num_evals = 10
 
 num_trials = 50
 num_warmup_trials = 20
 
-path = 'models/hyp-search/basic_draft_1nd'
+path = 'models/hyp-search/lstm-draft-1st-player'
 
 optimize_for = PlayerOrder.FIRST
 
@@ -50,6 +52,9 @@ param_dict = {
                                    np.log(0.00005),
                                    np.log(0.01))
 }
+
+if lstm:
+    param_dict['n_lstm'] = hp.uniformint('n_lstm', 24, 128)
 
 # initializations
 counter = 0
@@ -71,9 +76,11 @@ def eval_env_builder(seed, play_first=True, **params):
     return lambda: env
 
 
-def model_builder(env, **params):
+def model_builder_mlp(env, **params):
+    net_arch = [params['neurons']] * params['layers']
+
     return PPO2(MlpPolicy, env, verbose=0, gamma=1,
-                policy_kwargs=dict(net_arch=[params['neurons']] * params['layers']),
+                policy_kwargs=dict(net_arch=net_arch),
                 n_steps=params['n_steps'],
                 nminibatches=params['nminibatches'],
                 noptepochs=params['noptepochs'],
@@ -82,6 +89,24 @@ def model_builder(env, **params):
                 ent_coef=params['ent_coef'],
                 learning_rate=params['learning_rate'],
                 tensorboard_log=None)
+
+
+def model_builder_lstm(env, **params):
+    net_arch = ['lstm'] + [params['neurons']] * params['layers']
+
+    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1,
+                policy_kwargs=dict(net_arch=net_arch, n_lstm=params['n_lstm']),
+                n_steps=params['n_steps'],
+                nminibatches=params['nminibatches'],
+                noptepochs=params['noptepochs'],
+                cliprange=params['cliprange'],
+                vf_coef=params['vf_coef'],
+                ent_coef=params['ent_coef'],
+                learning_rate=params['learning_rate'],
+                tensorboard_log=None)
+
+
+model_builder = model_builder_lstm if lstm else model_builder_mlp
 
 
 class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
