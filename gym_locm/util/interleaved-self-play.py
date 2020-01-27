@@ -19,7 +19,7 @@ from statistics import mean, stdev
 
 from gym_locm.engine import PlayerOrder
 from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent
-from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv
+from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # parameters
 seed = 96730
@@ -55,6 +55,7 @@ param_dict = {
 
 if lstm:
     param_dict['n_lstm'] = hp.uniformint('n_lstm', 24, 128)
+    param_dict['nminibatches'] = hp.choice('nminibatches', [num_processes])
 
 # initializations
 counter = 0
@@ -113,8 +114,42 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.rstate = None
+        self.done = [False] + [True] * (num_processes - 1)
+
     def create_model(self, **params):
-        self.model = model_builder(DummyVecEnv([lambda: self]), **params)
+        if lstm:
+            self.rstate = np.zeros(shape=(num_processes, params['n_lstm'] * 2))
+
+        env = [env_builder(0, **params) for _ in range(num_processes)]
+        env = DummyVecEnv(env)
+
+        self.model = model_builder(env, **params)
+
+    if lstm:
+        def step(self, action):
+            """Makes an action in the game."""
+            obs = self._encode_state()
+
+            zero_completed_obs = np.zeros((num_processes, *self.observation_space.shape))
+            zero_completed_obs[0, :] = obs
+
+            prediction, self.rstate = self.model.predict(zero_completed_obs,
+                                                         state=self.rstate,
+                                                         mask=self.done)
+
+            # act according to first and second players
+            if self.play_first:
+                LOCMDraftEnv.step(self, action)
+                state, reward, self.done[0], info = \
+                    LOCMDraftEnv.step(self, prediction[0])
+            else:
+                LOCMDraftEnv.step(self, prediction[0])
+                state, reward, self.done[0], info = \
+                    LOCMDraftEnv.step(self, action)
+                reward = -reward
+
+            return state, reward, self.done[0], info
 
 
 def train_and_eval(params):
