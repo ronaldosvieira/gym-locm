@@ -22,7 +22,7 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # parameters
-seed = 96730
+seed = 96729
 num_processes = 4
 
 lstm = True
@@ -203,6 +203,8 @@ def train_and_eval(params):
 
     if optimize_for == PlayerOrder.SECOND:
         model1, model2 = model2, model1
+        env1, env2 = env2, env1
+        eval_env1, eval_env2 = eval_env2, eval_env1
 
     # update parameters on surrogate models
     env1.env_method('update_parameters', model2.get_parameters())
@@ -318,6 +320,10 @@ def train_and_eval(params):
             mean1, std1 = make_evaluate(eval_env1)(model)
             mean2, std2 = make_evaluate(eval_env2)(model2)
 
+            if optimize_for == PlayerOrder.SECOND:
+                mean1, mean2 = mean2, mean1
+                std1, std2 = std2, std1
+
             results[0][0].append(mean1)
             results[1][0].append(mean2)
             results[0][1].append(std1)
@@ -349,6 +355,10 @@ def train_and_eval(params):
     mean_reward1, std_reward1 = make_evaluate(eval_env1)(model1)
     mean_reward2, std_reward2 = make_evaluate(eval_env2)(model2)
 
+    if optimize_for == PlayerOrder.SECOND:
+        mean_reward1, mean_reward2 = mean_reward2, mean_reward1
+        std_reward1, std_reward2 = std_reward2, std_reward1
+
     results[0][0].append(mean_reward1)
     results[1][0].append(mean_reward2)
     results[0][1].append(std_reward1)
@@ -374,6 +384,9 @@ def train_and_eval(params):
 
     # calculate and return the metrics
     main_metric, aux_metric = -max(results[0][0]), -max(results[1][0])
+
+    if optimize_for == PlayerOrder.SECOND:
+        main_metric, aux_metric = aux_metric, main_metric
 
     return {'loss': main_metric, 'loss2': aux_metric, 'status': STATUS_OK}
 
