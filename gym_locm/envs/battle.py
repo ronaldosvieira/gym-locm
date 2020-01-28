@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from gym_locm.agents import RandomDraftAgent, RandomBattleAgent
-from gym_locm.engine import State, Phase, Action, PlayerOrder
+from gym_locm.engine import Phase, Action, PlayerOrder
 from gym_locm.envs.base_env import LOCMEnv
 from gym_locm.exceptions import GameIsEndedError, MalformedActionError
 
@@ -21,12 +21,16 @@ class LOCMBattleEnv(LOCMEnv):
             draft_agent.reset()
             draft_agent.seed(seed)
 
-        cards_in_state = 8 + 6 + 6  # 20 cards
-        card_features = 16
         player_features = 4  # hp, mana, next_rune, next_draw
+        cards_in_hand = 8
+        card_features = 16
+        cards_on_board = 12
+        board_card_features = 8
 
         # 328 features
-        self.state_shape = player_features * 2 + cards_in_state * card_features
+        self.state_shape = player_features * 2 \
+            + cards_in_hand * card_features \
+            + cards_on_board * board_card_features
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
@@ -113,27 +117,33 @@ class LOCMBattleEnv(LOCMEnv):
 
         p0, p1 = self.state.current_player, self.state.opposing_player
 
-        dummy_card = [0] * 16
-
-        def fill_cards(card_list, up_to):
+        def fill_cards(card_list, up_to, features):
             remaining_cards = up_to - len(card_list)
 
-            return card_list + [dummy_card for _ in range(remaining_cards)]
+            return card_list + [[0] * features for _ in range(remaining_cards)]
 
         all_cards = []
 
-        locations = p0.hand, p0.lanes[0], p0.lanes[1], p1.lanes[0], p1.lanes[1]
-        card_limits = 8, 3, 3, 3, 3
+        # convert all cards in hand to features
+        hand = list(map(self.encode_card, p0.hand))
 
-        for location, card_limit in zip(locations, card_limits):
+        # add dummy cards up to the card limit
+        hand = fill_cards(hand, up_to=8, features=16)
+
+        # add to card list
+        all_cards.extend([feature for card in hand for feature in card])
+
+        locations = p0.lanes[0], p0.lanes[1], p1.lanes[0], p1.lanes[1]
+
+        for location in locations:
             # convert all cards to features
-            location = list(map(self.encode_card, location))
+            location = list(map(self.encode_card_on_board, location))
 
             # add dummy cards up to the card limit
-            location = fill_cards(location, up_to=card_limit)
+            location = fill_cards(location, up_to=3, features=8)
 
             # add to card list
-            all_cards.extend(location)
+            all_cards.extend([feature for card in location for feature in card])
 
         # players info
         encoded_state[:8] = self.encode_players(p0, p1)
