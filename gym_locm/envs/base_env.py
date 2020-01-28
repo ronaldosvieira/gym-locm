@@ -317,7 +317,7 @@ class LOCMEnv(gym.Env, ABC):
 
     @staticmethod
     def encode_card(card):
-        """ Encodes a card object into a numerical array. """
+        """Encodes a card object into a numerical array."""
         card_type = [1.0 if isinstance(card, card_type) else 0.0
                      for card_type in LOCMEnv.card_types]
         cost = card.cost / 12
@@ -330,6 +330,15 @@ class LOCMEnv(gym.Env, ABC):
 
         return card_type + [cost, attack, defense, player_hp,
                             enemy_hp, card_draw] + keywords
+
+    @staticmethod
+    def encode_card_on_board(card):
+        """Encodes a card object into a numerical array."""
+        attack = card.attack / 12
+        defense = card.defense / 12
+        keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
+
+        return [attack, defense] + keywords
 
     @staticmethod
     def encode_players(current, opposing):
