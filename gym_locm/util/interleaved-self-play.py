@@ -93,7 +93,7 @@ def model_builder_mlp(env, **params):
 
 
 def model_builder_lstm(env, **params):
-    net_arch = ['lstm'] + [params['neurons']] * params['layers']
+    net_arch = [params['neurons']] * params['layers'] + ['lstm']
 
     return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1,
                 policy_kwargs=dict(net_arch=net_arch, n_lstm=params['n_lstm']),
