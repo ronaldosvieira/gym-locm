@@ -5,6 +5,8 @@ import warnings
 from datetime import datetime
 from functools import partial
 
+from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
+
 warnings.filterwarnings('ignore')
 warnings.filterwarnings(action='ignore', category=DeprecationWarning)
 warnings.filterwarnings(action='ignore', category=FutureWarning)
@@ -17,15 +19,16 @@ from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from statistics import mean, stdev
 
-from gym_locm.engine import PlayerOrder
-from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent
+from gym_locm.engine import PlayerOrder, Phase
+from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDraftAgent
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # parameters
 seed = 96729
 num_processes = 4
 
-lstm = True
+lstm = False
+phase = Phase.DRAFT
 
 train_steps = 30 * 30000
 eval_steps = 30 * 3000
@@ -34,9 +37,9 @@ num_evals = 10
 num_trials = 50
 num_warmup_trials = 20
 
-path = 'models/hyp-search/lstm-draft-1st-player'
+path = 'models/hyp-search/basic-draft-2nd-player'
 
-optimize_for = PlayerOrder.FIRST
+optimize_for = PlayerOrder.SECOND
 
 param_dict = {
     'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
@@ -59,11 +62,19 @@ if lstm:
 
 # initializations
 counter = 0
+make_draft_agents = lambda: (IceboxDraftAgent(), IceboxDraftAgent())
 make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
 
-def env_builder(seed, play_first=True, **params):
+def env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents())
+    env.play_first = play_first
+
+    return lambda: env
+
+
+def env_builder_battle(seed, play_first=True, **params):
+    env = LOCMBattleSelfPlayEnv2(seed=seed, draft_agents=make_draft_agents())
     env.play_first = play_first
 
     return lambda: env
@@ -107,7 +118,16 @@ def model_builder_lstm(env, **params):
                 tensorboard_log=None)
 
 
+env_builder = env_builder_draft if phase == Phase.DRAFT else env_builder_battle
 model_builder = model_builder_lstm if lstm else model_builder_mlp
+
+
+class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def create_model(self, **params):
+        self.model = model_builder(DummyVecEnv([lambda: self]), **params)
 
 
 class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
