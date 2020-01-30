@@ -185,13 +185,18 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         player = self.state.current_player.id
 
         # do the action
-        result = super().step(action)
+        state, reward, done, info = super().step(action)
 
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
-            result = super().step(self.battle_agent.act(self.state))
+            action = self.battle_agent.act(self.state)
 
-        return result
+            state, reward, done, info = super().step(action)
+
+        if not self.play_first:
+            reward = -reward
+
+        return state, reward, done, info
 
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
@@ -215,12 +220,16 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         player = self.state.current_player.id
 
         # do the action
-        result = super().step(action)
+        state, reward, done, info = super().step(action)
 
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
             state = self._encode_state()
+            action = self.model.predict(state)[0]
 
-            result = super().step(self.model.predict(state)[0])
+            state, reward, done, info = super().step(action)
 
-        return result
+        if not self.play_first:
+            reward = -reward
+
+        return state, reward, done, info
