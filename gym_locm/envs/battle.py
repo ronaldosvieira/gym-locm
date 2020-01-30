@@ -71,7 +71,8 @@ class LOCMBattleEnv(LOCMEnv):
         state = self.state
 
         # execute the action
-        state.act(action)
+        if action is not None:
+            state.act(action)
 
         # build return info
         winner = state.winner

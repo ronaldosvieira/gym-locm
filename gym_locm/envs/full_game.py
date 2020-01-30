@@ -91,7 +91,8 @@ class LOCMFullGameEnv(LOCMEnv):
             self.choices[state.current_player.id].append(chosen_card)
 
         # execute the action
-        state.act(action)
+        if action is not None:
+            state.act(action)
 
         # init return info
         winner = state.winner
