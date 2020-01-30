@@ -5,7 +5,7 @@ import warnings
 from datetime import datetime
 from functools import partial
 
-from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
+from gym_locm.envs.battle import LOCMBattleSelfPlayEnv, LOCMBattleSingleEnv
 
 warnings.filterwarnings('ignore')
 warnings.filterwarnings(action='ignore', category=DeprecationWarning)
@@ -80,9 +80,17 @@ def env_builder_battle(seed, play_first=True, **params):
     return lambda: env
 
 
-def eval_env_builder(seed, play_first=True, **params):
+def eval_env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSingleEnv(seed=seed, draft_agent=MaxAttackDraftAgent(),
                              battle_agents=make_battle_agents())
+    env.play_first = play_first
+
+    return lambda: env
+
+
+def eval_env_builder_battle(seed, play_first=True, **params):
+    env = LOCMBattleSingleEnv(seed=seed, battle_agent=MaxAttackBattleAgent(),
+                              draft_agents=make_draft_agents())
     env.play_first = play_first
 
     return lambda: env
@@ -118,7 +126,13 @@ def model_builder_lstm(env, **params):
                 tensorboard_log=None)
 
 
-env_builder = env_builder_draft if phase == Phase.DRAFT else env_builder_battle
+if phase == Phase.DRAFT:
+    env_builder = env_builder_draft
+    eval_env_builder = eval_env_builder_draft
+elif phase == Phase.BATTLE:
+    env_builder = env_builder_battle
+    eval_env_builder = eval_env_builder_battle
+
 model_builder = model_builder_lstm if lstm else model_builder_mlp
 
 
