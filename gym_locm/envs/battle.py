@@ -212,14 +212,15 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
     def step(self, action):
         """Makes an action in the game."""
-        obs = self._encode_state()
+        player = self.state.current_player.id
 
-        # act according to first and second players
-        if self.play_first:
-            super().step(action)
-            result = super().step(self.model.predict(obs)[0])
-        else:
-            super().step(self.model.predict(obs)[0])
-            result = super().step(action)
+        # do the action
+        result = super().step(action)
+
+        # have opponent play until its player's turn or there's a winner
+        while self.state.current_player.id != player and self.state.winner is None:
+            state = self._encode_state()
+
+            result = super().step(self.model.predict(state)[0])
 
         return result
