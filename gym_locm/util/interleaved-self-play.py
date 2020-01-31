@@ -24,10 +24,11 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDra
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # parameters
-seed = 96729
+seed = 96731
 num_processes = 4
 
 lstm = False
+history = True
 phase = Phase.DRAFT
 
 train_steps = 30 * 30000
@@ -37,9 +38,9 @@ num_evals = 10
 num_trials = 50
 num_warmup_trials = 20
 
-path = 'models/hyp-search/basic-draft-2nd-player'
+path = 'models/hyp-search/history-draft-1st-player'
 
-optimize_for = PlayerOrder.SECOND
+optimize_for = PlayerOrder.FIRST
 
 param_dict = {
     'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
@@ -67,7 +68,8 @@ make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
 
 def env_builder_draft(seed, play_first=True, **params):
-    env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents())
+    env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents(),
+                                use_draft_history=history)
     env.play_first = play_first
 
     return lambda: env
@@ -82,7 +84,8 @@ def env_builder_battle(seed, play_first=True, **params):
 
 def eval_env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSingleEnv(seed=seed, draft_agent=MaxAttackDraftAgent(),
-                             battle_agents=make_battle_agents())
+                             battle_agents=make_battle_agents(),
+                             use_draft_history=history)
     env.play_first = play_first
 
     return lambda: env
