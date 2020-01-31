@@ -236,7 +236,9 @@ class LOCMEnv(gym.Env, ABC):
                 return self.decode_draft_action(action_number)
             elif self.state.phase == Phase.BATTLE:
                 return self.decode_battle_action(action_number)
-        finally:
+            else:
+                return None
+        except MalformedActionError:
             return None
 
     def decode_draft_action(self, action_number):
