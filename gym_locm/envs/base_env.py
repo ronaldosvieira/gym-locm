@@ -14,6 +14,7 @@ class LOCMEnv(gym.Env, ABC):
 
     def __init__(self, seed=None):
         self._seed = seed
+        self.episodes = 0
 
         self.state = State(seed=seed)
 
@@ -40,6 +41,8 @@ class LOCMEnv(gym.Env, ABC):
             self._seed += 1
 
             self.state = State(seed=self._seed)
+
+        self.episodes += 1
 
     def render(self, mode: str = 'text'):
         """Builds a representation of the current state."""
