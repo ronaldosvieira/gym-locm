@@ -58,7 +58,7 @@ param_dict = {
 }
 
 if lstm:
-    param_dict['n_lstm'] = hp.uniformint('n_lstm', 24, 128)
+    param_dict['layers'] = hp.uniformint('layers', 0, 2)
     param_dict['nminibatches'] = hp.choice('nminibatches', [num_processes])
 
 # initializations
@@ -115,10 +115,10 @@ def model_builder_mlp(env, **params):
 
 
 def model_builder_lstm(env, **params):
-    net_arch = [params['neurons']] * params['layers'] + ['lstm']
+    net_arch = ['lstm'] + [params['neurons']] * params['layers']
 
     return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1,
-                policy_kwargs=dict(net_arch=net_arch, n_lstm=params['n_lstm']),
+                policy_kwargs=dict(net_arch=net_arch, n_lstm=params['neurons']),
                 n_steps=params['n_steps'],
                 nminibatches=params['nminibatches'],
                 noptepochs=params['noptepochs'],
@@ -156,7 +156,7 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
 
     def create_model(self, **params):
         if lstm:
-            self.rstate = np.zeros(shape=(num_processes, params['n_lstm'] * 2))
+            self.rstate = np.zeros(shape=(num_processes, params['neurons'] * 2))
 
         env = [env_builder(0, **params) for _ in range(num_processes)]
         env = DummyVecEnv(env)
