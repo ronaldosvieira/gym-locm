@@ -4,6 +4,7 @@ import pickle
 import warnings
 from datetime import datetime
 from functools import partial
+from math import ceil
 
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv, LOCMBattleSingleEnv
 
@@ -24,21 +25,21 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDra
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # parameters
-seed = 96731
+seed = 96732
 num_processes = 4
 
 lstm = False
-history = True
-phase = Phase.DRAFT
+history = False
+phase = Phase.BATTLE
 
-train_steps = 30 * 30000
-eval_steps = 30 * 3000
+train_episodes = 30000
+eval_episodes = 3000
 num_evals = 10
 
 num_trials = 50
 num_warmup_trials = 20
 
-path = 'models/hyp-search/history-draft-1st-player'
+path = 'models/hyp-search/basic-battle-1st-player'
 
 optimize_for = PlayerOrder.FIRST
 
@@ -212,10 +213,13 @@ def train_and_eval(params):
         params['nminibatches'] -= 1
 
     # build the envs
-    env1 = [env_builder(seed + train_steps * i, True, **params)
-            for i in range(num_processes)]
-    env2 = [env_builder(seed + train_steps * i, False, **params)
-            for i in range(num_processes)]
+    env1, env2 = [], []
+
+    for i in range(num_processes):
+        current_seed = seed + (train_episodes // num_processes) * i
+
+        env1.append(env_builder(current_seed, True, **params))
+        env2.append(env_builder(current_seed, False, **params))
 
     env1 = SubprocVecEnv(env1, start_method='spawn')
     env2 = SubprocVecEnv(env2, start_method='spawn')
@@ -224,12 +228,15 @@ def train_and_eval(params):
     env2.env_method('create_model', **params)
 
     # build the evaluation envs
-    eval_seed = seed + train_steps * num_processes
+    eval_seed = seed + train_episodes
 
-    eval_env1 = [eval_env_builder(eval_seed + eval_steps * i,  True, **params)
-                 for i in range(num_processes)]
-    eval_env2 = [eval_env_builder(eval_seed + eval_steps * i, False, **params)
-                 for i in range(num_processes)]
+    eval_env1, eval_env2 = [], []
+
+    for i in range(num_processes):
+        current_seed = eval_seed + (eval_episodes // num_processes) * i
+
+        eval_env1.append(eval_env_builder(current_seed, True, **params))
+        eval_env2.append(eval_env_builder(current_seed, False, **params))
 
     eval_env1 = SubprocVecEnv(eval_env1, start_method='spawn')
     eval_env2 = SubprocVecEnv(eval_env2, start_method='spawn')
@@ -271,18 +278,12 @@ def train_and_eval(params):
 
     results = [[[], []], [[], []]]
 
-    model1.callback_counter = 0
-
     # calculate utilities
-    callback_freq = model1.n_steps * num_processes
-    total_callbacks = train_steps // callback_freq
-    eval_every = total_callbacks // num_evals
+    eval_every_ep = train_episodes / num_evals
+    switch_every_ep = train_episodes / params['n_switches']
 
-    # ensure num of switches <= num of callbacks
-    while params['n_switches'] > total_callbacks:
-        params['n_switches'] /= 10
-
-    switch_every = total_callbacks // params['n_switches']
+    model1.last_eval, model1.next_eval = 0, eval_every_ep
+    model1.last_switch, model1.next_switch = 0, switch_every_ep
 
     # print hyperparameters
     print(params)
@@ -296,19 +297,20 @@ def train_and_eval(params):
             """
             # initialize structures
             episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
-            num_steps = int(eval_steps / num_processes)
 
             # set seeds
             for i in range(num_processes):
-                eval_env.env_method('seed',
-                                    eval_seed + eval_steps * i,
-                                    indices=[i])
+                current_seed = eval_seed + (eval_episodes // num_processes) * i
+
+                eval_env.env_method('seed', current_seed, indices=[i])
 
             # reset the env
             obs = eval_env.reset()
 
+            eval_env.set_attr('episodes', 0)
+
             # runs `num_steps` steps
-            for j in range(num_steps):
+            while True:
                 # get a deterministic prediction from model
                 actions, _ = model.predict(obs, deterministic=True)
 
@@ -322,6 +324,10 @@ def train_and_eval(params):
                     if dones[i]:
                         episode_rewards[i].append(0.0)
 
+                if any(dones):
+                    if sum(eval_env.get_attr('episodes')) >= eval_episodes:
+                        break
+
             all_rewards = []
 
             # flatten episode rewards lists
@@ -333,28 +339,30 @@ def train_and_eval(params):
 
         return evaluate
 
-    def callback(_locals, _globals):
-        model = _locals['self']
+    def callback2(_locals, _globals):
+        return sum(env2.get_attr('episodes')) < sum(env1.get_attr('episodes'))
 
-        model.callback_counter += 1
+    def callback(_locals, _globals):
+        episodes_so_far = sum(env1.get_attr('episodes'))
 
         # if it is time to switch, do so
-        if model.callback_counter % switch_every == 0:
+        if episodes_so_far >= model1.next_switch:
             # train the second player model
-            steps_to_train = int(model1.num_timesteps - model2.num_timesteps)
-
-            model2.learn(total_timesteps=steps_to_train,
-                         seed=seed * model1.callback_counter,
-                         reset_num_timesteps=False)
+            model2.learn(total_timesteps=1000000000,
+                         seed=seed + model1.last_switch,
+                         reset_num_timesteps=False, callback=callback2)
 
             # update parameters on surrogate models
             env1.env_method('update_parameters', model2.get_parameters())
             env2.env_method('update_parameters', model1.get_parameters())
 
+            model1.last_switch = episodes_so_far
+            model1.next_switch += switch_every_ep
+
         # if it is time to evaluate, do so
-        if model.callback_counter % eval_every == 0:
+        if episodes_so_far >= model1.next_eval == 0:
             # evaluate the models and get the metrics
-            mean1, std1 = make_evaluate(eval_env1)(model)
+            mean1, std1 = make_evaluate(eval_env1)(model1)
             mean2, std2 = make_evaluate(eval_env2)(model2)
 
             if optimize_for == PlayerOrder.SECOND:
@@ -370,20 +378,20 @@ def train_and_eval(params):
             model1.save(model_path1 + f'/{model1.num_timesteps}-steps')
             model2.save(model_path2 + f'/{model2.num_timesteps}-steps')
 
+            model1.last_eval = episodes_so_far
+            model1.next_eval += eval_every_ep
+
+        return sum(env1.get_attr('episodes')) < train_episodes
+
     # train the first player model
-    model1.learn(total_timesteps=train_steps,
-                 callback=callback,
-                 seed=seed)
+    model1.learn(total_timesteps=1000000000, callback=callback, seed=seed)
 
     # update second player's opponent
     env2.env_method('update_parameters', model1.get_parameters())
 
     # train the second player model
-    steps_to_train = int(model1.num_timesteps - model2.num_timesteps)
-
-    model2.learn(total_timesteps=steps_to_train,
-                 seed=seed * model1.callback_counter,
-                 reset_num_timesteps=False)
+    model2.learn(total_timesteps=1000000000, seed=seed + model1.last_switch,
+                 reset_num_timesteps=False, callback=callback2)
 
     # update first player's opponent
     env1.env_method('update_parameters', model2.get_parameters())
