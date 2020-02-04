@@ -59,7 +59,7 @@ param_dict = {
 
 if lstm:
     param_dict['layers'] = hp.uniformint('layers', 0, 2)
-    param_dict['nminibatches'] = hp.choice('nminibatches', [num_processes])
+    param_dict['nminibatches'] = hp.choice('nminibatches', [1])
 
 # initializations
 counter = 0
