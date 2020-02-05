@@ -446,6 +446,7 @@ if __name__ == '__main__':
 
         finished_trials = len(trials.trials)
         print(f'Found run state file with {finished_trials} trials.')
+        counter = finished_trials
 
         num_trials -= finished_trials
     except FileNotFoundError:
