@@ -360,7 +360,7 @@ def train_and_eval(params):
             model1.next_switch += switch_every_ep
 
         # if it is time to evaluate, do so
-        if episodes_so_far >= model1.next_eval == 0:
+        if episodes_so_far >= model1.next_eval:
             # evaluate the models and get the metrics
             mean1, std1 = make_evaluate(eval_env1)(model1)
             mean2, std2 = make_evaluate(eval_env2)(model2)
