@@ -309,6 +309,7 @@ class State:
 
         self.phase = Phase.DRAFT
         self.turn = 1
+        self.was_last_action_invalid = False
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
         self._current_player = PlayerOrder.FIRST
         self.__available_actions = None
@@ -414,6 +415,8 @@ class State:
         return [seed]
 
     def act(self, action: Action):
+        self.was_last_action_invalid = False
+
         if self.phase == Phase.DRAFT:
             self._act_on_draft(action)
 
@@ -599,12 +602,9 @@ class State:
             action.resolved_target = target
 
             self.current_player.actions.append(action)
-        except (NotEnoughManaError,
-                MalformedActionError,
-                FullLaneError,
-                InvalidCardError) as e:
-            eprint("Action error:", e.message)
-
+        except (NotEnoughManaError, MalformedActionError,
+                FullLaneError, InvalidCardError):
+            self.was_last_action_invalid = True
 
         for player in self.players:
             for lane in player.lanes:

@@ -81,7 +81,8 @@ class LOCMBattleEnv(LOCMEnv):
         done = state.winner is not None
         info = {'phase': state.phase,
                 'turn': state.turn,
-                'winner': state.winner}
+                'winner': state.winner,
+                'invalid': state.was_last_action_invalid}
 
         if winner is not None:
             reward = 1 if winner == PlayerOrder.FIRST else -1
