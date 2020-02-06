@@ -444,11 +444,10 @@ if __name__ == '__main__':
         with open(path + '/rstate.p', 'rb') as random_state_file:
             random_state = pickle.load(random_state_file)
 
-        finished_trials = len(trials.trials)
+        finished_trials = len(trials)
         print(f'Found run state file with {finished_trials} trials.')
-        counter = finished_trials
 
-        num_trials -= finished_trials
+        counter = finished_trials
     except FileNotFoundError:
         trials = Trials()
         finished_trials = 0
