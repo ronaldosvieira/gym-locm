@@ -24,25 +24,32 @@ from gym_locm.engine import PlayerOrder, Phase
 from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDraftAgent
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
-# parameters
+# which phase to train
+phase = Phase.DRAFT
+
+# draft-related parameters
+lstm = True
+history = False
+
+# battle-related parameters
+clip_invalid_actions = False
+
+# training parameters
 seed = 96732
 num_processes = 4
-
-lstm = False
-history = False
-phase = Phase.BATTLE
-
 train_episodes = 30000
 eval_episodes = 3000
 num_evals = 10
 
+# bayesian optimization parameters
 num_trials = 50
 num_warmup_trials = 20
-
-path = 'models/hyp-search/basic-battle-1st-player'
-
 optimize_for = PlayerOrder.FIRST
 
+# where to save the model
+path = 'models/hyp-search/lstm2-draft-1st-player'
+
+# hyperparameter space
 param_dict = {
     'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
     'layers': hp.uniformint('layers', 1, 3),
