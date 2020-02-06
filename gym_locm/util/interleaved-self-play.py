@@ -46,7 +46,7 @@ optimize_for = PlayerOrder.FIRST
 param_dict = {
     'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
     'layers': hp.uniformint('layers', 1, 3),
-    'neurons': hp.uniformint('neurons', 24, 128),
+    'neurons': hp.uniformint('neurons', 24, 256),
     'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
     'nminibatches': scope.int(hp.quniform('nminibatches', 1, 300, 1)),
     'noptepochs': scope.int(hp.quniform('noptepochs', 3, 20, 1)),
