@@ -73,6 +73,8 @@ class LOCMBattleEnv(LOCMEnv):
         # execute the action
         if action is not None:
             state.act(action)
+        else:
+            state.was_last_action_invalid = True
 
         # build return info
         winner = state.winner
