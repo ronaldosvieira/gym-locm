@@ -313,6 +313,7 @@ class State:
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
         self._current_player = PlayerOrder.FIRST
         self.__available_actions = None
+        self.__action_mask = None
 
         self.winner = None
 
@@ -408,6 +409,91 @@ class State:
             self.__available_actions = tuple(available_actions)
 
         return self.__available_actions
+
+    @property
+    def action_mask(self):
+        if self.__action_mask is not None:
+            return self.__action_mask
+
+        if self.phase == Phase.DRAFT:
+            return [[1, 1, 1]]
+        elif self.phase == Phase.ENDED:
+            return [[]]
+
+        action_mask = [0] * 145
+
+        # pass is always allowed
+        action_mask[0] = 1
+
+        # shortcuts
+        cp, op = self.current_player, self.opposing_player
+        cp_has_enough_mana = has_enough_mana(cp.mana)
+        left_lane_not_full = len(cp.lanes[0]) < 3
+        right_lane_not_full = len(cp.lanes[1]) < 3
+
+        def validate_creature(index):
+            if left_lane_not_full:
+                action_mask[1 + index * 2] = 1
+
+            if right_lane_not_full:
+                action_mask[1 + index * 2 + 1] = 1
+
+        def validate_green_item(index):
+            for i in range(len(cp.lanes[0])):
+                action_mask[17 + index * 13 + 1 + i] = 1
+
+            for i in range(len(cp.lanes[1])):
+                action_mask[17 + index * 13 + 4 + i] = 1
+
+        def validate_red_item(index):
+            for i in range(len(op.lanes[0])):
+                action_mask[17 + index * 13 + 7 + i] = 1
+
+            for i in range(len(op.lanes[1])):
+                action_mask[17 + index * 13 + 10 + i] = 1
+
+        def validate_blue_item(index):
+            validate_green_item(index)
+            validate_red_item(index)
+
+            action_mask[17 + index * 13] = 1
+
+        check_playability = {
+            Creature: validate_creature,
+            GreenItem: validate_green_item,
+            RedItem: validate_red_item,
+            BlueItem: validate_blue_item
+        }
+
+        # for each card in hand, check valid actions
+        for i, card in enumerate(cp.hand):
+            if cp_has_enough_mana(card):
+                check_playability[type(card)](i)
+
+        # for each card in the board, check valid actions
+        for offset, lane_id in zip((0, 3), (0, 1)):
+            for i, creature in enumerate(cp.lanes[lane_id]):
+                i += offset
+
+                if creature.able_to_attack():
+                    guards = []
+
+                    for j, enemy_creature in enumerate(op.lanes[lane_id]):
+                        if enemy_creature.has_ability('G'):
+                            guards.append(j)
+
+                    if guards:
+                        for j in guards:
+                            action_mask[121 + i * 4 + 1 + j] = 1
+                    else:
+                        action_mask[121 + i * 4] = 1
+
+                        for j in range(len(op.lanes[lane_id])):
+                            action_mask[121 + i * 4 + 1 + j] = 1
+
+        self.__action_mask = [action_mask]
+
+        return self.__action_mask
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
