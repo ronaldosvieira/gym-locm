@@ -24,13 +24,16 @@ class LOCMBattleEnv(LOCMEnv):
         player_features = 4  # hp, mana, next_rune, next_draw
         cards_in_hand = 8
         card_features = 16
-        cards_on_board = 12
-        board_card_features = 8
+        friendly_cards_on_board = 6
+        friendly_board_card_features = 9
+        enemy_cards_on_board = 6
+        enemy_board_card_features = 8
 
         # 328 features
         self.state_shape = player_features * 2 \
             + cards_in_hand * card_features \
-            + cards_on_board * board_card_features
+            + friendly_cards_on_board * friendly_board_card_features \
+            + enemy_cards_on_board * enemy_board_card_features
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
@@ -137,11 +140,21 @@ class LOCMBattleEnv(LOCMEnv):
         # add to card list
         all_cards.extend([feature for card in hand for feature in card])
 
-        locations = p0.lanes[0], p0.lanes[1], p1.lanes[0], p1.lanes[1]
-
-        for location in locations:
+        # in current player's lanes
+        for location in (p0.lanes[0], p0.lanes[1]):
             # convert all cards to features
-            location = list(map(self.encode_card_on_board, location))
+            location = list(map(self.encode_friendly_card_on_board, location))
+
+            # add dummy cards up to the card limit
+            location = fill_cards(location, up_to=3, features=9)
+
+            # add to card list
+            all_cards.extend([feature for card in location for feature in card])
+
+        # in opposing player's lanes
+        for location in (p1.lanes[0], p1.lanes[1]):
+            # convert all cards to features
+            location = list(map(self.encode_enemy_card_on_board, location))
 
             # add dummy cards up to the card limit
             location = fill_cards(location, up_to=3, features=8)

@@ -335,7 +335,17 @@ class LOCMEnv(gym.Env, ABC):
                             enemy_hp, card_draw] + keywords
 
     @staticmethod
-    def encode_card_on_board(card):
+    def encode_friendly_card_on_board(card: Creature):
+        """Encodes a card object into a numerical array."""
+        attack = card.attack / 12
+        defense = card.defense / 12
+        can_attack = int(card.can_attack and not card.has_attacked_this_turn)
+        keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
+
+        return [attack, defense, can_attack] + keywords
+
+    @staticmethod
+    def encode_enemy_card_on_board(card: Creature):
         """Encodes a card object into a numerical array."""
         attack = card.attack / 12
         defense = card.defense / 12
