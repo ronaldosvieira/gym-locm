@@ -297,20 +297,22 @@ class LOCMEnv(gym.Env, ABC):
                     target = side.lanes[lane][index].instance_id
 
                 return Action(ActionType.USE, origin, target)
-            elif 121 <= action_number <= 162:
+            elif 121 <= action_number <= 144:
                 action_number -= 121
 
-                origin = int(action_number / 7)
-                target = action_number % 7
+                origin = action_number // 4
+                target = action_number % 4
 
-                origin = player.lanes[int(origin / 3)][origin % 3].instance_id
+                lane = origin // 3
+
+                origin = player.lanes[lane][origin % 3].instance_id
 
                 if target == 0:
                     target = None
                 else:
                     target -= 1
 
-                    target = opponent.lanes[int(target / 3)][target % 3].instance_id
+                    target = opponent.lanes[lane][target].instance_id
 
                 return Action(ActionType.ATTACK, origin, target)
             else:

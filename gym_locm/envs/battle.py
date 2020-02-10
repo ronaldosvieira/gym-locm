@@ -38,8 +38,8 @@ class LOCMBattleEnv(LOCMEnv):
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
 
-        # 163 possible actions
-        self.action_space = gym.spaces.Discrete(163)
+        # 145 possible actions
+        self.action_space = gym.spaces.Discrete(145)
 
         # reset all agents' internal state
         for agent in self.draft_agents:
