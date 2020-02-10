@@ -36,8 +36,8 @@ class LOCMDraftEnv(LOCMEnv):
         self.cards_in_state = 33 if use_draft_history else 3
         self.card_features = 16
 
-        # (30 cards already chosen + 3 current choices) x (16 card features)
-        self.state_shape = (self.cards_in_state, self.card_features)
+        self.state_shape = self.cards_in_state * self.card_features,
+
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0,
             shape=self.state_shape,
@@ -176,15 +176,22 @@ class LOCMDraftEnv(LOCMEnv):
 
             for i in range(len(card_choices)):
                 index = self.draft_ordering[i]
+                lo = -(3 - i) * self.card_features
+                hi = lo + self.card_features
+                hi = hi if hi < 0 else None
 
-                encoded_state[-(3 - i)] = self.encode_card(card_choices[index])
+                encoded_state[lo:hi] = self.encode_card(card_choices[index])
 
         if self.use_draft_history:
             if self.sort_cards:
                 chosen_cards = sorted(chosen_cards, key=lambda c: c.id)
 
             for j, card in enumerate(chosen_cards):
-                encoded_state[j] = self.encode_card(card)
+                lo = -(33 - j) * self.card_features
+                hi = lo + self.card_features
+                hi = hi if hi < 0 else None
+
+                encoded_state[lo:hi] = self.encode_card(card)
 
         return encoded_state
 
