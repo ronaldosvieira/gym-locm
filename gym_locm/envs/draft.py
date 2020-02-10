@@ -13,6 +13,7 @@ class LOCMDraftEnv(LOCMEnv):
     def __init__(self,
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=False,
+                 use_mana_curve=False,
                  sort_cards=False,
                  evaluation_battles=1,
                  seed=None):
@@ -32,11 +33,17 @@ class LOCMDraftEnv(LOCMEnv):
         self.evaluation_battles = evaluation_battles
         self.sort_cards = sort_cards
         self.use_draft_history = use_draft_history
+        self.use_mana_curve = use_mana_curve
 
         self.cards_in_state = 33 if use_draft_history else 3
         self.card_features = 16
 
-        self.state_shape = self.cards_in_state * self.card_features,
+        self.state_shape = self.cards_in_state * self.card_features
+
+        if self.use_mana_curve:
+            self.state_shape += 13
+
+        self.state_shape = self.state_shape,
 
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0,
@@ -192,6 +199,10 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = hi if hi < 0 else None
 
                 encoded_state[lo:hi] = self.encode_card(card)
+
+        if self.use_mana_curve:
+            for chosen_card in chosen_cards:
+                encoded_state[chosen_card.cost] += 1
 
         return encoded_state
 
