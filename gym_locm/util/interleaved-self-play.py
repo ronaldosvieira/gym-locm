@@ -277,8 +277,8 @@ def train_and_eval(params):
     os.makedirs(model_path2, exist_ok=True)
 
     # save starting models
-    model1.save(model_path1 + '/0-steps')
-    model2.save(model_path2 + '/0-steps')
+    model1.save(model_path1 + '/0-episodes')
+    model2.save(model_path2 + '/0-episodes')
 
     results = [[[], []], [[], []]]
 
@@ -351,7 +351,7 @@ def train_and_eval(params):
         # if it is time to evaluate, do so
         if episodes_so_far >= model2.next_eval:
             # save models
-            model2.save(model_path2 + f'/{model2.num_timesteps}-steps')
+            model2.save(model_path2 + f'/{episodes_so_far}-episodes')
 
             # evaluate the models and get the metrics
             print(f"Evaluating player 2... ({episodes_so_far})")
@@ -391,7 +391,7 @@ def train_and_eval(params):
         # if it is time to evaluate, do so
         if episodes_so_far >= model1.next_eval:
             # save model
-            model1.save(model_path1 + f'/{model1.num_timesteps}-steps')
+            model1.save(model_path1 + f'/{episodes_so_far}-episodes')
 
             # evaluate the models and get the metrics
             print(f"Evaluating player 1... ({episodes_so_far})")
