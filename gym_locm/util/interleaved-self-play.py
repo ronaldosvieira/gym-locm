@@ -375,20 +375,6 @@ def train_and_eval(params):
     def callback(_locals, _globals):
         episodes_so_far = sum(env1.get_attr('episodes'))
 
-        # if it is time to switch, do so
-        if episodes_so_far >= model1.next_switch:
-            # train the second player model
-            model2.learn(total_timesteps=1000000000,
-                         seed=seed + model1.last_switch,
-                         reset_num_timesteps=False, callback=callback2)
-
-            # update parameters on surrogate models
-            env1.env_method('update_parameters', model2.get_parameters())
-            env2.env_method('update_parameters', model1.get_parameters())
-
-            model1.last_switch = episodes_so_far
-            model1.next_switch += switch_every_ep
-
         # if it is time to evaluate, do so
         if episodes_so_far >= model1.next_eval:
             # save model
@@ -409,6 +395,20 @@ def train_and_eval(params):
 
             model1.last_eval = episodes_so_far
             model1.next_eval += eval_every_ep
+
+        # if it is time to switch, do so
+        if episodes_so_far >= model1.next_switch:
+            # train the second player model
+            model2.learn(total_timesteps=1000000000,
+                         seed=seed + model1.last_switch,
+                         reset_num_timesteps=False, callback=callback2)
+
+            # update parameters on surrogate models
+            env1.env_method('update_parameters', model2.get_parameters())
+            env2.env_method('update_parameters', model1.get_parameters())
+
+            model1.last_switch = episodes_so_far
+            model1.next_switch += switch_every_ep
 
         return episodes_so_far < train_episodes
 
