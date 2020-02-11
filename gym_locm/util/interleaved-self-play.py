@@ -25,14 +25,15 @@ from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDr
 phase = Phase.DRAFT
 
 # draft-related parameters
-lstm = True
+lstm = False
 history = False
+curve = True
 
 # battle-related parameters
-clip_invalid_actions = False
+clip_invalid_actions = False  # todo: clipping not implemented yet
 
 # training parameters
-seed = 96732
+seed = 96734
 num_processes = 4
 train_episodes = 30000
 eval_episodes = 3000
@@ -44,7 +45,7 @@ num_warmup_trials = 20
 optimize_for = PlayerOrder.FIRST
 
 # where to save the model
-path = 'models/hyp-search/lstm2-draft-1st-player'
+path = 'models/hyp-search/curve-draft-1st-player'
 
 # hyperparameter space
 param_dict = {
@@ -74,7 +75,7 @@ make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
 def env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents(),
-                                use_draft_history=history)
+                                use_draft_history=history, use_mana_curve=curve)
     env.play_first = play_first
 
     return lambda: env
@@ -90,7 +91,7 @@ def env_builder_battle(seed, play_first=True, **params):
 def eval_env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSingleEnv(seed=seed, draft_agent=MaxAttackDraftAgent(),
                              battle_agents=make_battle_agents(),
-                             use_draft_history=history)
+                             use_draft_history=history, use_mana_curve=curve)
     env.play_first = play_first
 
     return lambda: env
