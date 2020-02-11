@@ -290,6 +290,8 @@ def train_and_eval(params):
     switch_every_ep = train_episodes / params['n_switches']
 
     model1.last_eval, model1.next_eval = 0, eval_every_ep
+    model2.last_eval, model2.next_eval = 0, eval_every_ep
+
     model1.last_switch, model1.next_switch = 0, switch_every_ep
 
     # print hyperparameters
@@ -347,7 +349,30 @@ def train_and_eval(params):
         return evaluate
 
     def callback2(_locals, _globals):
-        return sum(env2.get_attr('episodes')) < sum(env1.get_attr('episodes'))
+        episodes_so_far = sum(env2.get_attr('episodes'))
+
+        # if it is time to evaluate, do so
+        if episodes_so_far >= model2.next_eval:
+            # save models
+            model2.save(model_path2 + f'/{model2.num_timesteps}-steps')
+
+            # evaluate the models and get the metrics
+            print(f"Evaluating player 2... ({episodes_so_far})")
+            mean2, std2 = make_evaluate(eval_env2)(model2)
+            print(f"Done: {mean2}")
+            print()
+
+            if optimize_for == PlayerOrder.SECOND:
+                results[0][0].append(mean2)
+                results[0][1].append(std2)
+            else:
+                results[1][0].append(mean2)
+                results[1][1].append(std2)
+
+            model2.last_eval = episodes_so_far
+            model2.next_eval += eval_every_ep
+
+        return episodes_so_far < sum(env1.get_attr('episodes'))
 
     def callback(_locals, _globals):
         episodes_so_far = sum(env1.get_attr('episodes'))
@@ -368,27 +393,26 @@ def train_and_eval(params):
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model1.next_eval:
-            # evaluate the models and get the metrics
-            mean1, std1 = make_evaluate(eval_env1)(model1)
-            mean2, std2 = make_evaluate(eval_env2)(model2)
-
-            if optimize_for == PlayerOrder.SECOND:
-                mean1, mean2 = mean2, mean1
-                std1, std2 = std2, std1
-
-            results[0][0].append(mean1)
-            results[1][0].append(mean2)
-            results[0][1].append(std1)
-            results[1][1].append(std2)
-
-            # save models
+            # save model
             model1.save(model_path1 + f'/{model1.num_timesteps}-steps')
-            model2.save(model_path2 + f'/{model2.num_timesteps}-steps')
+
+            # evaluate the models and get the metrics
+            print(f"Evaluating player 1... ({episodes_so_far})")
+            mean1, std1 = make_evaluate(eval_env1)(model1)
+            print(f"Done: {mean1}")
+            print()
+
+            if optimize_for == PlayerOrder.FIRST:
+                results[0][0].append(mean1)
+                results[0][1].append(std1)
+            else:
+                results[1][0].append(mean1)
+                results[1][1].append(std1)
 
             model1.last_eval = episodes_so_far
             model1.next_eval += eval_every_ep
 
-        return sum(env1.get_attr('episodes')) < train_episodes
+        return episodes_so_far < train_episodes
 
     # train the first player model
     model1.learn(total_timesteps=1000000000, callback=callback, seed=seed)
