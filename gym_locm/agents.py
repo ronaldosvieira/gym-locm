@@ -738,12 +738,19 @@ class RLDraftAgent(Agent):
         pass
 
     def reset(self):
-        pass
+        self._state = None
+        self.done = True
 
     def __init__(self, algorithm, model='draft-trpo-3kk'):
         self.model = algorithm.load("models/" + model)
+        self._state = None
+        self.done = True
 
     def act(self, state):
-        action, _ = self.model.predict(state)
+        action, self._state = self.model.predict(state,
+                                                 state=self._state,
+                                                 mask=self.done)
+
+        self.done = False
 
         return Action(ActionType.PICK, action[0])
