@@ -104,8 +104,8 @@ def eval_env_builder_draft(seed, play_first=True, **params):
 
 
 def eval_env_builder_battle(seed, play_first=True, **params):
-    env = LOCMBattleSingleEnv(seed=seed, battle_agent=MaxAttackBattleAgent(),
-                              draft_agents=make_draft_agents())
+    env = LOCMBattleSingleEnv2(seed=seed, battle_agent=MaxAttackBattleAgent(),
+                               draft_agents=make_draft_agents())
     env.play_first = play_first
     env = TimeLimit(env, max_episode_steps=100)
 
@@ -145,19 +145,55 @@ def model_builder_lstm(env, **params):
 if phase == Phase.DRAFT:
     env_builder = env_builder_draft
     eval_env_builder = eval_env_builder_draft
+    model_builder = model_builder_lstm if lstm else model_builder_mlp
 elif phase == Phase.BATTLE:
     env_builder = env_builder_battle
     eval_env_builder = eval_env_builder_battle
-
-model_builder = model_builder_lstm if lstm else model_builder_mlp
+    model_builder = model_builder_mlp
 
 
 class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def reset(self):
+        self.play_first = not self.play_first
+
+        return super().reset()
+
     def create_model(self, **params):
         self.model = model_builder(DummyVecEnv([lambda: self]), **params)
+
+    def step(self, action):
+        state, reward, done, info = super().step(action)
+
+        if info['invalid'] and not done:
+            state, reward, done, _ = super().step(0)
+
+            reward = -0.025
+
+        return state, reward, done, info
+
+
+class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def reset(self):
+        self.play_first = not self.play_first
+
+        return super().reset()
+
+    def step(self, action):
+        state, reward, done, info = super().step(action)
+
+        if info['invalid']:
+            if not done:
+                state, reward, done, info = super().step(0)
+
+            reward = -0.025
+
+        return state, reward, done, info
 
 
 class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
@@ -202,7 +238,7 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
             return state, reward, self.done[0], info
 
 
-def train_and_eval(params):
+def interleaved_self_play(params):
     global counter
 
     counter += 1
@@ -477,6 +513,208 @@ def train_and_eval(params):
 
     return {'loss': main_metric, 'loss2': aux_metric, 'status': STATUS_OK}
 
+
+def self_play(params):
+    global counter
+
+    counter += 1
+
+    # get and print start time
+    start_time = str(datetime.now())
+    print('Start time:', start_time)
+
+    # ensure integer hyperparams
+    params['n_steps'] = int(params['n_steps'])
+    params['nminibatches'] = int(params['nminibatches'])
+    params['noptepochs'] = int(params['noptepochs'])
+
+    # ensure nminibatches <= n_steps
+    params['nminibatches'] = min(params['nminibatches'],
+                                 params['n_steps'])
+
+    # ensure n_steps % nminibatches == 0
+    while params['n_steps'] % params['nminibatches'] != 0:
+        params['nminibatches'] -= 1
+
+    # build the env
+    env = []
+
+    for i in range(num_processes):
+        current_seed = seed + (train_episodes // num_processes) * i
+
+        env.append(env_builder(current_seed, True, **params))
+
+    env = SubprocVecEnv(env, start_method='spawn')
+
+    env.env_method('create_model', **params)
+
+    # build the evaluation env
+    eval_seed = seed + train_episodes
+
+    eval_env = []
+
+    for i in range(num_processes):
+        current_seed = eval_seed + (eval_episodes // num_processes) * i
+
+        eval_env.append(eval_env_builder(current_seed, True, **params))
+
+    eval_env = SubprocVecEnv(eval_env, start_method='spawn')
+
+    # build the model
+    model = model_builder(env, **params)
+
+    # update parameters on surrogate models
+    env.env_method('update_parameters', model.get_parameters())
+
+    # create the model name
+    model_name = f'{counter}'
+
+    # build the model path
+    model_path = path + '/' + model_name
+
+    # set tensorflow log dir
+    model.tensorboard_log = model_path
+
+    # create necessary folders
+    os.makedirs(model_path, exist_ok=True)
+
+    # save starting model
+    model.save(model_path + '/0-episodes')
+
+    results = [[], []]
+
+    # calculate utilities
+    eval_every_ep = train_episodes / num_evals
+    switch_every_ep = train_episodes / params['n_switches']
+
+    model.last_eval, model.next_eval = 0, eval_every_ep
+    model.last_switch, model.next_switch = 0, switch_every_ep
+
+    # print hyperparameters
+    print(params)
+
+    def make_evaluate(eval_env):
+        def evaluate(model):
+            """
+            Evaluates a model.
+            :param model: (stable_baselines model) Model to be evaluated.
+            :return: The mean (win rate) and standard deviation.
+            """
+            # initialize structures
+            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
+            results = []
+
+            # set seeds
+            for i in range(num_processes):
+                current_seed = eval_seed + (eval_episodes // num_processes) * i
+
+                eval_env.env_method('seed', current_seed, indices=[i])
+
+            # reset the env
+            obs = eval_env.reset()
+            episodes = 0
+
+            while True:
+                # get a deterministic prediction from model
+                actions, _ = model.predict(obs, deterministic=True)
+
+                # do the predicted action and save the outcome
+                obs, rewards, dones, _ = eval_env.step(actions)
+
+                # save current reward into episode rewards
+                for i in range(eval_env.num_envs):
+                    episode_rewards[i][-1] += rewards[i]
+
+                    if dones[i]:
+                        results.append(1 if rewards[i] > 0 else 0)
+
+                        episode_rewards[i].append(0.0)
+
+                        episodes += 1
+
+                if any(dones):
+                    if episodes >= eval_episodes:
+                        break
+
+            all_rewards = []
+
+            # flatten episode rewards lists
+            for part in episode_rewards:
+                all_rewards.extend(part)
+
+            # return the mean reward and standard deviation from all episodes
+            return mean(all_rewards), mean(results)
+
+        return evaluate
+
+    def callback(_locals, _globals):
+        episodes_so_far = sum(env.get_attr('episodes'))
+
+        # if it is time to evaluate, do so
+        if episodes_so_far >= model.next_eval:
+            # save model
+            model.save(model_path + f'/{episodes_so_far}-episodes')
+
+            # evaluate the models and get the metrics
+            print(f"Evaluating... ({episodes_so_far})")
+            mean_reward, win_rate = make_evaluate(eval_env)(model)
+            print(f"Done: {mean_reward} m.r. / {win_rate}% win rate")
+            print()
+
+            results[0].append(mean_reward)
+            results[1].append(win_rate)
+
+            model.last_eval = episodes_so_far
+            model.next_eval += eval_every_ep
+
+        # if it is time to switch, do so
+        if episodes_so_far >= model.next_switch:
+            # update parameters on surrogate models
+            env.env_method('update_parameters', model.get_parameters())
+
+            model.last_switch = episodes_so_far
+            model.next_switch += switch_every_ep
+
+        return episodes_so_far < train_episodes
+
+    # train the model
+    model.learn(total_timesteps=1000000000, callback=callback, seed=seed)
+
+    # update opponent
+    env.env_method('update_parameters', model.get_parameters())
+
+    # evaluate the final model
+    mean_reward, win_rate = make_evaluate(eval_env)(model)
+
+    results[0].append(mean_reward)
+    results[1].append(win_rate)
+
+    # save the final model
+    model.save(model_path + '/final')
+
+    # close the envs
+    for e in (env, eval_env):
+        e.close()
+
+    # get and print end time
+    end_time = str(datetime.now())
+    print('End time:', end_time)
+
+    # save model info to results file
+    with open(path + '/' + 'results.txt', 'a') as file:
+        file.write(json.dumps(dict(id=counter, **params, results=results,
+                                   start_time=start_time,
+                                   end_time=end_time), indent=2))
+
+    return {'loss': -max(results[1]), 'status': STATUS_OK}
+
+
+if phase == Phase.DRAFT:
+    train_and_eval = interleaved_self_play
+elif phase == Phase.BATTLE:
+    train_and_eval = self_play
+else:
+    raise ValueError("Phase should be either Phase.DRAFT or Phase.BATTLE.")
 
 if __name__ == '__main__':
     try:
