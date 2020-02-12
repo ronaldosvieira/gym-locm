@@ -215,6 +215,10 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
             state, reward, done, info = super().step(action)
 
+            if info['invalid'] and not done:
+                state, reward, done, info = super().step(0)
+                break
+
         if not self.play_first:
             reward = -reward
 
@@ -250,6 +254,10 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
             action = self.model.predict(state)[0]
 
             state, reward, done, info = super().step(action)
+
+            if info['invalid'] and not done:
+                state, reward, done, info = super().step(0)
+                break
 
         if not self.play_first:
             reward = -reward
