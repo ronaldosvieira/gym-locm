@@ -4,7 +4,8 @@ import pickle
 import warnings
 from datetime import datetime
 from functools import partial
-from math import ceil
+
+from gym.wrappers import TimeLimit
 
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv, LOCMBattleSingleEnv
 
@@ -25,18 +26,20 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDra
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # which phase to train
-phase = Phase.DRAFT
+phase = Phase.BATTLE
 
 # draft-related parameters
 lstm = False
 history = False
-curve = True
+curve = False
+
+optimize_for = PlayerOrder.FIRST
 
 # battle-related parameters
 clip_invalid_actions = False  # todo: clipping not implemented yet
 
 # training parameters
-seed = 96734
+seed = 96732
 num_processes = 4
 train_episodes = 30000
 eval_episodes = 3000
@@ -45,10 +48,9 @@ num_evals = 10
 # bayesian optimization parameters
 num_trials = 50
 num_warmup_trials = 20
-optimize_for = PlayerOrder.FIRST
 
 # where to save the model
-path = 'models/hyp-search/curve-draft-1st-player'
+path = 'models/hyp-search/no-clip-battle-1st-player'
 
 # hyperparameter space
 param_dict = {
@@ -87,6 +89,7 @@ def env_builder_draft(seed, play_first=True, **params):
 def env_builder_battle(seed, play_first=True, **params):
     env = LOCMBattleSelfPlayEnv2(seed=seed, draft_agents=make_draft_agents())
     env.play_first = play_first
+    env = TimeLimit(env, max_episode_steps=100)
 
     return lambda: env
 
@@ -104,6 +107,7 @@ def eval_env_builder_battle(seed, play_first=True, **params):
     env = LOCMBattleSingleEnv(seed=seed, battle_agent=MaxAttackBattleAgent(),
                               draft_agents=make_draft_agents())
     env.play_first = play_first
+    env = TimeLimit(env, max_episode_steps=100)
 
     return lambda: env
 
