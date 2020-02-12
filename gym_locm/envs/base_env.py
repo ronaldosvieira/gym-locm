@@ -380,6 +380,10 @@ class LOCMEnv(gym.Env, ABC):
         pass
 
     @property
+    def turn(self):
+        return self.state.turn
+
+    @property
     def _draft_is_finished(self):
         return self.state.phase > Phase.DRAFT
 
