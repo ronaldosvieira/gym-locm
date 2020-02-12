@@ -199,10 +199,17 @@ class LOCMFullGameSingleEnv(LOCMFullGameEnv):
         player = self.state.current_player.id
 
         # do the action
-        result = super().step(action)
+        state, reward, done, info = super().step(action)
 
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
-            result = super().step(self.agent.act(self.state))
+            state, reward, done, info = super().step(self.agent.act(self.state))
 
-        return result
+            if info['invalid'] and not done:
+                state, reward, done, info = super().step(0)
+                break
+
+        if not self.play_first:
+            reward = -reward
+
+        return state, reward, done, info
