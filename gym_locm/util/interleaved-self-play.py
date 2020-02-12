@@ -316,13 +316,19 @@ def train_and_eval(params):
 
             # reset the env
             obs = eval_env.reset()
+            states = None
+            dones = [False] * num_processes
 
             eval_env.set_attr('episodes', 0)
 
             # runs `num_steps` steps
             while True:
                 # get a deterministic prediction from model
-                actions, _ = model.predict(obs, deterministic=True)
+                if lstm:
+                    actions, states = model.predict(obs, deterministic=True,
+                                                    state=states, mask=dones)
+                else:
+                    actions, _ = model.predict(obs, deterministic=True)
 
                 # do the predicted action and save the outcome
                 obs, rewards, dones, _ = eval_env.step(actions)
