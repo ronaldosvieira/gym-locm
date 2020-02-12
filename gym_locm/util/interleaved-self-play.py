@@ -581,7 +581,7 @@ def self_play(params):
     # save starting model
     model.save(model_path + '/0-episodes')
 
-    results = [[], []]
+    results = [[], [], []]
 
     # calculate utilities
     eval_every_ep = train_episodes / num_evals
@@ -602,7 +602,8 @@ def self_play(params):
             """
             # initialize structures
             episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
-            results = []
+            episode_lengths = []
+            episode_wins = []
 
             # set seeds
             for i in range(num_processes):
@@ -626,7 +627,8 @@ def self_play(params):
                     episode_rewards[i][-1] += rewards[i]
 
                     if dones[i]:
-                        results.append(1 if rewards[i] > 0 else 0)
+                        episode_wins.append(1 if rewards[i] > 0 else 0)
+                        episode_lengths.append(eval_env.get_attr('turn', indices=[i]))
 
                         episode_rewards[i].append(0.0)
 
@@ -643,7 +645,7 @@ def self_play(params):
                 all_rewards.extend(part)
 
             # return the mean reward and standard deviation from all episodes
-            return mean(all_rewards), mean(results)
+            return mean(all_rewards), mean(episode_wins), mean(episode_lengths)
 
         return evaluate
 
@@ -657,12 +659,13 @@ def self_play(params):
 
             # evaluate the models and get the metrics
             print(f"Evaluating... ({episodes_so_far})")
-            mean_reward, win_rate = make_evaluate(eval_env)(model)
-            print(f"Done: {mean_reward} m.r. / {win_rate}% win rate")
+            mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
+            print(f"Done: {mean_reward} mr / {win_rate}% wr / {mean_length} ml")
             print()
 
             results[0].append(mean_reward)
             results[1].append(win_rate)
+            results[2].append(mean_length)
 
             model.last_eval = episodes_so_far
             model.next_eval += eval_every_ep
@@ -684,10 +687,11 @@ def self_play(params):
     env.env_method('update_parameters', model.get_parameters())
 
     # evaluate the final model
-    mean_reward, win_rate = make_evaluate(eval_env)(model)
+    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
 
     results[0].append(mean_reward)
     results[1].append(win_rate)
+    results[2].append(mean_length)
 
     # save the final model
     model.save(model_path + '/final')
