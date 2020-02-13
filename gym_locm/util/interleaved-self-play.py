@@ -28,15 +28,11 @@ from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDr
 # which phase to train
 phase = Phase.BATTLE
 
-# draft-related parameters
-lstm = False
-history = False
-curve = False
+# draft strategy ('basic', 'history', 'lstm' or 'curve')
+draft_strat = 'basic'
 
-optimize_for = PlayerOrder.FIRST
-
-# battle-related parameters
-clip_invalid_actions = False  # todo: clipping not implemented yet
+# battle strategy ('punish', 'map', 'clip')
+battle_strat = 'map'
 
 # training parameters
 seed = 96732
@@ -48,6 +44,7 @@ num_evals = 10
 # bayesian optimization parameters
 num_trials = 50
 num_warmup_trials = 20
+optimize_for = PlayerOrder.FIRST
 
 # where to save the model
 path = 'models/hyp-search/no-clip-battle-1st-player'
@@ -68,7 +65,7 @@ param_dict = {
                                    np.log(0.01))
 }
 
-if lstm:
+if draft_strat == 'lstm':
     param_dict['layers'] = hp.uniformint('layers', 0, 2)
     param_dict['nminibatches'] = hp.choice('nminibatches', [1])
 
@@ -80,7 +77,8 @@ make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
 def env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents(),
-                                use_draft_history=history, use_mana_curve=curve)
+                                use_draft_history=draft_strat == 'history',
+                                use_mana_curve=draft_strat == 'history')
     env.play_first = play_first
 
     return lambda: env
@@ -97,7 +95,8 @@ def env_builder_battle(seed, play_first=True, **params):
 def eval_env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSingleEnv(seed=seed, draft_agent=MaxAttackDraftAgent(),
                              battle_agents=make_battle_agents(),
-                             use_draft_history=history, use_mana_curve=curve)
+                             use_draft_history=draft_strat == 'history',
+                             use_mana_curve=draft_strat == 'curve')
     env.play_first = play_first
 
     return lambda: env
@@ -145,7 +144,11 @@ def model_builder_lstm(env, **params):
 if phase == Phase.DRAFT:
     env_builder = env_builder_draft
     eval_env_builder = eval_env_builder_draft
-    model_builder = model_builder_lstm if lstm else model_builder_mlp
+
+    if draft_strat == 'lstm':
+        model_builder = model_builder_lstm
+    else:
+        model_builder = model_builder_mlp
 elif phase == Phase.BATTLE:
     env_builder = env_builder_battle
     eval_env_builder = eval_env_builder_battle
@@ -204,7 +207,7 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
         self.done = [False] + [True] * (num_processes - 1)
 
     def create_model(self, **params):
-        if lstm:
+        if draft_strat == 'lstm':
             self.rstate = np.zeros(shape=(num_processes, params['neurons'] * 2))
 
         env = [env_builder(0, **params) for _ in range(num_processes)]
@@ -212,7 +215,7 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
 
         self.model = model_builder(env, **params)
 
-    if lstm:
+    if draft_strat == 'lstm':
         def step(self, action):
             """Makes an action in the game."""
             obs = self._encode_state()
@@ -364,7 +367,7 @@ def interleaved_self_play(params):
             # runs `num_steps` steps
             while True:
                 # get a deterministic prediction from model
-                if lstm:
+                if draft_strat == 'lstm':
                     actions, states = model.predict(obs, deterministic=True,
                                                     state=states, mask=dones)
                 else:
