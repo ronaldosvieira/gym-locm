@@ -12,7 +12,7 @@ class LOCMBattleEnv(LOCMEnv):
 
     def __init__(self,
                  draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
-                 action_mask=False, seed=None):
+                 return_action_mask=False, seed=None):
         super().__init__(seed=seed)
 
         self.draft_agents = draft_agents
@@ -21,7 +21,7 @@ class LOCMBattleEnv(LOCMEnv):
             draft_agent.reset()
             draft_agent.seed(seed)
 
-        self.action_mask = action_mask
+        self.return_action_mask = return_action_mask
 
         player_features = 4  # hp, mana, next_rune, next_draw
         cards_in_hand = 8
@@ -91,7 +91,7 @@ class LOCMBattleEnv(LOCMEnv):
                 'winner': state.winner,
                 'invalid': state.was_last_action_invalid}
 
-        if self.action_mask:
+        if self.return_action_mask:
             info['action_mask'] = self.state.action_mask
 
         if winner is not None:
