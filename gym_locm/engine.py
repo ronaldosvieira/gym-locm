@@ -524,6 +524,7 @@ class State:
                 self._new_battle_turn()
 
         self.__available_actions = None
+        self.__action_mask = None
 
     def _next_instance_id(self):
         self.instance_counter += 1
