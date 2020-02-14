@@ -213,10 +213,10 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         while self.state.current_player.id != player and self.state.winner is None:
             action = self.battle_agent.act(self.state)
 
-            state, reward, done, info = super().step(action)
+            state, reward, done, info2 = super().step(action)
 
-            if info['invalid'] and not done:
-                state, reward, done, info = super().step(0)
+            if info2['invalid'] and not done:
+                state, reward, done, info2 = super().step(0)
                 break
 
         if not self.play_first:
@@ -253,10 +253,10 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
             state = self._encode_state()
             action = self.model.predict(state)[0]
 
-            state, reward, done, info = super().step(action)
+            state, reward, done, info2 = super().step(action)
 
-            if info['invalid'] and not done:
-                state, reward, done, info = super().step(0)
+            if info2['invalid'] and not done:
+                state, reward, done, info2 = super().step(0)
                 break
 
         if not self.play_first:
