@@ -727,6 +727,9 @@ def self_play(params):
             episodes = 0
 
             while True:
+                # get current turns
+                turns = eval_env.get_attr('turn')
+
                 # get a deterministic prediction from model
                 actions, _ = model.predict(obs, deterministic=True)
 
@@ -739,7 +742,7 @@ def self_play(params):
 
                     if dones[i]:
                         episode_wins.append(1 if rewards[i] > 0 else 0)
-                        episode_lengths.append(eval_env.get_attr('turn', indices=[i]))
+                        episode_lengths.append(turns[i])
 
                         episode_rewards[i].append(0.0)
 
