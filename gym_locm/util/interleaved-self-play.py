@@ -8,7 +8,7 @@ from random import choice
 
 from gym.wrappers import TimeLimit
 
-from gym_locm.envs.battle import LOCMBattleSelfPlayEnv, LOCMBattleSingleEnv
+from gym_locm.envs.battle import LOCMBattleSelfPlayEnv, LOCMBattleSingleEnv, LOCMBattleEnv
 
 warnings.filterwarnings('ignore')
 warnings.filterwarnings(action='ignore', category=DeprecationWarning)
@@ -36,15 +36,15 @@ draft_strat = 'basic'
 battle_strat = 'map'
 
 # training parameters
-seed = 96732
+seed = 96735
 num_processes = 4
 train_episodes = 30000
 eval_episodes = 3000
 num_evals = 10
 
 # bayesian optimization parameters
-num_trials = 50
-num_warmup_trials = 20
+num_trials = 30
+num_warmup_trials = 10
 optimize_for = PlayerOrder.FIRST
 
 # where to save the model
@@ -256,9 +256,29 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
             return state, reward, done, info
     elif battle_strat == 'map':
         def step(self, action: int):
-            action_mask = self.state.action_mask[0]
+            """Makes an action in the game."""
+            player = self.state.current_player.id
 
-            return super().step(map_invalid_action(action_mask, action))
+            # do the action
+            new_action = map_invalid_action(self.state.action_mask[0], action)
+            state, reward, done, info = LOCMBattleEnv.step(self, new_action)
+
+            # have opponent play until its player's turn or there's a winner
+            while self.state.current_player.id != player and self.state.winner is None:
+                state = self._encode_state()
+                action = self.model.predict(state)[0]
+
+                action = map_invalid_action(self.state.action_mask[0], action)
+                state, reward, done, info2 = LOCMBattleEnv.step(self, action)
+
+                if info2['invalid'] and not done:
+                    state, reward, done, info2 = LOCMBattleEnv.step(self, 0)
+                    break
+
+            if not self.play_first:
+                reward = -reward
+
+            return state, reward, done, info
 
 
 class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
