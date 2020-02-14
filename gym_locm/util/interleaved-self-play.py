@@ -4,6 +4,7 @@ import pickle
 import warnings
 from datetime import datetime
 from functools import partial
+from random import choice
 
 from gym.wrappers import TimeLimit
 
@@ -47,7 +48,7 @@ num_warmup_trials = 20
 optimize_for = PlayerOrder.FIRST
 
 # where to save the model
-path = 'models/hyp-search/no-clip-battle-1st-player'
+path = 'models/hyp-search/map-battle-1st-player'
 
 # hyperparameter space
 param_dict = {
@@ -155,6 +156,82 @@ elif phase == Phase.BATTLE:
     model_builder = model_builder_mlp
 
 
+def map_invalid_action(action_mask, action):
+    if action_mask[action]:
+        return action
+
+    def get_random_valid(start, end, step=1):
+        valid = list(filter(action_mask.__getitem__,
+                            range(start, end, step)))
+
+        return choice(valid) if valid else 0
+
+    if 0 < action < 17:  # summon
+        new_action = get_random_valid(1 if action % 2 else 2, 17, 2)
+
+        # if action is valid with an alternate origin, do so
+        # otherwise do any valid summon action or pass
+        return new_action if new_action else get_random_valid(1, 17)
+
+    elif action < 121:
+        origin = (action - 17) // 13
+        target = (action - 17) % 13
+
+        start, end = 17 + 13 * origin, 17 + 13 * (origin + 1)
+
+        action_alt_target = get_random_valid(start, end)
+
+        # if action is valid with an alternate target, do so
+        if action_alt_target:
+            return action_alt_target
+
+        action_alt_origin = get_random_valid(17 + target, 121, 13)
+
+        # if action is valid an alternate origin, do so
+        if action_alt_origin:
+            return action_alt_origin
+        else:
+            # otherwise do any valid use action or pass
+            return get_random_valid(17, 121)
+
+    elif action < 145:
+        origin = (action - 121) // 4
+        target = (action - 121) % 4
+        lane = origin // 3
+
+        start, end = 121 + 4 * origin, 121 + 4 * (origin + 1)
+
+        action_alt_target = get_random_valid(start, end)
+
+        # if action is valid with an alternate target, do so
+        if action_alt_target:
+            return action_alt_target
+
+        if lane == 0:
+            lane_start, lane_end = 121, 133
+        else:
+            lane_start, lane_end = 133, 145
+
+        action_alt_origin = get_random_valid(lane_start + target, lane_end, 4)
+
+        # if action is valid an alternate origin, do so
+        if action_alt_origin:
+            return action_alt_origin
+
+        action_alt_both = get_random_valid(lane_start, lane_end)
+
+        # if any action in the lane is valid, do so
+        if action_alt_both:
+            return action_alt_both
+
+        # otherwise do any valid attack action or pass
+        return get_random_valid(121, 145)
+
+    else:
+        # out of bounds, action decoder will handle it
+        return action
+
+
 class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -167,15 +244,21 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
     def create_model(self, **params):
         self.model = model_builder(DummyVecEnv([lambda: self]), **params)
 
-    def step(self, action):
-        state, reward, done, info = super().step(action)
+    if battle_strat == 'punish':
+        def step(self, action: int):
+            state, reward, done, info = super().step(action)
 
-        if info['invalid'] and not done:
-            state, reward, done, _ = super().step(0)
+            if info['invalid'] and not done:
+                state, reward, done, _ = super().step(0)
 
-            reward = -0.025
+                reward = -0.025
 
-        return state, reward, done, info
+            return state, reward, done, info
+    elif battle_strat == 'map':
+        def step(self, action: int):
+            action_mask = self.state.action_mask[0]
+
+            return super().step(map_invalid_action(action_mask, action))
 
 
 class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
@@ -187,16 +270,21 @@ class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
 
         return super().reset()
 
-    def step(self, action):
-        state, reward, done, info = super().step(action)
+    if battle_strat == 'punish':
+        def step(self, action: int):
+            state, reward, done, info = super().step(action)
 
-        if info['invalid']:
-            if not done:
-                state, reward, done, info = super().step(0)
+            if info['invalid'] and not done:
+                state, reward, done, _ = super().step(0)
 
-            reward = -0.025
+                reward = -0.025
 
-        return state, reward, done, info
+            return state, reward, done, info
+    elif battle_strat == 'map':
+        def step(self, action: int):
+            action_mask = self.state.action_mask[0]
+
+            return super().step(map_invalid_action(action_mask, action))
 
 
 class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
