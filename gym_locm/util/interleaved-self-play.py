@@ -251,7 +251,7 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
             if info['invalid'] and not done:
                 state, reward, done, _ = super().step(0)
 
-                reward = -0.025
+                reward -= 0.025
 
             return state, reward, done, info
     elif battle_strat == 'map':
