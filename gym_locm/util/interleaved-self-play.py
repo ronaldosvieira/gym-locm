@@ -861,7 +861,6 @@ if __name__ == '__main__':
                           rstate=random_state)
 
         loss = [x['result']['loss'] for x in trials.trials]
-        loss2 = [x['result']['loss2'] for x in trials.trials]
 
         print("")
         print("##### Results")
