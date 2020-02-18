@@ -453,7 +453,6 @@ class State:
                 action_mask[17 + index * 13 + 10 + i] = 1
 
         def validate_blue_item(index):
-            validate_green_item(index)
             validate_red_item(index)
 
             action_mask[17 + index * 13] = 1
