@@ -384,6 +384,14 @@ class LOCMEnv(gym.Env, ABC):
         return self.state.turn
 
     @property
+    def action_mask(self):
+        return self.state.action_mask
+
+    @property
+    def available_actions(self):
+        return self.available_actions
+
+    @property
     def _draft_is_finished(self):
         return self.state.phase > Phase.DRAFT
 
