@@ -86,7 +86,8 @@ def env_builder_draft(seed, play_first=True, **params):
 
 
 def env_builder_battle(seed, play_first=True, **params):
-    env = LOCMBattleSelfPlayEnv2(seed=seed, draft_agents=make_draft_agents())
+    env = LOCMBattleSelfPlayEnv2(seed=seed, draft_agents=make_draft_agents(),
+                                 return_action_mask=battle_strat == 'clip')
     env.play_first = play_first
     env = TimeLimit(env, max_episode_steps=100)
 
@@ -105,7 +106,8 @@ def eval_env_builder_draft(seed, play_first=True, **params):
 
 def eval_env_builder_battle(seed, play_first=True, **params):
     env = LOCMBattleSingleEnv2(seed=seed, battle_agent=MaxAttackBattleAgent(),
-                               draft_agents=make_draft_agents())
+                               draft_agents=make_draft_agents(),
+                               return_action_mask=battle_strat == 'clip')
     env.play_first = play_first
     env = TimeLimit(env, max_episode_steps=100)
 
@@ -279,6 +281,18 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
                 reward = -reward
 
             return state, reward, done, info
+    elif battle_strat == 'clip':
+        def step(self, action: int):
+            state, reward, done, info = super().step(action)
+
+            while sum(self.action_mask) == 1:
+                state, reward2, done, info2 = super().step(0)
+
+                reward += reward2
+                info2['invalid'] = info['invalid']
+                info = info2
+
+            return state, reward, done, info
 
 
 class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
@@ -305,6 +319,18 @@ class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
             action_mask = self.state.action_mask[0]
 
             return super().step(map_invalid_action(action_mask, action))
+    elif battle_strat == 'clip':
+        def step(self, action: int):
+            state, reward, done, info = super().step(action)
+
+            while sum(self.action_mask) == 1:
+                state, reward2, done, info2 = super().step(0)
+
+                reward += reward2
+                info2['invalid'] = info['invalid']
+                info = info2
+
+            return state, reward, done, info
 
 
 class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
@@ -726,6 +752,8 @@ def self_play(params):
             obs = eval_env.reset()
             episodes = 0
 
+            model.set_env(eval_env)
+
             while True:
                 # get current turns
                 turns = eval_env.get_attr('turn')
@@ -757,6 +785,8 @@ def self_play(params):
             # flatten episode rewards lists
             for part in episode_rewards:
                 all_rewards.extend(part)
+
+            model.set_env(env)
 
             # return the mean reward and standard deviation from all episodes
             return mean(all_rewards), mean(episode_wins), mean(episode_lengths)
