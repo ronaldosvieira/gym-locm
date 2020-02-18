@@ -416,9 +416,9 @@ class State:
             return self.__action_mask
 
         if self.phase == Phase.DRAFT:
-            return [[1, 1, 1]]
+            return [1, 1, 1]
         elif self.phase == Phase.ENDED:
-            return [[]]
+            return [0] * 145
 
         action_mask = [0] * 145
 
@@ -491,7 +491,7 @@ class State:
                         for j in range(len(op.lanes[lane_id])):
                             action_mask[121 + i * 4 + 1 + j] = 1
 
-        self.__action_mask = [action_mask]
+        self.__action_mask = action_mask
 
         return self.__action_mask
 
