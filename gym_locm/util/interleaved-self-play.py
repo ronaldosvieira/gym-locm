@@ -815,7 +815,7 @@ def self_play(params):
                                    start_time=start_time,
                                    end_time=end_time), indent=2))
 
-    return {'loss': -max(results[1]), 'status': STATUS_OK}
+    return {'loss': -max(results[0]), 'status': STATUS_OK}
 
 
 if phase == Phase.DRAFT:
