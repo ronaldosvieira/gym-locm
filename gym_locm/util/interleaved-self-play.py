@@ -262,7 +262,7 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
             player = self.state.current_player.id
 
             # do the action
-            new_action = map_invalid_action(self.state.action_mask[0], action)
+            new_action = map_invalid_action(self.state.action_mask, action)
             state, reward, done, info = LOCMBattleEnv.step(self, new_action)
 
             # have opponent play until its player's turn or there's a winner
@@ -270,7 +270,7 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
                 state = self._encode_state()
                 action = self.model.predict(state)[0]
 
-                action = map_invalid_action(self.state.action_mask[0], action)
+                action = map_invalid_action(self.state.action_mask, action)
                 state, reward, done, info2 = LOCMBattleEnv.step(self, action)
 
                 if info2['invalid'] and not done:
@@ -316,7 +316,7 @@ class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
             return state, reward, done, info
     elif battle_strat == 'map':
         def step(self, action: int):
-            action_mask = self.state.action_mask[0]
+            action_mask = self.state.action_mask
 
             return super().step(map_invalid_action(action_mask, action))
     elif battle_strat == 'clip':
