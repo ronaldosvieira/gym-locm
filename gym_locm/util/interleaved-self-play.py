@@ -532,6 +532,17 @@ def interleaved_self_play(params):
 
         return episodes_so_far < train_episodes
 
+    # evaluate the initial models
+    print(f"Evaluating player 1... ({sum(env1.get_attr('episodes'))})")
+    mean_reward1, std_reward1 = make_evaluate(eval_env1)(model1)
+    print(f"Done: {mean_reward1}")
+    print()
+
+    print(f"Evaluating player 2... ({sum(env2.get_attr('episodes'))})")
+    mean_reward2, std_reward2 = make_evaluate(eval_env2)(model2)
+    print(f"Done: {mean_reward2}")
+    print()
+
     # train the first player model
     model1.learn(total_timesteps=1000000000, callback=callback, seed=seed)
 
@@ -546,8 +557,15 @@ def interleaved_self_play(params):
     env1.env_method('update_parameters', model2.get_parameters())
 
     # evaluate the final models
+    print(f"Evaluating player 1... ({sum(env1.get_attr('episodes'))})")
     mean_reward1, std_reward1 = make_evaluate(eval_env1)(model1)
+    print(f"Done: {mean_reward1}")
+    print()
+
+    print(f"Evaluating player 2... ({sum(env2.get_attr('episodes'))})")
     mean_reward2, std_reward2 = make_evaluate(eval_env2)(model2)
+    print(f"Done: {mean_reward2}")
+    print()
 
     if optimize_for == PlayerOrder.SECOND:
         mean_reward1, mean_reward2 = mean_reward2, mean_reward1
@@ -738,7 +756,7 @@ def self_play(params):
             # evaluate the models and get the metrics
             print(f"Evaluating... ({episodes_so_far})")
             mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-            print(f"Done: {mean_reward} mr / {win_rate}% wr / {mean_length} ml")
+            print(f"Done: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
             print()
 
             results[0].append(mean_reward)
@@ -758,6 +776,12 @@ def self_play(params):
 
         return episodes_so_far < train_episodes
 
+    # evaluate the initial model
+    print("Evaluating... (0)")
+    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
+    print(f"Done: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+    print()
+
     # train the model
     model.learn(total_timesteps=1000000000, callback=callback, seed=seed)
 
@@ -765,7 +789,10 @@ def self_play(params):
     env.env_method('update_parameters', model.get_parameters())
 
     # evaluate the final model
+    print("Evaluating... (final)")
     mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
+    print(f"Done: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+    print()
 
     results[0].append(mean_reward)
     results[1].append(win_rate)
