@@ -730,6 +730,10 @@ def self_play(params):
 
                 if any(dones):
                     if episodes >= eval_episodes:
+                        for i in range(eval_env.num_envs):
+                            if episode_rewards[i][-1] == 0:
+                                episode_rewards[i].pop()
+
                         break
 
             all_rewards = []
