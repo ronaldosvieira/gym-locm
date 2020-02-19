@@ -117,7 +117,7 @@ def eval_env_builder_battle(seed, play_first=True, **params):
 def model_builder_mlp(env, **params):
     net_arch = [params['neurons']] * params['layers']
 
-    return PPO2(MlpPolicy, env, verbose=0, gamma=1,
+    return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
                 policy_kwargs=dict(net_arch=net_arch),
                 n_steps=params['n_steps'],
                 nminibatches=params['nminibatches'],
@@ -132,7 +132,7 @@ def model_builder_mlp(env, **params):
 def model_builder_lstm(env, **params):
     net_arch = ['lstm'] + [params['neurons']] * params['layers']
 
-    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1,
+    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
                 policy_kwargs=dict(net_arch=net_arch, n_lstm=params['neurons']),
                 n_steps=params['n_steps'],
                 nminibatches=params['nminibatches'],
@@ -520,7 +520,6 @@ def interleaved_self_play(params):
         if episodes_so_far >= model1.next_switch:
             # train the second player model
             model2.learn(total_timesteps=1000000000,
-                         seed=seed + model1.last_switch,
                          reset_num_timesteps=False, callback=callback2)
 
             # update parameters on surrogate models
@@ -544,13 +543,13 @@ def interleaved_self_play(params):
     print()
 
     # train the first player model
-    model1.learn(total_timesteps=1000000000, callback=callback, seed=seed)
+    model1.learn(total_timesteps=1000000000, callback=callback)
 
     # update second player's opponent
     env2.env_method('update_parameters', model1.get_parameters())
 
     # train the second player model
-    model2.learn(total_timesteps=1000000000, seed=seed + model1.last_switch,
+    model2.learn(total_timesteps=1000000000,
                  reset_num_timesteps=False, callback=callback2)
 
     # update first player's opponent
@@ -787,7 +786,7 @@ def self_play(params):
     print()
 
     # train the model
-    model.learn(total_timesteps=1000000000, callback=callback, seed=seed)
+    model.learn(total_timesteps=1000000000, callback=callback)
 
     # update opponent
     env.env_method('update_parameters', model.get_parameters())
