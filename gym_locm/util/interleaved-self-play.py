@@ -89,7 +89,7 @@ def env_builder_battle(seed, play_first=True, **params):
     env = LOCMBattleSelfPlayEnv2(seed=seed, draft_agents=make_draft_agents(),
                                  return_action_mask=battle_strat == 'clip')
     env.play_first = play_first
-    env = TimeLimit(env, max_episode_steps=100)
+    env = TimeLimit(env, max_episode_steps=200)
 
     return lambda: env
 
@@ -109,7 +109,7 @@ def eval_env_builder_battle(seed, play_first=True, **params):
                                draft_agents=make_draft_agents(),
                                return_action_mask=battle_strat == 'clip')
     env.play_first = play_first
-    env = TimeLimit(env, max_episode_steps=100)
+    env = TimeLimit(env, max_episode_steps=200)
 
     return lambda: env
 
