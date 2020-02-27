@@ -425,6 +425,12 @@ def interleaved_self_play(params):
     model1.last_switch, model1.next_switch = 0, switch_every_ep
 
     # print hyperparameters
+    print(phase, battle_strat if phase == phase.BATTLE else draft_strat)
+    print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
+          f"eval_episodes={eval_episodes}, num_evals={num_evals}")
+    print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
+          f"optimize_for={optimize_for}")
+    print(f"path={path}")
     print(params)
 
     def make_evaluate(eval_env):
@@ -700,6 +706,12 @@ def self_play(params):
     model.last_switch, model.next_switch = 0, switch_every_ep
 
     # print hyperparameters
+    print(phase, battle_strat if phase == phase.BATTLE else draft_strat)
+    print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
+          f"eval_episodes={eval_episodes}, num_evals={num_evals}")
+    print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
+          f"optimize_for={optimize_for}")
+    print(f"path={path}")
     print(params)
 
     def make_evaluate(eval_env):
