@@ -23,7 +23,7 @@ from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from statistics import mean, stdev
 
 from gym_locm.engine import PlayerOrder, Phase
-from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDraftAgent
+from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDraftAgent, RandomBattleAgent
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # which phase to train
@@ -114,6 +114,16 @@ def eval_env_builder_draft(seed, play_first=True, **params):
 
 def eval_env_builder_battle(seed, play_first=True, **params):
     env = LOCMBattleSingleEnv2(seed=seed, battle_agent=MaxAttackBattleAgent(),
+                               draft_agents=make_draft_agents(),
+                               return_action_mask=battle_strat == 'clip')
+    env.play_first = play_first
+    env = TimeLimit(env, max_episode_steps=200)
+
+    return lambda: env
+
+
+def eval_env_builder_battle2(seed, play_first=True, **params):
+    env = LOCMBattleSingleEnv2(seed=seed, battle_agent=RandomBattleAgent(),
                                draft_agents=make_draft_agents(),
                                return_action_mask=battle_strat == 'clip')
     env.play_first = play_first
@@ -644,17 +654,20 @@ def self_play(params):
 
     env.env_method('create_model', **params)
 
-    # build the evaluation env
+    # build the evaluation envs
     eval_seed = seed + train_episodes
 
     eval_env = []
+    eval_env2 = []
 
     for i in range(num_processes):
         current_seed = eval_seed + (eval_episodes // num_processes) * i
 
         eval_env.append(eval_env_builder(current_seed, True, **params))
+        eval_env2.append(eval_env_builder_battle2(current_seed, True, **params))
 
     eval_env = SubprocVecEnv(eval_env, start_method='spawn')
+    eval_env2 = SubprocVecEnv(eval_env2, start_method='spawn')
 
     # build the model
     model = model_builder(env, **params)
@@ -767,7 +780,9 @@ def self_play(params):
             # evaluate the models and get the metrics
             print(f"Evaluating... ({episodes_so_far})")
             mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-            print(f"Done: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+            print(f"vs max-attack: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+            mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
+            print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
             print()
 
             results[0].append(mean_reward)
@@ -790,7 +805,9 @@ def self_play(params):
     # evaluate the initial model
     print("Evaluating... (0)")
     mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-    print(f"Done: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+    print(f"vs max-attack: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+    mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
+    print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
     print()
 
     # train the model
@@ -802,7 +819,9 @@ def self_play(params):
     # evaluate the final model
     print("Evaluating... (final)")
     mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-    print(f"Done: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+    print(f"vs max-attack: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
+    mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
+    print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
     print()
 
     results[0].append(mean_reward)
