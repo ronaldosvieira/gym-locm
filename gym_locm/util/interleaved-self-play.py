@@ -70,6 +70,14 @@ if draft_strat == 'lstm':
     param_dict['layers'] = hp.uniformint('layers', 0, 2)
     param_dict['nminibatches'] = hp.choice('nminibatches', [1])
 
+if phase == Phase.BATTLE:
+    param_dict['noptepochs'] = scope.int(hp.quniform('noptepochs', 3, 100, 1))
+    param_dict['n_steps'] = scope.int(hp.quniform('n_steps', 30, 3000, 1))
+    param_dict['nminibatches'] = scope.int(hp.quniform('nminibatches', 1, 3000, 1))
+    param_dict['learning_rate'] = hp.loguniform('learning_rate',
+                                   np.log(0.000005),
+                                   np.log(0.01))
+
 # initializations
 counter = 0
 make_draft_agents = lambda: (IceboxDraftAgent(), IceboxDraftAgent())
