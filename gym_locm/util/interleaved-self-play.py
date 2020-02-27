@@ -28,13 +28,16 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDra
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # which phase to train
-phase = Phase.BATTLE
+phase = Phase.DRAFT
 
 # draft strategy ('basic', 'history', 'lstm' or 'curve')
 draft_strat = 'basic'
 
 # battle strategy ('punish', 'map', 'clip')
-battle_strat = 'map'
+battle_strat = 'clip'
+
+# training mode ('normal', 'interleaved-self-play', 'self-play')
+training_mode = 'normal'
 
 # training parameters
 seed = 96735
@@ -44,12 +47,12 @@ eval_episodes = 3000
 num_evals = 10
 
 # bayesian optimization parameters
-num_trials = 30
-num_warmup_trials = 10
+num_trials = 50
+num_warmup_trials = 20
 optimize_for = PlayerOrder.FIRST
 
 # where to save the model
-path = 'models/hyp-search/map-battle-1st-player'
+path = 'models/final/basic-draft'
 
 # hyperparameter space
 param_dict = {
@@ -326,6 +329,202 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
                 reward = -reward
 
             return state, reward, self.done[0], info
+
+
+def normal_training(params):
+    global counter
+
+    counter += 1
+
+    # get and print start time
+    start_time = str(datetime.now())
+    print('Start time:', start_time)
+
+    # ensure integer hyperparams
+    params['n_steps'] = int(params['n_steps'])
+    params['nminibatches'] = int(params['nminibatches'])
+    params['noptepochs'] = int(params['noptepochs'])
+
+    # ensure nminibatches <= n_steps
+    params['nminibatches'] = min(params['nminibatches'],
+                                 params['n_steps'])
+
+    # ensure n_steps % nminibatches == 0
+    while params['n_steps'] % params['nminibatches'] != 0:
+        params['nminibatches'] -= 1
+
+    # build the env
+    env = []
+
+    for i in range(num_processes):
+        current_seed = seed + (train_episodes // num_processes) * i
+
+        env.append(eval_env_builder(current_seed, True, **params))
+
+    env = SubprocVecEnv(env, start_method='spawn')
+
+    # build the evaluation env
+    eval_seed = seed + train_episodes
+
+    eval_env = []
+
+    for i in range(num_processes):
+        current_seed = eval_seed + (eval_episodes // num_processes) * i
+
+        eval_env.append(eval_env_builder(current_seed, True, **params))
+
+    eval_env = SubprocVecEnv(eval_env, start_method='spawn')
+
+    # build the model
+    model = model_builder(env, **params)
+
+    # create the model name
+    model_name = f'{counter}'
+
+    # build the model path
+    model_path = path + '/' + model_name
+
+    # set tensorflow log dir
+    model.tensorboard_log = model_path
+
+    # create necessary folders
+    os.makedirs(model_path, exist_ok=True)
+
+    # save starting model
+    model.save(model_path + '/0-episodes')
+
+    results = []
+
+    # calculate utilities
+    eval_every_ep = train_episodes / num_evals
+    model.last_eval, model.next_eval = 0, eval_every_ep
+
+    # print hyperparameters
+    print(phase, battle_strat if phase == phase.BATTLE else draft_strat)
+    print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
+          f"eval_episodes={eval_episodes}, num_evals={num_evals}")
+    print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
+          f"optimize_for={optimize_for}")
+    print(f"path={path}")
+    print(params)
+
+    def make_evaluate(eval_env):
+        def evaluate(model):
+            """
+            Evaluates a model.
+            :param model: (stable_baselines model) Model to be evaluated.
+            :return: The mean (win rate) and standard deviation.
+            """
+            # initialize structures
+            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
+
+            # set seeds
+            for i in range(num_processes):
+                current_seed = eval_seed + (eval_episodes // num_processes) * i
+
+                eval_env.env_method('seed', current_seed, indices=[i])
+
+            # reset the env
+            obs = eval_env.reset()
+            episodes = 0
+
+            model.set_env(eval_env)
+
+            while True:
+                # get a deterministic prediction from model
+                actions, _ = model.predict(obs, deterministic=True)
+
+                # do the predicted action and save the outcome
+                obs, rewards, dones, info = eval_env.step(actions)
+
+                # save current reward into episode rewards
+                for i in range(eval_env.num_envs):
+                    episode_rewards[i][-1] += rewards[i]
+
+                    if dones[i]:
+                        episode_rewards[i].append(0.0)
+
+                        episodes += 1
+
+                if any(dones):
+                    if episodes >= eval_episodes:
+                        for i in range(eval_env.num_envs):
+                            if episode_rewards[i][-1] == 0:
+                                episode_rewards[i].pop()
+
+                        break
+
+            all_rewards = []
+
+            # flatten episode rewards lists
+            for part in episode_rewards:
+                all_rewards.extend(part)
+
+            model.set_env(env)
+
+            # return the mean reward of all episodes
+            return mean(all_rewards)
+
+        return evaluate
+
+    def callback(_locals, _globals):
+        episodes_so_far = sum(env.get_attr('episodes'))
+
+        # if it is time to evaluate, do so
+        if episodes_so_far >= model.next_eval:
+            # save model
+            model.save(model_path + f'/{episodes_so_far}-episodes')
+
+            # evaluate the models and get the metrics
+            print(f"Evaluating... ({episodes_so_far})")
+            mean_reward = make_evaluate(eval_env)(model)
+            print(f"Done. Mean reward: {mean_reward}")
+            print()
+
+            results.append(mean_reward)
+
+            model.last_eval = episodes_so_far
+            model.next_eval += eval_every_ep
+
+        return episodes_so_far < train_episodes
+
+    # evaluate the initial model
+    print("Evaluating... (0)")
+    mean_reward = make_evaluate(eval_env)(model)
+    print(f"Done. Mean reward: {mean_reward}")
+    print()
+
+    results.append(mean_reward)
+
+    # train the model
+    model.learn(total_timesteps=1000000000, callback=callback)
+
+    # evaluate the final model
+    print("Evaluating... (final)")
+    mean_reward = make_evaluate(eval_env)(model)
+    print(f"Done. Mean reward: {mean_reward}")
+    print()
+
+    results.append(mean_reward)
+
+    # save the final model
+    model.save(model_path + '/final')
+
+    # close the envs
+    for e in (env, eval_env):
+        e.close()
+
+    # get and print end time
+    end_time = str(datetime.now())
+    print('End time:', end_time)
+
+    # save model info to results file
+    with open(path + '/' + 'results.txt', 'a') as file:
+        file.write(json.dumps(dict(id=counter, **params, results=results,
+                                   start_time=start_time,
+                                   end_time=end_time), indent=2))
+
+    return {'loss': -max(results), 'status': STATUS_OK}
 
 
 def interleaved_self_play(params):
@@ -861,12 +1060,14 @@ def self_play(params):
     return {'loss': -max(results[0]), 'status': STATUS_OK}
 
 
-if phase == Phase.DRAFT:
-    train_and_eval = interleaved_self_play
-elif phase == Phase.BATTLE:
+if training_mode == 'normal':
+    train_and_eval = normal_training
+elif training_mode == 'self-play':
     train_and_eval = self_play
+elif training_mode == 'interleaved-self-play':
+    train_and_eval = interleaved_self_play
 else:
-    raise ValueError("Phase should be either Phase.DRAFT or Phase.BATTLE.")
+    raise ValueError("Invalid training mode.")
 
 if __name__ == '__main__':
     try:
