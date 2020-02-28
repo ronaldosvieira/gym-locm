@@ -91,7 +91,7 @@ make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 def env_builder_draft(seed, play_first=True, **params):
     env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents(),
                                 use_draft_history=draft_strat == 'history',
-                                use_mana_curve=draft_strat == 'history')
+                                use_mana_curve=draft_strat == 'curve')
     env.play_first = play_first
 
     return lambda: env
