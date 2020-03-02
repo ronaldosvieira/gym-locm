@@ -769,15 +769,9 @@ def interleaved_self_play(params):
     # train the first player model
     model1.learn(total_timesteps=1000000000, callback=callback)
 
-    # update second player's opponent
-    env2.env_method('update_parameters', model1.get_parameters())
-
     # train the second player model
     model2.learn(total_timesteps=1000000000,
                  reset_num_timesteps=False, callback=callback2)
-
-    # update first player's opponent
-    env1.env_method('update_parameters', model2.get_parameters())
 
     # evaluate the final models
     print(f"Evaluating player 1... ({sum(env1.get_attr('episodes'))})")
