@@ -18,7 +18,8 @@ warnings.filterwarnings(action='ignore', category=FutureWarning)
 import numpy as np
 from hyperopt import hp, STATUS_OK, Trials, fmin, tpe
 from hyperopt.pyll import scope
-from stable_baselines import PPO2
+from stable_baselines import PPO2, DQN
+from stable_baselines.deepq.policies import LnMlpPolicy
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from statistics import mean, stdev
@@ -28,7 +29,7 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDra
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # which phase to train
-phase = Phase.DRAFT
+phase = Phase.BATTLE
 
 # draft strategy ('basic', 'history', 'lstm' or 'curve')
 draft_strat = 'basic'
@@ -39,48 +40,74 @@ battle_strat = 'clip'
 # training mode ('normal', 'interleaved-self-play', 'self-play')
 training_mode = 'normal'
 
+# algorithm ('dqn', 'ppo2')
+algorithm = 'dqn'
+
 # training parameters
-seed = 96735
-num_processes = 4
+seed = 96737
+num_processes = 1
 train_episodes = 30000
 eval_episodes = 3000
 num_evals = 10
 
 # bayesian optimization parameters
 num_trials = 50
-num_warmup_trials = 20
+num_warmup_trials = 10
 optimize_for = PlayerOrder.FIRST
 
 # where to save the model
-path = 'models/final/basic-draft'
+path = 'models/hyp-search/clip-battle-dqn'
 
 # hyperparameter space
-param_dict = {
-    'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
-    'layers': hp.uniformint('layers', 1, 3),
-    'neurons': hp.uniformint('neurons', 24, 256),
-    'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
-    'nminibatches': scope.int(hp.quniform('nminibatches', 1, 300, 1)),
-    'noptepochs': scope.int(hp.quniform('noptepochs', 3, 20, 1)),
-    'cliprange': hp.quniform('cliprange', 0.1, 0.3, 0.1),
-    'vf_coef': hp.quniform('vf_coef', 0.5, 1.0, 0.5),
-    'ent_coef': hp.uniform('ent_coef', 0, 0.01),
-    'learning_rate': hp.loguniform('learning_rate',
-                                   np.log(0.00005),
-                                   np.log(0.01))
-}
+if algorithm == 'ppo2':
+    param_dict = {
+        'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
+        'layers': hp.uniformint('layers', 1, 3),
+        'neurons': hp.uniformint('neurons', 24, 256),
+        'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
+        'nminibatches': scope.int(hp.quniform('nminibatches', 1, 300, 1)),
+        'noptepochs': scope.int(hp.quniform('noptepochs', 3, 20, 1)),
+        'cliprange': hp.quniform('cliprange', 0.1, 0.3, 0.1),
+        'vf_coef': hp.quniform('vf_coef', 0.5, 1.0, 0.5),
+        'ent_coef': hp.uniform('ent_coef', 0, 0.01),
+        'learning_rate': hp.loguniform('learning_rate',
+                                       np.log(0.00005),
+                                       np.log(0.01)),
+    }
 
-if draft_strat == 'lstm':
-    param_dict['layers'] = hp.uniformint('layers', 0, 2)
-    param_dict['nminibatches'] = hp.choice('nminibatches', [1])
+    if phase == phase.DRAFT and draft_strat == 'lstm':
+        param_dict['layers'] = hp.uniformint('layers', 0, 2)
+        param_dict['nminibatches'] = hp.choice('nminibatches', [1])
 
-if phase == Phase.BATTLE:
-    param_dict['noptepochs'] = scope.int(hp.quniform('noptepochs', 3, 100, 1))
-    param_dict['n_steps'] = scope.int(hp.quniform('n_steps', 30, 3000, 1))
-    param_dict['nminibatches'] = scope.int(hp.quniform('nminibatches', 1, 3000, 1))
-    param_dict['learning_rate'] = hp.loguniform('learning_rate',
+    if phase == Phase.BATTLE:
+        param_dict['noptepochs'] = scope.int(hp.quniform('noptepochs', 3, 100, 1))
+        param_dict['n_steps'] = scope.int(hp.quniform('n_steps', 30, 3000, 1))
+        param_dict['nminibatches'] = scope.int(hp.quniform('nminibatches', 1, 3000, 1))
+        param_dict['learning_rate'] = hp.loguniform('learning_rate',
                                    np.log(0.000005),
                                    np.log(0.01))
+elif algorithm == 'dqn':
+    assert draft_strat != 'lstm', 'DQN not currently supported for lstm-draft'
+
+    param_dict = {
+        'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
+        'layers': hp.uniformint('layers', 1, 3),
+        'neurons': hp.uniformint('neurons', 24, 256),
+        'buffer_size': hp.choice('buffer_size', [5000, 25000, 50000, 100000]),
+        'batch_size': hp.uniformint('batch_size', 4, 256),
+        'learning_rate': hp.loguniform('learning_rate', np.log(.00005), np.log(.01)),
+        'exploration_fraction': hp.quniform('exploration_fraction', .005, .6, .005),
+        'prioritized_replay_alpha': hp.quniform('prioritized_replay_alpha',
+                                                0., 1., .1),
+        'prioritized_replay_beta0': hp.quniform('prioritized_replay_beta0',
+                                                0.2, 0.8, .2),
+        'target_network_update_freq': hp.choice('target_network_update_freq',
+                                                [5000, 25000, 50000, 100000])
+    }
+
+    num_processes = 1
+else:
+    raise ValueError("Invalid algorithm. Should be 'ppo2' or 'dqn'.")
 
 # initializations
 counter = 0
@@ -139,16 +166,29 @@ def eval_env_builder_battle2(seed, play_first=True, **params):
 def model_builder_mlp(env, **params):
     net_arch = [params['neurons']] * params['layers']
 
-    return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
-                policy_kwargs=dict(net_arch=net_arch),
-                n_steps=params['n_steps'],
-                nminibatches=params['nminibatches'],
-                noptepochs=params['noptepochs'],
-                cliprange=params['cliprange'],
-                vf_coef=params['vf_coef'],
-                ent_coef=params['ent_coef'],
-                learning_rate=params['learning_rate'],
-                tensorboard_log=None)
+    if algorithm == 'ppo2':
+        return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
+                    policy_kwargs=dict(net_arch=net_arch),
+                    n_steps=params['n_steps'],
+                    nminibatches=params['nminibatches'],
+                    noptepochs=params['noptepochs'],
+                    cliprange=params['cliprange'],
+                    vf_coef=params['vf_coef'],
+                    ent_coef=params['ent_coef'],
+                    learning_rate=params['learning_rate'],
+                    tensorboard_log=None)
+    elif algorithm == 'dqn':
+        return DQN(LnMlpPolicy, env, verbose=1, gamma=1, seed=seed,
+                   policy_kwargs=dict(layers=net_arch),
+                   double_q=True, prioritized_replay=True,
+                   prioritized_replay_beta_iters=1000000,
+                   learning_rate=params['learning_rate'],
+                   buffer_size=params['buffer_size'],
+                   batch_size=params['batch_size'],
+                   exploration_fraction=params['exploration_fraction'],
+                   prioritized_replay_alpha=params['prioritized_replay_alpha'],
+                   prioritized_replay_beta0=params['prioritized_replay_beta0'],
+                   target_network_update_freq=params['target_network_update_freq'])
 
 
 def model_builder_lstm(env, **params):
@@ -340,18 +380,19 @@ def normal_training(params):
     start_time = str(datetime.now())
     print('Start time:', start_time)
 
-    # ensure integer hyperparams
-    params['n_steps'] = int(params['n_steps'])
-    params['nminibatches'] = int(params['nminibatches'])
-    params['noptepochs'] = int(params['noptepochs'])
+    if algorithm == 'ppo2':
+        # ensure integer hyperparams
+        params['n_steps'] = int(params['n_steps'])
+        params['nminibatches'] = int(params['nminibatches'])
+        params['noptepochs'] = int(params['noptepochs'])
 
-    # ensure nminibatches <= n_steps
-    params['nminibatches'] = min(params['nminibatches'],
-                                 params['n_steps'])
+        # ensure nminibatches <= n_steps
+        params['nminibatches'] = min(params['nminibatches'],
+                                     params['n_steps'])
 
-    # ensure n_steps % nminibatches == 0
-    while params['n_steps'] % params['nminibatches'] != 0:
-        params['nminibatches'] -= 1
+        # ensure n_steps % nminibatches == 0
+        while params['n_steps'] % params['nminibatches'] != 0:
+            params['nminibatches'] -= 1
 
     # build the env
     env = []
@@ -417,6 +458,8 @@ def normal_training(params):
             """
             # initialize structures
             episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
+            episode_lengths = []
+            episode_wins = []
 
             # set seeds
             for i in range(num_processes):
@@ -430,9 +473,17 @@ def normal_training(params):
 
             model.set_env(eval_env)
 
+            action_hist = [0] * eval_env.action_space.n
+
             while True:
+                # get current turns
+                turns = eval_env.get_attr('turn')
+
                 # get a deterministic prediction from model
                 actions, _ = model.predict(obs, deterministic=True)
+
+                for action in actions:
+                    action_hist[action] += 1
 
                 # do the predicted action and save the outcome
                 obs, rewards, dones, info = eval_env.step(actions)
@@ -442,6 +493,8 @@ def normal_training(params):
                     episode_rewards[i][-1] += rewards[i]
 
                     if dones[i]:
+                        episode_wins.append(1 if rewards[i] > 0 else 0)
+                        episode_lengths.append(turns[i])
                         episode_rewards[i].append(0.0)
 
                         episodes += 1
@@ -451,6 +504,9 @@ def normal_training(params):
                         for i in range(eval_env.num_envs):
                             if episode_rewards[i][-1] == 0:
                                 episode_rewards[i].pop()
+
+                        print("action histogram:", action_hist)
+                        print(sum(action_hist) / episodes, "actions per episode")
 
                         break
 
@@ -463,7 +519,7 @@ def normal_training(params):
             model.set_env(env)
 
             # return the mean reward of all episodes
-            return mean(all_rewards)
+            return mean(all_rewards), mean(episode_wins), mean(episode_lengths)
 
         return evaluate
 
@@ -477,8 +533,8 @@ def normal_training(params):
 
             # evaluate the models and get the metrics
             print(f"Evaluating... ({episodes_so_far})")
-            mean_reward = make_evaluate(eval_env)(model)
-            print(f"Done. Mean reward: {mean_reward}")
+            mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
+            print(f"Done. {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
             print()
 
             results.append(mean_reward)
@@ -490,19 +546,19 @@ def normal_training(params):
 
     # evaluate the initial model
     print("Evaluating... (0)")
-    mean_reward = make_evaluate(eval_env)(model)
-    print(f"Done. Mean reward: {mean_reward}")
+    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
+    print(f"Done. {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
     print()
 
     results.append(mean_reward)
 
     # train the model
-    model.learn(total_timesteps=1000000000, callback=callback)
+    model.learn(total_timesteps=1500000, callback=callback)
 
     # evaluate the final model
     print("Evaluating... (final)")
-    mean_reward = make_evaluate(eval_env)(model)
-    print(f"Done. Mean reward: {mean_reward}")
+    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
+    print(f"Done. {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
     print()
 
     results.append(mean_reward)
@@ -536,18 +592,19 @@ def interleaved_self_play(params):
     start_time = str(datetime.now())
     print('Start time:', start_time)
 
-    # ensure integer hyperparams
-    params['n_steps'] = int(params['n_steps'])
-    params['nminibatches'] = int(params['nminibatches'])
-    params['noptepochs'] = int(params['noptepochs'])
+    if algorithm == 'ppo2':
+        # ensure integer hyperparams
+        params['n_steps'] = int(params['n_steps'])
+        params['nminibatches'] = int(params['nminibatches'])
+        params['noptepochs'] = int(params['noptepochs'])
 
-    # ensure nminibatches <= n_steps
-    params['nminibatches'] = min(params['nminibatches'],
-                                 params['n_steps'])
+        # ensure nminibatches <= n_steps
+        params['nminibatches'] = min(params['nminibatches'],
+                                     params['n_steps'])
 
-    # ensure n_steps % nminibatches == 0
-    while params['n_steps'] % params['nminibatches'] != 0:
-        params['nminibatches'] -= 1
+        # ensure n_steps % nminibatches == 0
+        while params['n_steps'] % params['nminibatches'] != 0:
+            params['nminibatches'] -= 1
 
     # build the envs
     env1, env2 = [], []
@@ -829,18 +886,19 @@ def self_play(params):
     start_time = str(datetime.now())
     print('Start time:', start_time)
 
-    # ensure integer hyperparams
-    params['n_steps'] = int(params['n_steps'])
-    params['nminibatches'] = int(params['nminibatches'])
-    params['noptepochs'] = int(params['noptepochs'])
+    if algorithm == 'ppo2':
+        # ensure integer hyperparams
+        params['n_steps'] = int(params['n_steps'])
+        params['nminibatches'] = int(params['nminibatches'])
+        params['noptepochs'] = int(params['noptepochs'])
 
-    # ensure nminibatches <= n_steps
-    params['nminibatches'] = min(params['nminibatches'],
-                                 params['n_steps'])
+        # ensure nminibatches <= n_steps
+        params['nminibatches'] = min(params['nminibatches'],
+                                     params['n_steps'])
 
-    # ensure n_steps % nminibatches == 0
-    while params['n_steps'] % params['nminibatches'] != 0:
-        params['nminibatches'] -= 1
+        # ensure n_steps % nminibatches == 0
+        while params['n_steps'] % params['nminibatches'] != 0:
+            params['nminibatches'] -= 1
 
     # build the env
     env = []
@@ -932,6 +990,8 @@ def self_play(params):
 
             model.set_env(eval_env)
 
+            action_hist = [0] * eval_env.action_space.n
+
             while True:
                 # get current turns
                 turns = eval_env.get_attr('turn')
@@ -939,8 +999,13 @@ def self_play(params):
                 # get a deterministic prediction from model
                 actions, _ = model.predict(obs, deterministic=True)
 
+                # print(actions[0], sum(eval_env.get_attr('action_mask')[0]))
+
+                for action in actions:
+                    action_hist[action] += 1
+
                 # do the predicted action and save the outcome
-                obs, rewards, dones, _ = eval_env.step(actions)
+                obs, rewards, dones, info = eval_env.step(actions)
 
                 # save current reward into episode rewards
                 for i in range(eval_env.num_envs):
@@ -949,7 +1014,7 @@ def self_play(params):
                     if dones[i]:
                         episode_wins.append(1 if rewards[i] > 0 else 0)
                         episode_lengths.append(turns[i])
-
+                        # print(rewards[i])
                         episode_rewards[i].append(0.0)
 
                         episodes += 1
@@ -959,6 +1024,8 @@ def self_play(params):
                         for i in range(eval_env.num_envs):
                             if episode_rewards[i][-1] == 0:
                                 episode_rewards[i].pop()
+
+                        print("action histogram:", action_hist)
 
                         break
 
