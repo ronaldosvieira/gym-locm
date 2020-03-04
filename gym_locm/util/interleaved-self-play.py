@@ -441,7 +441,8 @@ def normal_training(params):
     model.last_eval, model.next_eval = 0, eval_every_ep
 
     # print hyperparameters
-    print(phase, battle_strat if phase == phase.BATTLE else draft_strat)
+    print(f"{battle_strat}-battle" if phase == phase.BATTLE else f"{draft_strat}-draft")
+    print(f"algorithm={algorithm}, training_mode={training_mode}")
     print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
           f"eval_episodes={eval_episodes}, num_evals={num_evals}")
     print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
@@ -682,7 +683,8 @@ def interleaved_self_play(params):
     model1.last_switch, model1.next_switch = 0, switch_every_ep
 
     # print hyperparameters
-    print(phase, battle_strat if phase == phase.BATTLE else draft_strat)
+    print(f"{battle_strat}-battle" if phase == phase.BATTLE else f"{draft_strat}-draft")
+    print(f"algorithm={algorithm}, training_mode={training_mode}")
     print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
           f"eval_episodes={eval_episodes}, num_evals={num_evals}")
     print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
@@ -958,7 +960,8 @@ def self_play(params):
     model.last_switch, model.next_switch = 0, switch_every_ep
 
     # print hyperparameters
-    print(phase, battle_strat if phase == phase.BATTLE else draft_strat)
+    print(f"{battle_strat}-battle" if phase == phase.BATTLE else f"{draft_strat}-draft")
+    print(f"algorithm={algorithm}, training_mode={training_mode}")
     print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
           f"eval_episodes={eval_episodes}, num_evals={num_evals}")
     print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
