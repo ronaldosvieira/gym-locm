@@ -61,7 +61,7 @@ path = 'models/hyp-search/clip-battle-dqn'
 # hyperparameter space
 if algorithm == 'ppo2':
     param_dict = {
-        'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
+        'n_switches': hp.choice('n_switches', [10, 100, 1000]),
         'layers': hp.uniformint('layers', 1, 3),
         'neurons': hp.uniformint('neurons', 24, 256),
         'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
@@ -90,19 +90,19 @@ elif algorithm == 'dqn':
     assert draft_strat != 'lstm', 'DQN not currently supported for lstm-draft'
 
     param_dict = {
-        'n_switches': hp.choice('n_switches', [10, 100, 1000, 10000]),
-        'layers': hp.uniformint('layers', 1, 3),
-        'neurons': hp.uniformint('neurons', 24, 256),
-        'buffer_size': hp.choice('buffer_size', [5000, 25000, 50000, 100000]),
+        'n_switches': hp.choice('n_switches', [10, 100, 1000]),
+        'layers': hp.uniformint('layers', 1, 7),
+        'neurons': hp.uniformint('neurons', 24, 512),
+        'buffer_size': hp.choice('buffer_size', [5000, 25000, 50000]),
         'batch_size': hp.uniformint('batch_size', 4, 256),
         'learning_rate': hp.loguniform('learning_rate', np.log(.00005), np.log(.01)),
-        'exploration_fraction': hp.quniform('exploration_fraction', .005, .6, .005),
+        'exploration_fraction': hp.quniform('exploration_fraction', .2, .6, .005),
         'prioritized_replay_alpha': hp.quniform('prioritized_replay_alpha',
                                                 0., 1., .1),
         'prioritized_replay_beta0': hp.quniform('prioritized_replay_beta0',
                                                 0.2, 0.8, .2),
         'target_network_update_freq': hp.choice('target_network_update_freq',
-                                                [5000, 25000, 50000, 100000])
+                                                [5000, 25000, 50000])
     }
 
     num_processes = 1
