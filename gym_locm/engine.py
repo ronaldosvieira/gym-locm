@@ -8,7 +8,7 @@ from enum import Enum, IntEnum
 from gym.utils import seeding
 
 from gym_locm.exceptions import *
-from gym_locm.helpers import has_enough_mana
+from gym_locm.helpers import has_enough_mana, is_it
 
 
 def eprint(*args, **kwargs):
@@ -301,11 +301,12 @@ class State:
         Action(ActionType.PICK, 2)
     )
 
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, items=True):
         self.instance_counter = 0
 
         self.np_random = None
         self.seed(seed)
+        self.items = items
 
         self.phase = Phase.DRAFT
         self.turn = 1
@@ -490,6 +491,9 @@ class State:
                         for j in range(len(op.lanes[lane_id])):
                             action_mask[121 + i * 4 + 1 + j] = 1
 
+        if not self.items:
+            action_mask = action_mask[:17] + action_mask[-24:]
+
         self.__action_mask = action_mask
 
         return self.__action_mask
@@ -532,6 +536,9 @@ class State:
 
     def _new_draft(self) -> List[List[Card]]:
         cards = list(_cards)
+
+        if not self.items:
+            cards = list(filter(is_it(Creature), cards))
 
         self.np_random.shuffle(cards)
 

@@ -12,8 +12,8 @@ class LOCMBattleEnv(LOCMEnv):
 
     def __init__(self,
                  draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
-                 return_action_mask=False, seed=None):
-        super().__init__(seed=seed)
+                 return_action_mask=False, seed=None, items=True):
+        super().__init__(seed=seed, items=items)
 
         self.draft_agents = draft_agents
 
@@ -25,13 +25,13 @@ class LOCMBattleEnv(LOCMEnv):
 
         player_features = 4  # hp, mana, next_rune, next_draw
         cards_in_hand = 8
-        card_features = 16
+        card_features = 16 if self.items else 12
         friendly_cards_on_board = 6
         friendly_board_card_features = 9
         enemy_cards_on_board = 6
         enemy_board_card_features = 8
 
-        # 328 features
+        # 238 features if using items else 206 features
         self.state_shape = player_features * 2 \
             + cards_in_hand * card_features \
             + friendly_cards_on_board * friendly_board_card_features \
@@ -40,8 +40,12 @@ class LOCMBattleEnv(LOCMEnv):
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
 
-        # 145 possible actions
-        self.action_space = gym.spaces.Discrete(145)
+        if self.items:
+            # 145 possible actions
+            self.action_space = gym.spaces.Discrete(145)
+        else:
+            # 41 possible actions
+            self.action_space = gym.spaces.Discrete(41)
 
         # reset all agents' internal state
         for agent in self.draft_agents:
@@ -139,8 +143,12 @@ class LOCMBattleEnv(LOCMEnv):
         # convert all cards in hand to features
         hand = list(map(self.encode_card, p0.hand))
 
+        # if not using items, clip card type features
+        if not self.items:
+            hand = list(map(lambda c: c[4:], hand))
+
         # add dummy cards up to the card limit
-        hand = fill_cards(hand, up_to=8, features=16)
+        hand = fill_cards(hand, up_to=8, features=16 if self.items else 12)
 
         # add to card list
         all_cards.extend([feature for card in hand for feature in card])

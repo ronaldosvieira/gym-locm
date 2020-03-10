@@ -12,12 +12,10 @@ class LOCMDraftEnv(LOCMEnv):
 
     def __init__(self,
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-                 use_draft_history=False,
-                 use_mana_curve=False,
-                 sort_cards=False,
-                 evaluation_battles=1,
-                 seed=None):
-        super().__init__(seed=seed)
+                 use_draft_history=False, use_mana_curve=False,
+                 sort_cards=False, evaluation_battles=1,
+                 seed=None, items=True):
+        super().__init__(seed=seed, items=items)
 
         # init bookkeeping structures
         self.results = []

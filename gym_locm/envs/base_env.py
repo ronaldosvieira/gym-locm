@@ -12,11 +12,12 @@ from gym_locm.exceptions import MalformedActionError
 class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, items=True):
         self._seed = seed
         self.episodes = 0
+        self.items = items
 
-        self.state = State(seed=seed)
+        self.state = State(seed=seed, items=self.items)
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
@@ -260,12 +261,15 @@ class LOCMEnv(gym.Env, ABC):
     @staticmethod
     def decode_battle_action(state, action_number):
         """
-        Decodes an action number (0-162) from battle phase into
+        Decodes an action number (0-145) from battle phase into
         the corresponding action object, if possible. Raises
         MalformedActionError otherwise.
         """
         player = state.current_player
         opponent = state.opposing_player
+
+        if not state.items and action_number > 16:
+            action_number += 104
 
         try:
             if action_number == 0:
