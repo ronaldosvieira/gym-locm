@@ -419,7 +419,7 @@ class State:
         if self.phase == Phase.DRAFT:
             return [1, 1, 1]
         elif self.phase == Phase.ENDED:
-            return [0] * 145
+            return [0] * (145 if self.items else 41)
 
         action_mask = [0] * 145
 

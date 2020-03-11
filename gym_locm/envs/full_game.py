@@ -53,7 +53,7 @@ class LOCMFullGameEnv(LOCMEnv):
         random_state = self.state.np_random
 
         # start a brand new game
-        self.state = State()
+        self.state = State(items=self.items)
 
         # apply random state
         self.state.np_random = random_state
