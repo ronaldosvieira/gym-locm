@@ -209,145 +209,6 @@ class MaxAttackBattleAgent(Agent):
         return Action(ActionType.PASS)
 
 
-class NativeAgent(Agent):
-    action_buffer = []
-
-    def __init__(self, cmd, verbose=False):
-        self.cmd = cmd
-        self.verbose = verbose
-
-        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._process.terminate()
-
-    def seed(self, seed):
-        pass
-
-    def reset(self):
-        self.action_buffer = []
-
-        self._process.terminate()
-        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
-
-    @staticmethod
-    def decode_actions(actions):
-        actions = actions.split(';')
-        decoded_actions = []
-
-        for action in actions:
-            tokens = action.split()
-
-            if not tokens:
-                continue
-
-            if tokens[0] == 'PASS':
-                decoded_actions.append(Action(ActionType.PASS))
-            elif tokens[0] == 'PICK':
-                decoded_actions.append(Action(ActionType.PICK, int(tokens[1])))
-            elif tokens[0] == 'USE':
-                origin = int(tokens[1])
-                target = int(tokens[2])
-                target = target if target >= 0 else None
-
-                decoded_actions.append(Action(ActionType.USE, origin, target))
-            elif tokens[0] == 'SUMMON':
-                origin = int(tokens[1])
-                target = Lane(int(tokens[2]))
-
-                decoded_actions.append(Action(ActionType.SUMMON, origin, target))
-            elif tokens[0] == 'ATTACK':
-                origin = int(tokens[1])
-                target = int(tokens[2])
-                target = target if target >= 0 else None
-
-                decoded_actions.append(Action(ActionType.ATTACK, origin, target))
-
-        return decoded_actions
-
-    def act(self, state, multiple=False):
-        if self.action_buffer:
-            if multiple:
-                return list(reversed(self.action_buffer))
-            else:
-                return self.action_buffer.pop()
-
-        self._process.write(str(state))
-
-        while True:
-            raw_output = self._process.readline()
-
-            actions = self.decode_actions(raw_output)
-
-            if actions:
-                break
-
-            if self.verbose:
-                eprint(raw_output, end="")
-
-        if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
-            actions += [Action(ActionType.PASS)]
-
-        if multiple:
-            return actions
-        else:
-            self.action_buffer = list(reversed(actions))
-
-            return self.action_buffer.pop()
-
-
-class NativeBattleAgent(NativeAgent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.draft_is_initialized = False
-
-    def reset(self):
-        self.draft_is_initialized = False
-
-    def fake_draft(self, state):
-        all_cards = load_cards()
-        fake_state = State()
-
-        play_first = state.current_player.id == 0
-        deck = state.current_player.deck + state.current_player.hand
-        draft_choices = list(map(attrgetter('id'), deck))
-
-        if not play_first:
-            fake_state.act(Action(ActionType.PASS))
-
-        for turn in range(30):
-            chosen_card = all_cards[draft_choices[turn]]
-
-            fake_state.current_player.hand = [chosen_card] * 3
-
-            self._process.write(str(fake_state))
-
-            while True:
-                raw_output = self._process.readline()
-
-                actions = self.decode_actions(raw_output)
-
-                if actions:
-                    break
-
-                if self.verbose:
-                    eprint(raw_output, end="")
-
-            fake_state.act(Action(ActionType.PASS))
-
-    def act(self, state, multiple=False):
-        if not self.draft_is_initialized:
-            self.fake_draft(state)
-
-            self.draft_is_initialized = True
-
-        return super().act(state, multiple)
-
-
 class MCTSBattleAgent(Agent):
     def __init__(self, agents=(RandomBattleAgent(), RandomBattleAgent())):
         self.agents = agents
@@ -563,6 +424,149 @@ class CoacBattleAgent(Agent):
             action, _ = self._run_brute_force(state, depth, float("-inf"))
 
         return action
+
+
+class NativeAgent(Agent):
+    action_buffer = []
+
+    def __init__(self, cmd, verbose=False):
+        self.cmd = cmd
+        self.verbose = verbose
+
+        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._process.terminate()
+
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        self.action_buffer = []
+
+        self._process.terminate()
+        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
+
+    @staticmethod
+    def decode_actions(actions):
+        actions = actions.split(';')
+        decoded_actions = []
+
+        for action in actions:
+            tokens = action.split()
+
+            if not tokens:
+                continue
+
+            if tokens[0] == 'PASS':
+                decoded_actions.append(Action(ActionType.PASS))
+            elif tokens[0] == 'PICK':
+                decoded_actions.append(Action(ActionType.PICK, int(tokens[1])))
+            elif tokens[0] == 'USE':
+                origin = int(tokens[1])
+                target = int(tokens[2])
+                target = target if target >= 0 else None
+
+                decoded_actions.append(Action(ActionType.USE, origin, target))
+            elif tokens[0] == 'SUMMON':
+                origin = int(tokens[1])
+                target = Lane(int(tokens[2]))
+
+                decoded_actions.append(Action(ActionType.SUMMON, origin, target))
+            elif tokens[0] == 'ATTACK':
+                origin = int(tokens[1])
+                target = int(tokens[2])
+                target = target if target >= 0 else None
+
+                decoded_actions.append(Action(ActionType.ATTACK, origin, target))
+
+        return decoded_actions
+
+    def act(self, state, multiple=False):
+        if self.action_buffer:
+            if multiple:
+                return list(reversed(self.action_buffer))
+            else:
+                return self.action_buffer.pop()
+
+        self._process.write(str(state))
+
+        while True:
+            raw_output = self._process.readline()
+
+            actions = self.decode_actions(raw_output)
+
+            if actions:
+                break
+
+            if self.verbose:
+                eprint(raw_output, end="")
+
+        if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
+            actions += [Action(ActionType.PASS)]
+
+        if multiple:
+            return actions
+        else:
+            self.action_buffer = list(reversed(actions))
+
+            return self.action_buffer.pop()
+
+
+class NativeBattleAgent(NativeAgent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.draft_is_initialized = False
+
+    def reset(self):
+        self.draft_is_initialized = False
+
+    def fake_draft(self, state):
+        all_cards = load_cards()
+        fake_state = State()
+
+        play_first = state.current_player.id == 0
+        deck = state.current_player.deck + state.current_player.hand
+        draft_choices = list(map(attrgetter('id'), deck))
+
+        if not play_first:
+            fake_state.act(Action(ActionType.PASS))
+
+        for turn in range(30):
+            chosen_card = all_cards[draft_choices[turn]]
+
+            fake_state.current_player.hand = [chosen_card] * 3
+
+            self._process.write(str(fake_state))
+
+            while True:
+                raw_output = self._process.readline()
+
+                actions = self.decode_actions(raw_output)
+
+                if actions:
+                    break
+
+                if self.verbose:
+                    eprint(raw_output, end="")
+
+            fake_state.act(Action(ActionType.PASS))
+
+    def act(self, state, multiple=False):
+        if not self.draft_is_initialized:
+            self.fake_draft(state)
+
+            self.draft_is_initialized = True
+
+        return super().act(state, multiple)
+
+
+class NativeDraftAgent(NativeAgent):
+    pass
 
 
 PassDraftAgent = PassBattleAgent
