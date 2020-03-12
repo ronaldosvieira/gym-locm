@@ -526,18 +526,16 @@ class NativeBattleAgent(NativeAgent):
         self.draft_is_initialized = False
 
     def fake_draft(self, state):
-        all_cards = load_cards()
         fake_state = State()
 
         play_first = state.current_player.id == 0
         deck = state.current_player.deck + state.current_player.hand
-        draft_choices = list(map(attrgetter('id'), deck))
 
         if not play_first:
             fake_state.act(Action(ActionType.PASS))
 
         for turn in range(30):
-            chosen_card = all_cards[draft_choices[turn]]
+            chosen_card = deck[turn]
 
             fake_state.current_player.hand = [chosen_card] * 3
 
