@@ -18,7 +18,6 @@ class LOCMBattleEnv(LOCMEnv):
         self.draft_agents = draft_agents
 
         for draft_agent in self.draft_agents:
-            draft_agent.reset()
             draft_agent.seed(seed)
 
         self.return_action_mask = return_action_mask
@@ -46,10 +45,6 @@ class LOCMBattleEnv(LOCMEnv):
         else:
             # 41 possible actions
             self.action_space = gym.spaces.Discrete(41)
-
-        # reset all agents' internal state
-        for agent in self.draft_agents:
-            agent.reset()
 
         # play through draft
         while self.state.phase == Phase.DRAFT:

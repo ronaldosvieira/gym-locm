@@ -25,7 +25,6 @@ class LOCMDraftEnv(LOCMEnv):
         self.battle_agents = battle_agents
 
         for battle_agent in self.battle_agents:
-            battle_agent.reset()
             battle_agent.seed(seed)
 
         self.evaluation_battles = evaluation_battles
