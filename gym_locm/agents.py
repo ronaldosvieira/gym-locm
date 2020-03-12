@@ -213,8 +213,10 @@ class NativeAgent(Agent):
     action_buffer = []
 
     def __init__(self, cmd, verbose=False):
-        self._process = pexpect.spawn(cmd, echo=False, encoding='utf-8')
+        self.cmd = cmd
         self.verbose = verbose
+
+        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
 
     def __enter__(self):
         pass
@@ -227,6 +229,9 @@ class NativeAgent(Agent):
 
     def reset(self):
         self.action_buffer = []
+
+        self._process.terminate()
+        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
 
     @staticmethod
     def decode_actions(actions):
@@ -298,6 +303,9 @@ class NativeBattleAgent(NativeAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.draft_is_initialized = False
+
+    def reset(self):
         self.draft_is_initialized = False
 
     def fake_draft(self, state):
