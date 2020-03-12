@@ -294,6 +294,52 @@ class NativeAgent(Agent):
             return self.action_buffer.pop()
 
 
+class NativeBattleAgent(NativeAgent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.draft_is_initialized = False
+
+    def fake_draft(self, state):
+        all_cards = load_cards()
+        fake_state = State()
+
+        play_first = state.current_player.id == 0
+        deck = state.current_player.deck + state.current_player.hand
+        draft_choices = list(map(attrgetter('id'), deck))
+
+        if not play_first:
+            fake_state.act(Action(ActionType.PASS))
+
+        for turn in range(30):
+            chosen_card = all_cards[draft_choices[turn]]
+
+            fake_state.current_player.hand = [chosen_card] * 3
+
+            self._process.write(str(fake_state))
+
+            while True:
+                raw_output = self._process.readline()
+
+                actions = self.decode_actions(raw_output)
+
+                if actions:
+                    break
+
+                if self.verbose:
+                    eprint(raw_output, end="")
+
+            fake_state.act(Action(ActionType.PASS))
+
+    def act(self, state, multiple=False):
+        if not self.draft_is_initialized:
+            self.fake_draft(state)
+
+            self.draft_is_initialized = True
+
+        return super().act(state, multiple)
+
+
 class MCTSBattleAgent(Agent):
     def __init__(self, agents=(RandomBattleAgent(), RandomBattleAgent())):
         self.agents = agents
