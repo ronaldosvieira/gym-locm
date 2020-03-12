@@ -212,8 +212,9 @@ class MaxAttackBattleAgent(Agent):
 class NativeAgent(Agent):
     action_buffer = []
 
-    def __init__(self, cmd):
+    def __init__(self, cmd, verbose=False):
         self._process = pexpect.spawn(cmd, echo=False, encoding='utf-8')
+        self.verbose = verbose
 
     def __enter__(self):
         pass
@@ -278,7 +279,8 @@ class NativeAgent(Agent):
 
             if actions:
                 break
-            else:
+
+            if self.verbose:
                 eprint(raw_output, end="")
 
         if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
