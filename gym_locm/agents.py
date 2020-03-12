@@ -432,14 +432,20 @@ class NativeAgent(Agent):
     def __init__(self, cmd, verbose=False):
         self.cmd = cmd
         self.verbose = verbose
+        self.initialized = False
+        self.action_buffer = []
 
+        self._process = None
+
+    def initialize(self):
         self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
 
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._process.terminate()
+        if self.initialized:
+            self._process.terminate()
 
     def seed(self, seed):
         pass
@@ -447,8 +453,11 @@ class NativeAgent(Agent):
     def reset(self):
         self.action_buffer = []
 
-        self._process.terminate()
-        self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
+        if self.initialized:
+            self._process.terminate()
+
+            self._process = None
+            self.initialized = False
 
     @staticmethod
     def decode_actions(actions):
@@ -486,6 +495,12 @@ class NativeAgent(Agent):
         return decoded_actions
 
     def act(self, state, multiple=False):
+        if not self.initialized:
+            self.initialize()
+
+        return self._act(state, multiple)
+
+    def _act(self, state, multiple=False):
         if self.action_buffer:
             if multiple:
                 return list(reversed(self.action_buffer))
@@ -520,11 +535,6 @@ class NativeBattleAgent(NativeAgent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.draft_is_initialized = False
-
-    def reset(self):
-        self.draft_is_initialized = False
-
     def fake_draft(self, state):
         fake_state = State()
 
@@ -555,12 +565,11 @@ class NativeBattleAgent(NativeAgent):
             fake_state.act(Action(ActionType.PASS))
 
     def act(self, state, multiple=False):
-        if not self.draft_is_initialized:
+        if not self.initialized:
+            self.initialize()
             self.fake_draft(state)
 
-            self.draft_is_initialized = True
-
-        return super().act(state, multiple)
+        return super()._act(state, multiple)
 
 
 class NativeDraftAgent(NativeAgent):
