@@ -429,8 +429,9 @@ class CoacBattleAgent(Agent):
 class NativeAgent(Agent):
     action_buffer = []
 
-    def __init__(self, cmd, verbose=False):
+    def __init__(self, cmd, stateful=True, verbose=False):
         self.cmd = cmd
+        self.stateful = stateful
         self.verbose = verbose
         self.initialized = False
         self.action_buffer = []
@@ -454,7 +455,7 @@ class NativeAgent(Agent):
     def reset(self):
         self.action_buffer = []
 
-        if self.initialized:
+        if self.initialized and self.stateful:
             self._process.terminate()
 
             self._process = None
