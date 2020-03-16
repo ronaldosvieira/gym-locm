@@ -735,7 +735,7 @@ class UJI2DraftAgent(Agent):
         if sum(weights) == 0:
             chosen_card = random.randint(0, 2)
         else:
-            chosen_card = random.choices(range(3), weights)
+            chosen_card = random.choices(range(3), weights)[0]
 
         self.picked[indexes[chosen_card]] += 1
 
