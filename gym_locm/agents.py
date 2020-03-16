@@ -439,6 +439,7 @@ class NativeAgent(Agent):
 
     def initialize(self):
         self._process = pexpect.spawn(self.cmd, echo=False, encoding='utf-8')
+        self.initialized = True
 
     def __enter__(self):
         pass
