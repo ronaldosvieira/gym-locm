@@ -715,8 +715,9 @@ def interleaved_self_play(params):
             obs = eval_env.reset()
             states = None
             dones = [False] * num_processes
+            episodes = 0
 
-            eval_env.set_attr('episodes', 0)
+            action_hist = [0] * eval_env.action_space.n
 
             # runs `num_steps` steps
             while True:
@@ -726,6 +727,9 @@ def interleaved_self_play(params):
                                                     state=states, mask=dones)
                 else:
                     actions, _ = model.predict(obs, deterministic=True)
+
+                for action in actions:
+                    action_hist[action] += 1
 
                 # do the predicted action and save the outcome
                 obs, rewards, dones, _ = eval_env.step(actions)
@@ -737,8 +741,12 @@ def interleaved_self_play(params):
                     if dones[i]:
                         episode_rewards[i].append(0.0)
 
+                        episodes += 1
+
                 if any(dones):
-                    if sum(eval_env.get_attr('episodes')) >= eval_episodes:
+                    if episodes >= eval_episodes:
+                        print("action histogram:", action_hist)
+
                         break
 
             all_rewards = []
