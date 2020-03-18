@@ -15,6 +15,9 @@ warnings.filterwarnings('ignore')
 warnings.filterwarnings(action='ignore', category=DeprecationWarning)
 warnings.filterwarnings(action='ignore', category=FutureWarning)
 
+import tensorflow.python.util.deprecation as deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
+
 import numpy as np
 from hyperopt import hp, STATUS_OK, Trials, fmin, tpe
 from hyperopt.pyll import scope
