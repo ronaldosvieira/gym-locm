@@ -86,7 +86,7 @@ def act(network, state):
         biases = network[f"model/shared_fc{i}/b:0"]
 
         state = np.dot(state, weights) + biases
-        state = np.maximum(0, state)
+        state = np.tanh(state)
 
         i += 1
 
