@@ -80,8 +80,13 @@ def encode_state(game_input):
     return state.flatten()
 
 
-def act(network, state):
+def act(network, state, past_choices):
     i = 0
+
+    use_history = network[list(network.keys())[0]].shape[0] == 33 * 16
+
+    if use_history:
+        state = np.concatenate([past_choices, state])
 
     # do a forward pass through all fully connected layers
     while f"model/shared_fc{i}/w:0" in network:
@@ -116,6 +121,10 @@ def predict(path: str, battle_cmd: str):
     network = dict((label, np.array(weights)) for label, weights in params.items())
     battle_agent = pexpect.spawn(battle_cmd, echo=False, encoding='utf-8')
 
+    turn = 0
+
+    past_choices = np.zeros((30, 16))
+
     while True:
         game_input = read_game_input()
 
@@ -128,7 +137,11 @@ def predict(path: str, battle_cmd: str):
 
         if int(game_input[0].split()[1]) == 0:
             state = encode_state(game_input)
-            action = act(network, state)
+            action = act(network, state, past_choices)
+
+            past_choices[turn] = state[action * 16:(action + 1) * 16]
+
+            turn += 1
 
             print("PICK", action)
         else:
