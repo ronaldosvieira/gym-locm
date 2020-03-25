@@ -24,33 +24,42 @@ def get_arg_parser():
 def convert(path: str):
     from stable_baselines import PPO2
 
+    # load model
     model = PPO2.load(path)
 
+    # save with same name but json extension
     new_path = path.rstrip(r"\.zip") + ".json"
 
     with open(new_path, 'w') as json_file:
         params = {}
 
+        # create a parameter dictionary
         for label, weights in model.get_parameters().items():
             params[label] = weights.tolist()
 
+        # and save into the new file
         json.dump(params, json_file)
 
         print("Converted model written to", new_path)
 
 
 def read_game_input():
+    # read players info
     game_input = [input(), input()]
 
+    # read cards in hand and actions from opponent
     opp_hand, opp_actions = [int(i) for i in input().split()]
     game_input.append(f"{opp_hand} {opp_actions}")
 
+    # read all opponent actions
     for i in range(opp_actions):
         game_input.append(input())  # opp action #i
 
+    # read card count
     card_count = int(input())
     game_input.append(str(card_count))
 
+    # read cards
     for i in range(card_count):
         game_input.append(input())  # card #i
 
@@ -58,10 +67,13 @@ def read_game_input():
 
 
 def encode_state(game_input):
+    # initialize empty state
     state = np.zeros((3, 16), dtype=np.float32)
 
+    # get how many opponent action lines to skip
     opp_actions = int(game_input[2].split()[1])
 
+    # put choices from player hand into the state
     for i, card in enumerate(game_input[4 + opp_actions:]):
         card = card.split()
 
@@ -115,46 +127,62 @@ def is_valid_action(action):
 
 
 def predict(path: str, battle_cmd: str):
+    # read the parameters
     with open(path, 'r') as json_file:
         params = json.load(json_file)
 
     network = dict((label, np.array(weights)) for label, weights in params.items())
+
+    # spawn the battle agent
     battle_agent = pexpect.spawn(battle_cmd, echo=False, encoding='utf-8')
 
+    # count the draft turns
     turn = 0
 
+    # initialize past choices
     past_choices = np.zeros((30, 16))
 
     while True:
         game_input = read_game_input()
 
+        # write game input to the agent regardless of the phase
         battle_agent.write("\n".join(game_input) + "\n")
 
         action = ""
 
+        # find action line between all of the agent output
         while not is_valid_action(action):
             action = battle_agent.readline()
 
-        if int(game_input[0].split()[1]) == 0:
+        # if mana is zero then it is draft phase
+        is_draft_phase = int(game_input[0].split()[1]) == 0
+
+        if is_draft_phase:
             state = encode_state(game_input)
             action = act(network, state, past_choices)
 
+            # update past choices with current pick
             past_choices[turn] = state[action * 16:(action + 1) * 16]
 
             turn += 1
 
             print("PICK", action)
         else:
+            # print action from battle agent
             print(action.strip())
 
 
 def run():
+    # get arguments
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
 
+    # select mode
     if args.convert:
+        # converts a zip/pkl model into json
         convert(args.model_path)
     else:
+        # use json as draft agent
         predict(args.model_path, args.battle)
 
 
