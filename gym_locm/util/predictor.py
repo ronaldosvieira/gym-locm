@@ -2,6 +2,7 @@ import argparse
 import json
 
 import numpy as np
+import pexpect
 from scipy.special import softmax
 
 
@@ -10,7 +11,9 @@ def get_arg_parser():
         description="This is a predictor for trained RL drafts.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    p.add_argument("path", help="path to model file")
+    p.add_argument("model_path", help="path to model file")
+    p.add_argument("--battle", help="command line to execute the battle agent",
+                   default='/home/ronaldo/Desktop/coac')
     p.add_argument("--convert", action="store_true",
                    help="convert mode - turn a given zip model "
                         "into usable pkl model.")
@@ -100,14 +103,28 @@ def act(network, state):
     return action
 
 
-def predict(path: str):
+def is_valid_action(action):
+    return action.startswith('PASS') or action.startswith('PICK') \
+           or action.startswith('SUMMON') or action.startswith('USE') \
+           or action.startswith('ATTACK')
+
+
+def predict(path: str, battle_cmd: str):
     with open(path, 'r') as json_file:
         params = json.load(json_file)
 
     network = dict((label, np.array(weights)) for label, weights in params.items())
+    battle_agent = pexpect.spawn(battle_cmd, echo=False, encoding='utf-8')
 
     while True:
         game_input = read_game_input()
+
+        battle_agent.write("\n".join(game_input) + "\n")
+
+        action = ""
+
+        while not is_valid_action(action):
+            action = battle_agent.readline()
 
         if int(game_input[0].split()[1]) == 0:
             state = encode_state(game_input)
@@ -115,7 +132,7 @@ def predict(path: str):
 
             print("PICK", action)
         else:
-            print("PASS")
+            print(action.strip())
 
 
 def run():
@@ -123,9 +140,9 @@ def run():
     args = arg_parser.parse_args()
 
     if args.convert:
-        convert(args.path)
+        convert(args.model_path)
     else:
-        predict(args.path)
+        predict(args.model_path, args.battle)
 
 
 if __name__ == '__main__':
