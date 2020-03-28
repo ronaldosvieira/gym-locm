@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 import numpy as np
 import pexpect
@@ -11,9 +12,14 @@ def get_arg_parser():
         description="This is a predictor for trained RL drafts.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    p.add_argument("model_path", help="path to model file")
+    p.add_argument("--draft", help="path to draft model",
+                   default="draft.json")
+    p.add_argument("--draft-1", help="path to first draft model",
+                   default="1st-draft.json")
+    p.add_argument("--draft-2", help="path to second draft model",
+                   default="2nd-draft.json")
     p.add_argument("--battle", help="command line to execute the battle agent",
-                   default='/home/ronaldo/Desktop/coac')
+                   default='./battle')
     p.add_argument("--convert", action="store_true",
                    help="convert mode - turn a given zip model "
                         "into usable pkl model.")
@@ -126,12 +132,18 @@ def is_valid_action(action):
            or action.startswith('ATTACK')
 
 
-def predict(path: str, battle_cmd: str):
+def load_model(path: str):
     # read the parameters
     with open(path, 'r') as json_file:
         params = json.load(json_file)
 
     network = dict((label, np.array(weights)) for label, weights in params.items())
+
+    return network
+
+
+def predict(paths: list, battle_cmd: str):
+    network = None
 
     # spawn the battle agent
     battle_agent = pexpect.spawn(battle_cmd, echo=False, encoding='utf-8')
@@ -157,6 +169,13 @@ def predict(path: str, battle_cmd: str):
         # if mana is zero then it is draft phase
         is_draft_phase = int(game_input[0].split()[1]) == 0
 
+        if network is None:
+            playing_first = game_input[0].split()[2] == game_input[1].split()[2]
+
+            path = paths[0] if playing_first or len(paths) == 1 else paths[1]
+
+            network = load_model(path)
+
         if is_draft_phase:
             state = encode_state(game_input)
             action = act(network, state, past_choices)
@@ -180,10 +199,16 @@ def run():
     # select mode
     if args.convert:
         # converts a zip/pkl model into json
-        convert(args.model_path)
+        convert(args.draft)
     else:
         # use json as draft agent
-        predict(args.model_path, args.battle)
+
+        if os.path.isfile(args.draft):
+            paths = [args.draft]
+        else:
+            paths = [args.draft_1, args.draft_2]
+
+        predict(paths, args.battle)
 
 
 if __name__ == '__main__':
