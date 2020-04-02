@@ -848,6 +848,15 @@ def interleaved_self_play(params):
     print(f"Done: {mean_reward2}")
     print()
 
+    if optimize_for == PlayerOrder.SECOND:
+        mean_reward1, mean_reward2 = mean_reward2, mean_reward1
+        std_reward1, std_reward2 = std_reward2, std_reward1
+
+    results[0][0].append(mean_reward1)
+    results[1][0].append(mean_reward2)
+    results[0][1].append(std_reward1)
+    results[1][1].append(std_reward2)
+
     # train the first player model
     model1.learn(total_timesteps=1000000000, callback=callback)
 
@@ -1108,6 +1117,10 @@ def self_play(params):
     mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
     print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
     print()
+
+    results[0].append(mean_reward)
+    results[1].append(win_rate)
+    results[2].append(mean_length)
     
     try:
         # train the model
