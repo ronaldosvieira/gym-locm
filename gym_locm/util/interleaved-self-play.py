@@ -295,13 +295,22 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
 
 
 class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, player_initial_health=30,
+                 opponent_initial_health=30, **kwargs):
+        super().__init__(*args, items=False, **kwargs)
+
+        self.player_initial_health = player_initial_health
+        self.opponent_initial_health = opponent_initial_health
 
     def reset(self):
         self.play_first = not self.play_first
 
-        return super().reset()
+        super().reset()
+
+        self.state.current_player.health = self.player_initial_health
+        self.state.opposing_player.health = self.opponent_initial_health
+
+        return self._encode_state()
 
     if battle_strat == 'punish':
         def step(self, action: int):
