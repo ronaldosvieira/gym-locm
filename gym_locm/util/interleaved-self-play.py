@@ -556,8 +556,11 @@ def normal_training(params):
 
     results.append(mean_reward)
 
-    # train the model
-    model.learn(total_timesteps=1500000, callback=callback)
+    try:
+        # train the model
+        model.learn(total_timesteps=25 * train_episodes, callback=callback)
+    except KeyboardInterrupt:
+        print(f'Training stopped at {sum(env.get_attr("episodes"))}')
 
     # evaluate the final model
     print("Evaluating... (final)")
@@ -1096,9 +1099,12 @@ def self_play(params):
     mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
     print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
     print()
-
-    # train the model
-    model.learn(total_timesteps=1000000000, callback=callback)
+    
+    try:
+        # train the model
+        model.learn(total_timesteps=1000000000, callback=callback)
+    except KeyboardInterrupt:
+        print(f'Training stopped at {sum(env.get_attr("episodes"))}')
 
     # update opponent
     env.env_method('update_parameters', model.get_parameters())
