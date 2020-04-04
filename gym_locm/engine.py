@@ -999,6 +999,21 @@ class State:
 
         return encoding
 
+    def can_play(self, card):
+        p, op = self.current_player, self.opposing_player
+
+        if card.cost > p.mana:
+            return False
+
+        if isinstance(card, Creature):
+            return sum(map(len, p.lanes)) < 6
+        elif isinstance(card, GreenItem):
+            return sum(map(len, p.lanes)) > 0
+        elif isinstance(card, RedItem):
+            return sum(map(len, op.lanes)) > 0
+        else:
+            return True
+
     @staticmethod
     def empty_copy():
         class Empty(State):
