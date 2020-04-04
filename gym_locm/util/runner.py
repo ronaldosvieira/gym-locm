@@ -18,7 +18,7 @@ def get_arg_parser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     draft_choices = ["pass", "random", "rule-based", "max-attack",
-                     "icebox", "closet-ai", "coac"]
+                     "icebox", "closet-ai", "uji1", "uji2", "coac"]
     battle_choices = ["pass", "random", "greedy", "rule-based", "max-attack",
                       "coac", "mcts"]
 
@@ -61,6 +61,8 @@ def parse_agent(draft_agent, battle_agent):
         "max-attack": agents.MaxAttackDraftAgent,
         "icebox": agents.IceboxDraftAgent,
         "closet-ai": agents.ClosetAIDraftAgent,
+        "uji1": agents.UJI1DraftAgent,
+        "uji2": agents.UJI2DraftAgent,
         "coac": agents.CoacDraftAgent
     }
 

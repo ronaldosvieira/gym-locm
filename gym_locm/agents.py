@@ -118,18 +118,18 @@ class RuleBasedBattleAgent(Agent):
         for card in state.current_player.hand:
             origin = card.instance_id
 
-            if isinstance(card, Creature) and card.cost <= state.current_player.mana\
+            if isinstance(card, Creature) and card.cost <= state.current_player.mana \
                     and len(state.current_player.lanes[current_lane]) < 3:
                 action = Action(ActionType.SUMMON, origin, current_lane)
 
                 return action
 
-            elif isinstance(card, GreenItem) and card.cost <= state.current_player.mana\
+            elif isinstance(card, GreenItem) and card.cost <= state.current_player.mana \
                     and friends:
                 target = friends[0].instance_id
 
                 return Action(ActionType.USE, origin, target)
-            elif isinstance(card, RedItem) and card.cost <= state.current_player.mana\
+            elif isinstance(card, RedItem) and card.cost <= state.current_player.mana \
                     and foes:
                 target = foes[0].instance_id
 
@@ -663,20 +663,20 @@ class IceboxDraftAgent(Agent):
 
 class ClosetAIDraftAgent(Agent):
     scores = [
-        -666,   65,   50,   80,   50,   70,   71,  115,   71,   73,
-        43,   77,   62,   63,   50,   66,   60,   66,   90,   75,
-        50,   68,   67,  100,   42,   63,   67,   52,   69,   90,
-        60,   47,   87,   81,   67,   62,   75,   94,   56,   62,
-        51,   61,   43,   54,   97,   64,   67,   49,  109,  111,
-        89,  114,   93,   92,   89,    2,   54,   25,   63,   76,
-        58,   99,   79,   19,   82,  115,  106,  104,  146,   98,
-        70,   56,   65,   52,   54,   65,   55,   77,   48,   84,
-        115,   75,   89,   68,   80,   71,   46,   73,   69,   47,
-        63,   70,   11,   71,   54,   85,   77,   77,   64,   82,
-        62,   49,   43,   78,   67,   72,   67,   36,   48,   75,
-        -8,   82,   69,   32,   87,   98,  124,   35,   60,   59,
-        49,   72,   54,   35,   22,   50,   54,   51,   54,   59,
-        38,   31,   43,   62,   55,   57,   41,   70,   38,   76,
+        -666, 65, 50, 80, 50, 70, 71, 115, 71, 73,
+        43, 77, 62, 63, 50, 66, 60, 66, 90, 75,
+        50, 68, 67, 100, 42, 63, 67, 52, 69, 90,
+        60, 47, 87, 81, 67, 62, 75, 94, 56, 62,
+        51, 61, 43, 54, 97, 64, 67, 49, 109, 111,
+        89, 114, 93, 92, 89, 2, 54, 25, 63, 76,
+        58, 99, 79, 19, 82, 115, 106, 104, 146, 98,
+        70, 56, 65, 52, 54, 65, 55, 77, 48, 84,
+        115, 75, 89, 68, 80, 71, 46, 73, 69, 47,
+        63, 70, 11, 71, 54, 85, 77, 77, 64, 82,
+        62, 49, 43, 78, 67, 72, 67, 36, 48, 75,
+        -8, 82, 69, 32, 87, 98, 124, 35, 60, 59,
+        49, 72, 54, 35, 22, 50, 54, 51, 54, 59,
+        38, 31, 43, 62, 55, 57, 41, 70, 38, 76,
         1, -100, -100, -100, -100, -100, -100, -100, -100, -100,
         -100, -100, -100, -100, -100, -100, -100, -100, -100, -100
     ]
