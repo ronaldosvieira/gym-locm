@@ -696,6 +696,55 @@ class ClosetAIDraftAgent(Agent):
         return Action(ActionType.PICK, index)
 
 
+class UJI1DraftAgent(Agent):
+    def __init__(self):
+        self.picked = [0] * 10
+        self.preference = [5, 5, 3, 3, 3, 4, 4, 3, 0, 0]
+
+    def seed(self, seed):
+        random.seed(seed)
+
+    def reset(self):
+        self.picked = [0] * 10
+
+    @staticmethod
+    def get_index(card):
+        if isinstance(card, Creature):
+            return min(6, max(0, card.cost - 1))
+        elif isinstance(card, GreenItem):
+            return 7
+        elif isinstance(card, RedItem):
+            return 8
+        elif isinstance(card, BlueItem):
+            return 9
+        else:
+            raise ValueError
+
+    def act(self, state):
+        weights = []
+        cards = state.current_player.hand
+        indexes = list(map(self.get_index, cards))
+
+        for index, card in zip(indexes, cards):
+            if card.id == 151:
+                p = 100
+            elif isinstance(card, GreenItem) or isinstance(card, BlueItem):
+                p = -100
+            else:
+                p = self.preference[index] - self.picked[index]
+
+                if isinstance(card, Creature) and card.has_ability('G'):
+                    p += 6
+
+            weights.append(p)
+
+        chosen_card = int(np.argmax(weights))
+
+        self.picked[indexes[chosen_card]] += 1
+
+        return Action(ActionType.PICK, chosen_card)
+
+
 class UJI2DraftAgent(Agent):
     def __init__(self):
         self.picked = [0] * 10
