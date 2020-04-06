@@ -1014,6 +1014,15 @@ class State:
         else:
             return True
 
+    def is_draft(self):
+        return self.phase == Phase.DRAFT
+
+    def is_battle(self):
+        return self.phase == Phase.BATTLE
+
+    def is_ended(self):
+        return self.phase == Phase.ENDED
+
     @staticmethod
     def empty_copy():
         class Empty(State):
