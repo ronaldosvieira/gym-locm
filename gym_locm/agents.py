@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from operator import attrgetter
 
+from pexpect import TIMEOUT, EOF
+
 from gym_locm.engine import *
 from gym_locm.algorithms import MCTS
 
@@ -446,8 +448,14 @@ class NativeAgent(Agent):
         pass
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
         if self.initialized:
             self._process.terminate()
+
+            self._process = None
+            self.initialized = False
 
     def seed(self, seed):
         pass
@@ -511,18 +519,24 @@ class NativeAgent(Agent):
 
         self._process.write(str(state))
 
-        while True:
-            raw_output = self._process.readline()
+        actions = []
 
-            actions = self.decode_actions(raw_output)
+        try:
+            raw_output = self._process.read_nonblocking(size=2048, timeout=2) 
+        except TIMEOUT:
+            print("WARNING: timeout")
+        except EOF:
+            print("WARNING: eof")
 
-            if actions:
-                break
+        actions = self.decode_actions(raw_output)
+    
+        if self.verbose:
+            eprint(raw_output, end="")
 
-            if self.verbose:
-                eprint(raw_output, end="")
+        if not actions:
+            actions = [Action(ActionType.PASS)]
 
-        if actions[-1].type != ActionType.PASS and state.phase != Phase.DRAFT:
+        if actions[-1].type != ActionType.PASS and state.is_battle():
             actions += [Action(ActionType.PASS)]
 
         if multiple:
