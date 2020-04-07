@@ -522,16 +522,16 @@ class NativeAgent(Agent):
         actions = []
 
         try:
-            raw_output = self._process.read_nonblocking(size=2048, timeout=2) 
+            raw_output = self._process.read_nonblocking(size=2048, timeout=2)
+
+            actions = self.decode_actions(raw_output)
+
+            if self.verbose:
+                eprint(raw_output, end="")
         except TIMEOUT:
             print("WARNING: timeout")
         except EOF:
             print("WARNING: eof")
-
-        actions = self.decode_actions(raw_output)
-    
-        if self.verbose:
-            eprint(raw_output, end="")
 
         if not actions:
             actions = [Action(ActionType.PASS)]
@@ -567,16 +567,15 @@ class NativeBattleAgent(NativeAgent):
 
             self._process.write(str(fake_state))
 
-            while True:
-                raw_output = self._process.readline()
-
-                actions = self.decode_actions(raw_output)
-
-                if actions:
-                    break
+            try:
+                raw_output = self._process.read_nonblocking(size=2048, timeout=2)
 
                 if self.verbose:
                     eprint(raw_output, end="")
+            except TIMEOUT:
+                print("WARNING: timeout")
+            except EOF:
+                print("WARNING: eof")
 
             fake_state.act(Action(ActionType.PASS))
 
