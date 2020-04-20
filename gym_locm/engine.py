@@ -176,7 +176,10 @@ class Card:
                and self.instance_id == other.instance_id
 
     def __repr__(self):
-        return f"({self.instance_id}: {self.name})"
+        if self.name:
+            return f"({self.instance_id}: {self.name})"
+        else:
+            return f"({self.instance_id})"
 
     @staticmethod
     def empty_copy(card):
