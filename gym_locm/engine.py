@@ -785,25 +785,26 @@ class State:
             damage_dealt = opposing_player.damage(origin.attack)
 
         elif isinstance(target, Creature):
-            try:
-                target_defense = target.defense
+            target_defense = target.defense
 
+            try:
                 damage_dealt = target.damage(
                     origin.attack,
                     lethal=origin.has_ability('L'))
-
-                origin.damage(
-                    target.attack,
-                    lethal=target.has_ability('L'))
-
-                excess_damage = damage_dealt - target_defense
-
-                if 'B' in origin.keywords and excess_damage > 0:
-                    opposing_player.damage(excess_damage)
-
             except WardShieldError:
                 damage_dealt = 0
 
+            try:
+                origin.damage(
+                    target.attack,
+                    lethal=target.has_ability('L'))
+            except WardShieldError:
+                damage_dealt = 0
+
+            excess_damage = damage_dealt - target_defense
+
+            if 'B' in origin.keywords and excess_damage > 0:
+                opposing_player.damage(excess_damage)
         else:
             raise MalformedActionError("Target is not a creature or "
                                        "a player")
