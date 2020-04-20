@@ -803,7 +803,7 @@ class State:
                     target.attack,
                     lethal=target.has_ability('L'))
             except WardShieldError:
-                damage_dealt = 0
+                pass
 
             excess_damage = damage_dealt - target_defense
 
