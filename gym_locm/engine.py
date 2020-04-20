@@ -999,7 +999,7 @@ class State:
         for i, c in enumerate(cards):
             encoding += f"{c.id} {c.instance_id} {c.location} {c.cardType} " \
                 f"{c.cost} {c.attack} {c.defense} {c.abilities} " \
-                f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane}\n"
+                f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane} \n"
 
         return encoding
 
