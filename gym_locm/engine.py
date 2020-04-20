@@ -1,4 +1,5 @@
 import sys
+from operator import attrgetter
 
 import numpy as np
 
@@ -306,6 +307,7 @@ class State:
 
     def __init__(self, seed=None, items=True):
         self.instance_counter = 0
+        self.summon_counter = 0
 
         self.np_random = None
         self.seed(seed)
@@ -737,6 +739,9 @@ class State:
             raise MalformedActionError("Card is not in player's hand")
 
         origin.can_attack = False
+        origin.summon_counter = self.summon_counter
+
+        self.summon_counter += 1
 
         current_player.lanes[target].append(origin)
 
@@ -959,7 +964,9 @@ class State:
             encoding += f"{a.resolved_origin.id} {a.type.name} " \
                 f"{a.origin} {target_id}\n"
 
-        cards = p.hand + p.lanes[0] + p.lanes[1] + o.lanes[0] + o.lanes[1]
+        cards = p.hand + \
+            sorted(p.lanes[0] + p.lanes[1], key=attrgetter('summon_counter')) + \
+            sorted(o.lanes[0] + o.lanes[1], key=attrgetter('summon_counter'))
 
         encoding += f"{len(cards)}\n"
 
