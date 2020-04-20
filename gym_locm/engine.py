@@ -623,7 +623,6 @@ class State:
         current_player.mana = current_player.base_mana \
             + current_player.bonus_mana
 
-        amount_in_hand = len(current_player.hand)
         amount_to_draw = 1 + current_player.bonus_draw
 
         if self.turn > 50:
@@ -638,7 +637,7 @@ class State:
             current_player.damage(deck_burn)
 
         current_player.bonus_draw = 0
-        current_player.last_drawn = len(current_player.hand) - amount_in_hand
+        current_player.last_drawn = amount_to_draw
 
     def _find_card(self, instance_id: int) -> Card:
         c, o = self.current_player, self.opposing_player
