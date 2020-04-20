@@ -741,8 +741,8 @@ class State:
         current_player.lanes[target].append(origin)
 
         current_player.bonus_draw += origin.card_draw
-        current_player.health += origin.player_hp
-        opposing_player.health += origin.enemy_hp
+        current_player.damage(-origin.player_hp)
+        opposing_player.damage(-origin.enemy_hp)
 
         current_player.mana -= origin.cost
 
@@ -848,8 +848,8 @@ class State:
                 target.is_dead = True
 
             current_player.bonus_draw += origin.card_draw
-            current_player.health += origin.player_hp
-            opposing_player.health += origin.enemy_hp
+            current_player.damage(-origin.player_hp)
+            opposing_player.damage(-origin.enemy_hp)
 
         elif isinstance(origin, RedItem):
             is_opp_creature = \
@@ -873,8 +873,8 @@ class State:
                 target.is_dead = True
 
             current_player.bonus_draw += origin.card_draw
-            current_player.health += origin.player_hp
-            opposing_player.health += origin.enemy_hp
+            current_player.damage(-origin.player_hp)
+            opposing_player.damage(-origin.enemy_hp)
 
         elif isinstance(origin, BlueItem):
             is_opp_creature = \
@@ -904,8 +904,8 @@ class State:
                 raise MalformedActionError("Invalid target")
 
             current_player.bonus_draw += origin.card_draw
-            current_player.health += origin.player_hp
-            opposing_player.health += origin.enemy_hp
+            current_player.damage(-origin.player_hp)
+            opposing_player.damage(-origin.enemy_hp)
 
         else:
             error = "Card being used is not an item"
