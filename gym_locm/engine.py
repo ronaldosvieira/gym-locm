@@ -76,9 +76,9 @@ class Player:
         self.actions = []
 
     def draw(self, amount: int = 1):
-        for _ in range(amount):
+        for i in range(amount):
             if len(self.deck) == 0:
-                raise EmptyDeckError()
+                raise EmptyDeckError(amount - i)
 
             if len(self.hand) >= 8:
                 raise FullHandError()
@@ -634,9 +634,10 @@ class State:
             current_player.draw(amount_to_draw)
         except FullHandError:
             pass
-        except EmptyDeckError:
-            deck_burn = current_player.health - current_player.next_rune
-            current_player.damage(deck_burn)
+        except EmptyDeckError as e:
+            for _ in range(e.remaining_draws):
+                deck_burn = current_player.health - current_player.next_rune
+                current_player.damage(deck_burn)
 
         current_player.bonus_draw = 0
         current_player.last_drawn = amount_to_draw

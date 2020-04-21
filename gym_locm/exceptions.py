@@ -15,7 +15,8 @@ class FullHandError(GameError):
 
 
 class EmptyDeckError(GameError):
-    pass
+    def __init__(self, remaining_draws=1):
+        self.remaining_draws = remaining_draws
 
 
 class WardShieldError(GameError):
