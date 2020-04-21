@@ -579,6 +579,16 @@ class NativeBattleAgent(NativeAgent):
 
             fake_state.act(Action(ActionType.PASS))
 
+        try:
+            raw_output = self._process.read_nonblocking(size=2048, timeout=.1)
+
+            if self.verbose:
+                eprint(raw_output, end="")
+        except TIMEOUT:
+            pass
+        except EOF:
+            pass
+
     def act(self, state, multiple=False):
         if not self.initialized:
             self.initialize()
