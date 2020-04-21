@@ -845,7 +845,7 @@ class State:
                         "creatures"
                 raise MalformedActionError(error)
 
-            target.attack += origin.attack
+            target.attack = max(0, target.attack + origin.attack)
             target.defense += origin.defense
             target.keywords = target.keywords.union(origin.keywords)
 
@@ -866,7 +866,7 @@ class State:
                         "creatures"
                 raise MalformedActionError(error)
 
-            target.attack += origin.attack
+            target.attack = max(0, target.attack + origin.attack)
             target.keywords = target.keywords.difference(origin.keywords)
 
             try:
@@ -892,7 +892,7 @@ class State:
                 raise MalformedActionError(error)
 
             if isinstance(target, Creature):
-                target.attack += origin.attack
+                target.attack = max(0, target.attack + origin.attack)
                 target.keywords = target.keywords.difference(origin.keywords)
 
                 try:
