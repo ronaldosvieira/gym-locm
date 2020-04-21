@@ -925,6 +925,9 @@ class State:
         cloned_state.np_random = np.random.RandomState()
         cloned_state.np_random.set_state(self.np_random.get_state())
 
+        cloned_state.instance_counter = self.instance_counter
+        cloned_state.summon_counter = self.summon_counter
+        cloned_state.items = self.items
         cloned_state.phase = self.phase
         cloned_state.turn = self.turn
         cloned_state._current_player = self._current_player
