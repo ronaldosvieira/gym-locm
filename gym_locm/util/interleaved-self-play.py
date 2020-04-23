@@ -691,7 +691,7 @@ def interleaved_self_play(params):
     model1.save(model_path1 + '/0-episodes')
     model2.save(model_path2 + '/0-episodes')
 
-    results = [[[], []], [[], []]]
+    results = [[], []]
 
     # calculate utilities
     eval_every_ep = train_episodes / num_evals
@@ -791,12 +791,7 @@ def interleaved_self_play(params):
             print(f"Done: {mean2}")
             print()
 
-            if optimize_for == PlayerOrder.SECOND:
-                results[0][0].append(mean2)
-                results[0][1].append(std2)
-            else:
-                results[1][0].append(mean2)
-                results[1][1].append(std2)
+            results[1 if optimize_for == PlayerOrder.FIRST else 0].append(mean2)
 
             model2.last_eval = episodes_so_far
             model2.next_eval += eval_every_ep
@@ -817,12 +812,7 @@ def interleaved_self_play(params):
             print(f"Done: {mean1}")
             print()
 
-            if optimize_for == PlayerOrder.FIRST:
-                results[0][0].append(mean1)
-                results[0][1].append(std1)
-            else:
-                results[1][0].append(mean1)
-                results[1][1].append(std1)
+            results[0 if optimize_for == PlayerOrder.FIRST else 1].append(mean1)
 
             model1.last_eval = episodes_so_far
             model1.next_eval += eval_every_ep
@@ -855,12 +845,9 @@ def interleaved_self_play(params):
 
     if optimize_for == PlayerOrder.SECOND:
         mean_reward1, mean_reward2 = mean_reward2, mean_reward1
-        std_reward1, std_reward2 = std_reward2, std_reward1
 
-    results[0][0].append(mean_reward1)
-    results[1][0].append(mean_reward2)
-    results[0][1].append(std_reward1)
-    results[1][1].append(std_reward2)
+    results[0].append(mean_reward1)
+    results[1].append(mean_reward2)
 
     # train the first player model
     model1.learn(total_timesteps=1000000000, callback=callback)
@@ -882,12 +869,9 @@ def interleaved_self_play(params):
 
     if optimize_for == PlayerOrder.SECOND:
         mean_reward1, mean_reward2 = mean_reward2, mean_reward1
-        std_reward1, std_reward2 = std_reward2, std_reward1
 
-    results[0][0].append(mean_reward1)
-    results[1][0].append(mean_reward2)
-    results[0][1].append(std_reward1)
-    results[1][1].append(std_reward2)
+    results[0].append(mean_reward1)
+    results[1].append(mean_reward2)
 
     # save the final models
     model1.save(model_path1 + '/final')
