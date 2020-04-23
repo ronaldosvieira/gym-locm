@@ -18,6 +18,7 @@ warnings.filterwarnings(action='ignore', category=FutureWarning)
 import tensorflow.python.util.deprecation as deprecation
 deprecation._PRINT_DEPRECATION_WARNINGS = False
 
+import tensorflow as tf
 import numpy as np
 from hyperopt import hp, STATUS_OK, Trials, fmin, tpe
 from hyperopt.pyll import scope
@@ -32,34 +33,34 @@ from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDra
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
 
 # which phase to train
-phase = Phase.BATTLE
+phase = Phase.DRAFT
 
 # draft strategy ('basic', 'history', 'lstm' or 'curve')
 draft_strat = 'basic'
 
 # battle strategy ('punish', 'map', 'clip')
-battle_strat = 'clip'
+battle_strat = 'map'
 
 # training mode ('normal', 'interleaved-self-play', 'self-play')
-training_mode = 'normal'
+training_mode = 'interleaved-self-play'
 
 # algorithm ('dqn', 'ppo2')
-algorithm = 'dqn'
+algorithm = 'ppo2'
 
 # training parameters
-seed = 96737
-num_processes = 1
+seed = 96765
+num_processes = 4
 train_episodes = 30000
 eval_episodes = 3000
 num_evals = 10
 
 # bayesian optimization parameters
 num_trials = 50
-num_warmup_trials = 10
+num_warmup_trials = 20
 optimize_for = PlayerOrder.FIRST
 
 # where to save the model
-path = 'models/hyp-search/clip-battle-dqn'
+path = 'models/new-hyp-search/basic-max-attack'
 
 # hyperparameter space
 if algorithm == 'ppo2':
@@ -67,6 +68,7 @@ if algorithm == 'ppo2':
         'n_switches': hp.choice('n_switches', [10, 100, 1000]),
         'layers': hp.uniformint('layers', 1, 3),
         'neurons': hp.uniformint('neurons', 24, 256),
+        'activation': hp.choice('activation', ['tanh', 'relu', 'elu']),
         'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
         'nminibatches': scope.int(hp.quniform('nminibatches', 1, 300, 1)),
         'noptepochs': scope.int(hp.quniform('noptepochs', 3, 20, 1)),
@@ -114,7 +116,7 @@ else:
 
 # initializations
 counter = 0
-make_draft_agents = lambda: (IceboxDraftAgent(), IceboxDraftAgent())
+make_draft_agents = lambda: (MaxAttackDraftAgent(), MaxAttackDraftAgent())
 make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
 
@@ -168,10 +170,11 @@ def eval_env_builder_battle2(seed, play_first=True, **params):
 
 def model_builder_mlp(env, **params):
     net_arch = [params['neurons']] * params['layers']
+    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[params['activation']]
 
     if algorithm == 'ppo2':
         return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
-                    policy_kwargs=dict(net_arch=net_arch),
+                    policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
                     n_steps=params['n_steps'],
                     nminibatches=params['nminibatches'],
                     noptepochs=params['noptepochs'],
@@ -181,7 +184,7 @@ def model_builder_mlp(env, **params):
                     learning_rate=params['learning_rate'],
                     tensorboard_log=None)
     elif algorithm == 'dqn':
-        return DQN(LnMlpPolicy, env, verbose=1, gamma=1, seed=seed,
+        return DQN(LnMlpPolicy, env, verbose=0, gamma=1, seed=seed,
                    policy_kwargs=dict(layers=net_arch),
                    double_q=True, prioritized_replay=True,
                    prioritized_replay_beta_iters=1000000,
@@ -196,9 +199,11 @@ def model_builder_mlp(env, **params):
 
 def model_builder_lstm(env, **params):
     net_arch = ['lstm'] + [params['neurons']] * params['layers']
+    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[params['activation']]
 
     return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
-                policy_kwargs=dict(net_arch=net_arch, n_lstm=params['neurons']),
+                policy_kwargs=dict(net_arch=net_arch, n_lstm=params['neurons'],
+                                   act_fun=activation),
                 n_steps=params['n_steps'],
                 nminibatches=params['nminibatches'],
                 noptepochs=params['noptepochs'],
