@@ -20,7 +20,7 @@ deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 import tensorflow as tf
 import numpy as np
-from hyperopt import hp, STATUS_OK, Trials, fmin, tpe
+from hyperopt import hp, STATUS_OK, Trials, fmin, tpe, trials_from_docs
 from hyperopt.pyll import scope
 from stable_baselines import PPO2, DQN
 from stable_baselines.deepq.policies import LnMlpPolicy
@@ -1162,40 +1162,159 @@ else:
     raise ValueError("Invalid training mode.")
 
 if __name__ == '__main__':
+    '''seeds = 32359627, 91615349, 88803987, 83140551, 50731732, \
+            19279988, 35717793, 48046766, 86798618, 62644993'''
+
+    # best lstm3 1p
+    '''params = {
+        'n_switches': 100,
+        'layers': 2,
+        'neurons': 51,
+        'n_steps': 240,
+        'nminibatches': 1,
+        'noptepochs': 9,
+        'cliprange': 0.1,
+        'vf_coef': 1.0,
+        'ent_coef': 0.008091157254597916,
+        'learning_rate': 0.00045636274185317246
+    }'''
+    
+    # best history 1p
+    '''params = {
+        'n_switches': 100,
+        'layers': 2,
+        'neurons': 27,
+        'n_steps': 270,
+        'nminibatches': 90,
+        'noptepochs': 5,
+        'cliprange': 0.1,
+        'vf_coef': 0.5,
+        'ent_coef': 0.007796057055268702,
+        'learning_rate': 5.209278763667857e-05
+    }'''
+
+    # best basic 1p
+    '''params = {
+        'n_switches': 1000,
+        'layers': 1,
+        'neurons': 82,
+        'n_steps': 210,
+        'nminibatches': 105,
+        'noptepochs': 4,
+        'cliprange': 0.3,
+        'vf_coef': 1.0,
+        'ent_coef': 0.004117115213304482,
+        'learning_rate': 5.314238600325468e-05
+    }'''
+
+    # best clip 1p ppo2
+    '''params = {
+        'n_switches': 1000,
+        'layers': 3,
+        'neurons': 256,
+        'n_steps': 300,
+        'nminibatches': 30,
+        'noptepochs': 50,
+        'cliprange': 0.001,
+        'vf_coef': 1.0,
+        'ent_coef': 0.008977698974531571,
+        'learning_rate': 0.00013139891826766765
+    }'''
+
+    # best clip dqn
+    '''params = {
+        "batch_size": 128,
+        "buffer_size": 5000,
+        "layers": 5,
+        "learning_rate": 0.0001797875148905446,
+        "n_switches": 10,
+        "neurons": 256,
+        "target_network_update_freq": 5000,
+        "exploration_fraction": 0.25,
+        "prioritized_replay_alpha": 0.6,
+        "prioritized_replay_beta0": 0.4,
+    }'''
+
+    # best lstm greedy draft
+    '''params = {
+        'n_switches': 10,
+        'layers': 0,
+        'neurons': 69,
+        'n_steps': 210,
+        'nminibatches': 1,
+        'noptepochs': 11,
+        'cliprange': 0.2,
+        'vf_coef': 1.0,
+        'ent_coef': 0.0071839743895664625,
+        'learning_rate': 0.0001572080572248569
+    }'''
+
+    # best basic greedy
+    '''params = {
+        'n_switches': 100,
+        'layers': 1,
+        'neurons': 29,
+        'n_steps': 210,
+        'nminibatches': 30,
+        'noptepochs': 19,
+        'cliprange': 0.1,
+        'vf_coef': 1.0,
+        'ent_coef': 0.00781891437626065,
+        'learning_rate': 0.0001488768154153614
+    }'''
+
+    '''for seed in seeds:
+        train_and_eval(params)'''
+
+    os.makedirs(path, exist_ok=True)
+
+    # tries to load past trials
     try:
         with open(path + '/trials.p', 'rb') as trials_file:
             trials = pickle.load(trials_file)
 
-        with open(path + '/rstate.p', 'rb') as random_state_file:
-            random_state = pickle.load(random_state_file)
+            if trials.trials[-1]['result']['status'] != STATUS_OK:
+                trials = trials_from_docs(trials.trials[:-1])
 
-        finished_trials = len(trials)
-        print(f'Found run state file with {finished_trials} trials.')
-
-        counter = finished_trials
+            finished_trials = len(trials)
+            print(f'Found run state file with {finished_trials} trials.')
     except FileNotFoundError:
         trials = Trials()
         finished_trials = 0
+
+    # tries to load past random state
+    try:
+        with open(path + '/rstate.p', 'rb') as random_state_file:
+            random_state = pickle.load(random_state_file)
+
+        counter = finished_trials
+    except FileNotFoundError:
         random_state = np.random.RandomState(seed)
 
-    # noinspection PyBroadException
-    try:
-        algo = partial(tpe.suggest,
-                       n_startup_jobs=max(0, num_warmup_trials - finished_trials))
-
-        best_param = fmin(train_and_eval, param_dict, algo=algo,
-                          max_evals=num_trials, trials=trials,
-                          rstate=random_state)
-
-        loss = [x['result']['loss'] for x in trials.trials]
-
-        print("")
-        print("##### Results")
-        print("Score best parameters: ", min(loss) * -1)
-        print("Best parameters: ", best_param)
-    finally:
+    def save_current_trials():
         with open(path + '/trials.p', 'wb') as trials_file:
             pickle.dump(trials, trials_file)
 
         with open(path + '/rstate.p', 'wb') as random_state_file:
             pickle.dump(random_state, random_state_file)
+
+    def wrapper(params):
+        save_current_trials()
+
+        return train_and_eval(params)
+
+    algo = partial(tpe.suggest,
+                   n_startup_jobs=max(0, num_warmup_trials - finished_trials))
+
+    best_param = fmin(wrapper, param_dict, algo=algo,
+                      max_evals=num_trials, trials=trials,
+                      rstate=random_state)
+
+    save_current_trials()
+
+    loss = [x['result']['loss'] for x in trials.trials]
+
+    print("")
+    print("##### Results")
+    print("Score best parameters: ", min(loss) * -1)
+    print("Best parameters: ", best_param)
