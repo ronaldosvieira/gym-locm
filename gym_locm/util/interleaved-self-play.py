@@ -892,7 +892,7 @@ def interleaved_self_play(params):
                                    end_time=end_time), indent=2))
 
     # calculate and return the metrics
-    main_metric, aux_metric = -max(results[0][0]), -max(results[1][0])
+    main_metric, aux_metric = -max(results[0]), -max(results[1])
 
     if optimize_for == PlayerOrder.SECOND:
         main_metric, aux_metric = aux_metric, main_metric
