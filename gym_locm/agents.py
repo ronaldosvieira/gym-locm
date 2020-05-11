@@ -489,7 +489,9 @@ class NativeAgent(Agent):
             elif tokens[0] == 'USE':
                 origin = int(tokens[1])
                 target = int(tokens[2])
-                target = target if target >= 0 else None
+
+                if target == -1:
+                    target = None
 
                 decoded_actions.append(Action(ActionType.USE, origin, target))
             elif tokens[0] == 'SUMMON':
@@ -500,7 +502,9 @@ class NativeAgent(Agent):
             elif tokens[0] == 'ATTACK':
                 origin = int(tokens[1])
                 target = int(tokens[2])
-                target = target if target >= 0 else None
+
+                if target == -1:
+                    target = None
 
                 decoded_actions.append(Action(ActionType.ATTACK, origin, target))
 
