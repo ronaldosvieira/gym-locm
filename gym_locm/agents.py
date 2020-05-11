@@ -438,6 +438,8 @@ class NativeAgent(Agent):
         self.initialized = False
         self.action_buffer = []
 
+        self.raw_actions = ""
+
         self._process = None
 
     def initialize(self):
@@ -523,6 +525,8 @@ class NativeAgent(Agent):
 
         try:
             raw_output = self._process.read_nonblocking(size=2048, timeout=2)
+
+            self.raw_actions = raw_output.strip()
 
             actions = self.decode_actions(raw_output)
 
