@@ -831,9 +831,7 @@ class State:
             error = "Target is not a creature or a player"
             raise MalformedActionError(error)
 
-        try:
-            current_player.hand.remove(origin)
-        except ValueError:
+        if origin not in current_player.hand:
             raise MalformedActionError("Card is not in player's hand")
 
         if isinstance(origin, GreenItem):
@@ -917,6 +915,7 @@ class State:
             error = "Card being used is not an item"
             raise MalformedActionError(error)
 
+        current_player.hand.remove(origin)
         current_player.mana -= origin.cost
 
     def clone(self) -> 'State':
