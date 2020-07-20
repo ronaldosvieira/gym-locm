@@ -118,10 +118,14 @@ class TrainingSession:
 
             # evaluate the model
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
+            start_time = time.perf_counter()
 
             mean_reward, ep_length, act_hist = self.evaluator.run(RLDraftAgent(self.model))
 
-            self.logger.info(f"Finished evaluating. Avg. reward: {mean_reward}")
+            end_time = time.perf_counter()
+            self.logger.info(f"Finished evaluating "
+                             f"({round(end_time - start_time, 3)}s). "
+                             f"Avg. reward: {mean_reward}")
 
             # save the results
             self.checkpoints.append(episodes_so_far)
