@@ -166,7 +166,7 @@ class TrainingSession:
 
         # log end time
         end_time = datetime.now()
-        self.logger.info(f"End of training ({end_time - start_time}s).")
+        self.logger.info(f"End of training. Time elapsed: {end_time - start_time}.")
 
         # save model info to results file
         compiled_results = self.checkpoints, self.win_rates, \
