@@ -2,10 +2,9 @@ import json
 import logging
 import os
 import time
+import warnings
 from datetime import datetime
 from statistics import mean
-
-import warnings
 
 # suppress tensorflow deprecated warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
@@ -18,7 +17,6 @@ tf.get_logger().setLevel('INFO')
 tf.get_logger().setLevel(logging.ERROR)
 
 from stable_baselines import PPO2
-from stable_baselines.common import BaseRLModel
 from stable_baselines.common.policies import MlpPolicy
 
 from stable_baselines.common.vec_env import SubprocVecEnv, VecEnv
@@ -36,19 +34,20 @@ class RLDraftAgent(Agent):
     def __init__(self, model):
         self.model = model
 
-        self.states = None
+        self.hidden_states = None
         self.dones = None
 
     def seed(self, seed):
         pass
 
     def reset(self):
-        self.states = None
+        self.hidden_states = None
         self.dones = None
 
     def act(self, state):
-        actions, self.states = self.model.predict(state, deterministic=True,
-                                                  state=self.states, mask=self.dones)
+        actions, self.hidden_states = \
+            self.model.predict(state, deterministic=True,
+                               state=self.hidden_states, mask=self.dones)
 
         return actions
 
@@ -75,7 +74,7 @@ class TrainingSession:
 
         # build the model
         self.logger.debug("Building the model...")
-        self.model: BaseRLModel = model_builder(self.env, seed, **params)
+        self.model = model_builder(self.env, seed, **params)
 
         # create necessary folders
         os.makedirs(path, exist_ok=True)
@@ -239,7 +238,12 @@ class Evaluator:
         # run the episodes
         while True:
             # get the agent's action for all parallel envs
-            actions = [agent.act(observation) for observation in observations]
+            # todo: do this in a more elegant way
+            if isinstance(agent, RLDraftAgent):
+                actions = agent.act(observations)
+            else:
+                observations = self.env.get_attr('state')
+                actions = [agent.act(observation) for observation in observations]
 
             # update the action histogram
             for action in actions:
