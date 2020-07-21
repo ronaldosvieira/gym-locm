@@ -69,7 +69,7 @@ class LOCMDraftEnv(LOCMEnv):
             agent.reset()
             agent.seed(self._seed)
 
-        return self._encode_state()
+        return self.encode_state()
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
@@ -137,7 +137,7 @@ class LOCMDraftEnv(LOCMEnv):
 
             del info['turn']
 
-        return self._encode_state(), reward, done, info
+        return self.encode_state(), reward, done, info
 
     def do_match(self, state):
         # reset the agents
@@ -262,7 +262,7 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        obs = self._encode_state()
+        obs = self.encode_state()
 
         # act according to first and second players
         if self.play_first:

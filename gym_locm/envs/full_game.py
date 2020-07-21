@@ -61,7 +61,7 @@ class LOCMFullGameEnv(LOCMEnv):
         # empty draft choices
         self.choices = ([], [])
 
-        return self._encode_state()
+        return self.encode_state()
 
     def step(self, action):
         """Makes an action in the game."""
@@ -107,7 +107,7 @@ class LOCMFullGameEnv(LOCMEnv):
 
             del info['turn']
 
-        return self._encode_state(), reward, done, info
+        return self.encode_state(), reward, done, info
 
     def _encode_state_battle(self):
         encoded_state = np.full(self.state_shapes[Phase.BATTLE],

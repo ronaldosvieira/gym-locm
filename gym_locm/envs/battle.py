@@ -98,7 +98,7 @@ class LOCMBattleEnv(LOCMEnv):
 
             del info['turn']
 
-        return self._encode_state(), reward, done, info
+        return self.encode_state(), reward, done, info
 
     def reset(self) -> np.array:
         """
@@ -118,7 +118,7 @@ class LOCMBattleEnv(LOCMEnv):
             for agent in self.draft_agents:
                 self.state.act(agent.act(self.state))
 
-        return self._encode_state()
+        return self.encode_state()
 
     def _encode_state_draft(self):
         pass
@@ -259,7 +259,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
-            state = self._encode_state()
+            state = self.encode_state()
             action = self.model.predict(state)[0]
 
             state, reward, done, info = super().step(action)

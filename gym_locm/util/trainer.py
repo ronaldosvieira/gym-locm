@@ -271,7 +271,7 @@ class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
 
             # have opponent play until its player's turn or there's a winner
             while self.state.current_player.id != player and self.state.winner is None:
-                state = self._encode_state()
+                state = self.encode_state()
                 action = self.model.predict(state)[0]
 
                 action = map_invalid_action(self.state.action_mask, action)
@@ -315,7 +315,7 @@ class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
         self.state.current_player.health = self.player_initial_health
         self.state.opposing_player.health = self.opponent_initial_health
 
-        return self._encode_state()
+        return self.encode_state()
 
     if battle_strat == 'punish':
         def step(self, action: int):
@@ -365,7 +365,7 @@ class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
     if draft_strat == 'lstm':
         def step(self, action):
             """Makes an action in the game."""
-            obs = self._encode_state()
+            obs = self.encode_state()
 
             zero_completed_obs = np.zeros((num_processes, *self.observation_space.shape))
             zero_completed_obs[0, :] = obs

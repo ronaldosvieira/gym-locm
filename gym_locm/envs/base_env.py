@@ -368,7 +368,7 @@ class LOCMEnv(gym.Env, ABC):
                opposing.base_mana + opposing.bonus_mana, \
                opposing.next_rune, 1 + opposing.bonus_draw
 
-    def _encode_state(self):
+    def encode_state(self):
         """ Encodes a state object into a numerical matrix. """
         if self.state.phase == Phase.DRAFT:
             return self._encode_state_draft()
