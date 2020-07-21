@@ -90,8 +90,8 @@ class TrainingSession:
         self.eval_frequency = train_episodes / num_evals
 
         # initialize control attributes
-        self.last_eval = None
-        self.next_eval = 0
+        self.model.last_eval = None
+        self.model.next_eval = 0
 
         # initialize results
         self.checkpoints = []
@@ -109,7 +109,7 @@ class TrainingSession:
         episodes_so_far = sum(self.env.get_attr('episodes'))
 
         # if it is time to evaluate, do so
-        if episodes_so_far >= self.next_eval:
+        if episodes_so_far >= self.model.next_eval:
             # save model
             model_path = self.path + f'/{episodes_so_far}'
             self.model.save(model_path)
@@ -133,8 +133,8 @@ class TrainingSession:
             self.action_histograms.append(act_hist)
 
             # update control attributes
-            self.last_eval = episodes_so_far
-            self.next_eval += self.eval_frequency
+            self.model.last_eval = episodes_so_far
+            self.model.next_eval += self.eval_frequency
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= self.train_episodes
