@@ -113,7 +113,7 @@ class TrainingSession:
             # save model
             model_path = self.path + f'/{episodes_so_far}'
             self.model.save(model_path)
-            self.logger.debug(f"Saved model at {model_path}.")
+            self.logger.debug(f"Saved model at {model_path}.zip.")
 
             # evaluate the model
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
