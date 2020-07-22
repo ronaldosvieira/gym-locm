@@ -55,7 +55,7 @@ class RLDraftAgent(Agent):
 class TrainingSession:
     def __init__(self, env_builder, eval_env_builder, model_builder,
                  train_episodes, evaluation_episodes, num_evals,
-                 params, path, seed, num_processes=1):
+                 play_first, params, path, seed, num_processes=1):
         # log start time
         start_time = time.perf_counter()
 
@@ -64,8 +64,17 @@ class TrainingSession:
 
         # initialize parallel environments
         self.logger.debug("Initializing env...")
-        self.env: VecEnv = SubprocVecEnv([env_builder() for _ in range(num_processes)],
-                                         start_method='spawn')
+        env = []
+
+        for i in range(num_processes):
+            # no overlap between episodes at each process
+            current_seed = seed + (train_episodes // num_processes) * i
+
+            # create one env per process
+            env.append(env_builder(seed=current_seed, play_first=play_first))
+
+        # wrap envs in a vectorized env
+        self.env: VecEnv = SubprocVecEnv(env, start_method='spawn')
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
@@ -92,6 +101,7 @@ class TrainingSession:
         # initialize control attributes
         self.model.last_eval = None
         self.model.next_eval = 0
+        self.model.role_id = 0 if play_first else 1
 
         # initialize results
         self.checkpoints = []
@@ -119,7 +129,9 @@ class TrainingSession:
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
             start_time = time.perf_counter()
 
-            mean_reward, ep_length, act_hist = self.evaluator.run(RLDraftAgent(self.model))
+            mean_reward, ep_length, act_hist = \
+                self.evaluator.run(RLDraftAgent(self.model),
+                                   play_first=self.model.role_id == 0)
 
             end_time = time.perf_counter()
             self.logger.info(f"Finished evaluating "
@@ -212,7 +224,7 @@ class Evaluator:
         self.logger.debug("Finished initializing evaluator "
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
-    def run(self, agent: Agent):
+    def run(self, agent: Agent, play_first=True):
         """
         Evaluates an agent.
         :param agent: (gym_locm.agents.Agent) Agent to be evaluated.
@@ -225,6 +237,9 @@ class Evaluator:
             current_seed -= 1  # resetting the env increases the seed by one
 
             self.env.env_method('seed', current_seed, indices=[i])
+
+        # set agent role
+        self.env.set_attr('play_first', play_first)
 
         # reset the env
         observations = self.env.reset()
@@ -309,7 +324,7 @@ if __name__ == '__main__':
               'ent_coef': 0.00781891437626065, 'learning_rate': 0.0001488768154153614,
               'activation': 'tanh'}
 
-    ts = TrainingSession(build_env, build_env, build_model, 3000, 300, 12, params,
-                         'models/trashcan/trash02', 36987, num_processes=2)
+    ts = TrainingSession(build_env, build_env, build_model, 3000, 300, 12, True, params,
+                        'models/trashcan/trash03', 36987, num_processes=2)
 
     ts.run()
