@@ -283,8 +283,14 @@ class Evaluator:
                 break
 
         # join all parallel metrics
-        all_rewards = [reward for rewards in episode_rewards for reward in rewards]
-        all_lengths = [length for lengths in episode_lengths for length in lengths]
+        all_rewards = [reward for rewards in episode_rewards
+                       for reward in rewards]
+        all_lengths = [length for lengths in episode_lengths
+                       for length in lengths]
+
+        # transform the action histogram in a probability distribution
+        action_histogram = [action_freq / sum(action_histogram)
+                            for action_freq in action_histogram]
 
         # cap any unsolicited additional episodes
         all_rewards = all_rewards[:self.episodes]
