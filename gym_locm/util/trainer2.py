@@ -228,6 +228,7 @@ class Evaluator:
         """
         Evaluates an agent.
         :param agent: (gym_locm.agents.Agent) Agent to be evaluated.
+        :param play_first: Whether the agent will be playing first.
         :return: A tuple containing the `mean_reward`, the `mean_length`
         and the `action_histogram` of the evaluation episodes.
         """
