@@ -96,6 +96,7 @@ class TrainingSession:
         self.num_evals = num_evals
         self.params = params
         self.path = path
+        self.seed = seed
         self.eval_frequency = train_episodes / num_evals
 
         # initialize control attributes
@@ -180,13 +181,12 @@ class TrainingSession:
         self.logger.info(f"End of training. Time elapsed: {end_time - start_time}.")
 
         # save model info to results file
-        compiled_results = self.checkpoints, self.win_rates, \
-            self.episode_lengths, self.action_histograms
-
         results_path = self.path + '/results.txt'
 
         with open(results_path, 'a') as file:
-            info = dict(**self.params, results=compiled_results,
+            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
+                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
+                        action_histograms=self.action_histograms,
                         start_time=str(start_time), end_time=str(end_time))
             info = json.dumps(info, indent=2)
 
