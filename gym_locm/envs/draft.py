@@ -245,20 +245,13 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
 
 
 class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
-    def __init__(self, play_first=True, **kwargs):
+    def __init__(self, play_first, adversary_policy=None, **kwargs):
         # init the env
         super().__init__(**kwargs)
 
         # also init the new parameters
         self.play_first = play_first
-        self.model = None
-
-    def set_model(self, model_builder, env_builder, **kwargs):
-        self.model = model_builder(env_builder(self), **kwargs)
-
-    def update_parameters(self, parameters):
-        """Update the current parameters in the model with new ones."""
-        self.model.load_parameters(parameters, exact_match=True)
+        self.adversary_policy = adversary_policy
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
@@ -267,9 +260,9 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            state, reward, done, info = super().step(self.model.predict(obs)[0])
+            state, reward, done, info = super().step(self.adversary_policy(obs))
         else:
-            super().step(self.model.predict(obs)[0])
+            super().step(self.adversary_policy(obs))
             state, reward, done, info = super().step(action)
             reward = -reward
 
