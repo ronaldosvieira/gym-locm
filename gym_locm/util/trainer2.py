@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import warnings
+from abc import abstractmethod
 from datetime import datetime
 from statistics import mean
 
@@ -53,14 +54,61 @@ class RLDraftAgent(Agent):
 
 
 class TrainingSession:
+    def __init__(self, params, path, seed):
+        # initialize logger
+        self.logger = logging.getLogger('{0}.{1}'.format(__name__,
+                                                         type(self).__name__))
+
+        # initialize results
+        self.checkpoints = []
+        self.win_rates = []
+        self.episode_lengths = []
+        self.action_histograms = []
+
+        # save parameters
+        self.params = params
+        self.path = path
+        self.seed = seed
+
+    @abstractmethod
+    def _train(self):
+        pass
+
+    def run(self):
+        # log start time
+        start_time = datetime.now()
+        self.logger.info("Training...")
+
+        # do the training
+        self._train()
+
+        # log end time
+        end_time = datetime.now()
+        self.logger.info(f"End of training. Time elapsed: {end_time - start_time}.")
+
+        # save model info to results file
+        results_path = self.path + '/results.txt'
+
+        with open(results_path, 'a') as file:
+            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
+                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
+                        action_histograms=self.action_histograms,
+                        start_time=str(start_time), end_time=str(end_time))
+            info = json.dumps(info, indent=2)
+
+            file.write(info)
+
+        self.logger.debug(f"Results saved at {results_path}.")
+
+
+class FixedAdversary(TrainingSession):
     def __init__(self, env_builder, eval_env_builder, model_builder,
                  train_episodes, eval_episodes, num_evals,
                  play_first, params, path, seed, num_envs=1):
+        super(FixedAdversary, self).__init__(params, path, seed)
+
         # log start time
         start_time = time.perf_counter()
-
-        # initialize logger
-        self.logger = logging.getLogger('{0}.{1}'.format(__name__, type(self).__name__))
 
         # initialize parallel environments
         self.logger.debug("Initializing training env...")
@@ -94,21 +142,12 @@ class TrainingSession:
         # save parameters
         self.train_episodes = train_episodes
         self.num_evals = num_evals
-        self.params = params
-        self.path = path
-        self.seed = seed
         self.eval_frequency = train_episodes / num_evals
 
         # initialize control attributes
         self.model.last_eval = None
         self.model.next_eval = 0
         self.model.role_id = 0 if play_first else 1
-
-        # initialize results
-        self.checkpoints = []
-        self.win_rates = []
-        self.episode_lengths = []
-        self.action_histograms = []
 
         # log end time
         end_time = time.perf_counter()
@@ -117,7 +156,7 @@ class TrainingSession:
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
     def _training_callback(self, _locals=None, _globals=None):
-        episodes_so_far = sum(self.env.get_attr('episodes'))
+        episodes_so_far = self.model.num_timesteps // 30
 
         # if it is time to evaluate, do so
         if episodes_so_far >= self.model.next_eval:
@@ -157,11 +196,7 @@ class TrainingSession:
 
         return not training_is_finished
 
-    def run(self):
-        # log start time
-        start_time = datetime.now()
-        self.logger.info("Training...")
-
+    def _train(self):
         # save and evaluate starting model
         self._training_callback()
 
@@ -176,29 +211,9 @@ class TrainingSession:
         if len(self.win_rates) < self.num_evals:
             self._training_callback()
 
-        # log end time
-        end_time = datetime.now()
-        self.logger.info(f"End of training. Time elapsed: {end_time - start_time}.")
-
-        # save model info to results file
-        results_path = self.path + '/results.txt'
-
-        with open(results_path, 'a') as file:
-            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
-                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
-                        action_histograms=self.action_histograms,
-                        start_time=str(start_time), end_time=str(end_time))
-            info = json.dumps(info, indent=2)
-
-            file.write(info)
-
-        self.logger.debug(f"Results saved at {results_path}.")
-
         # close the envs
         for e in (self.env, self.evaluator):
             e.close()
-
-        return compiled_results
 
 
 class Evaluator:
