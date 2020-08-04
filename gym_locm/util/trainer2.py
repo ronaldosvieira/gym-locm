@@ -285,9 +285,9 @@ class Evaluator:
 
         # join all parallel metrics
         all_rewards = [reward for rewards in episode_rewards
-                       for reward in rewards]
+                       for reward in rewards[:-1]]
         all_lengths = [length for lengths in episode_lengths
-                       for length in lengths]
+                       for length in lengths[:-1]]
 
         # transform the action histogram in a probability distribution
         action_histogram = [action_freq / sum(action_histogram)
