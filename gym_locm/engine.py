@@ -1,3 +1,4 @@
+import os
 import sys
 from operator import attrgetter
 
@@ -273,7 +274,7 @@ class Action:
 def load_cards() -> List['Card']:
     cards = []
 
-    with open('gym_locm/cardlist.txt', 'r') as card_list:
+    with open(os.path.dirname(__file__) + '/cardlist.txt', 'r') as card_list:
         raw_cards = card_list.readlines()
         type_mapping = {'creature': Creature, 'itemRed': RedItem,
                         'itemGreen': GreenItem, 'itemBlue': BlueItem}
