@@ -116,7 +116,7 @@ class TrainingSession:
         self.logger.debug("Finished initializing training session "
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
-    def _evaluate(self, _locals=None, _globals=None):
+    def _training_callback(self, _locals=None, _globals=None):
         episodes_so_far = sum(self.env.get_attr('episodes'))
 
         # if it is time to evaluate, do so
@@ -163,18 +163,18 @@ class TrainingSession:
         self.logger.info("Training...")
 
         # save and evaluate starting model
-        self._evaluate()
+        self._training_callback()
 
         try:
             # train the model
             self.model.learn(total_timesteps=30 * self.train_episodes,
-                             callback=self._evaluate)
+                             callback=self._training_callback)
         except KeyboardInterrupt:
             pass
 
         # save and evaluate final model, if not done yet
         if len(self.win_rates) < self.num_evals:
-            self._evaluate()
+            self._training_callback()
 
         # log end time
         end_time = datetime.now()
