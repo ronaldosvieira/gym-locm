@@ -17,9 +17,9 @@ tf.get_logger().setLevel('INFO')
 tf.get_logger().setLevel(logging.ERROR)
 
 from stable_baselines import PPO2
-from stable_baselines.common.policies import MlpPolicy
-
-from stable_baselines.common.vec_env import SubprocVecEnv, VecEnv
+from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
+from stable_baselines.common.callbacks import CheckpointCallback, EvalCallback
+from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
 
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent
 from gym_locm.envs import LOCMDraftSingleEnv
@@ -54,8 +54,8 @@ class RLDraftAgent(Agent):
 
 class TrainingSession:
     def __init__(self, env_builder, eval_env_builder, model_builder,
-                 train_episodes, evaluation_episodes, num_evals,
-                 play_first, params, path, seed, num_processes=1):
+                 train_episodes, eval_episodes, num_evals,
+                 play_first, params, path, seed, num_envs=1):
         # log start time
         start_time = time.perf_counter()
 
@@ -63,23 +63,23 @@ class TrainingSession:
         self.logger = logging.getLogger('{0}.{1}'.format(__name__, type(self).__name__))
 
         # initialize parallel environments
-        self.logger.debug("Initializing env...")
+        self.logger.debug("Initializing training env...")
         env = []
 
-        for i in range(num_processes):
-            # no overlap between episodes at each process
-            current_seed = seed + (train_episodes // num_processes) * i
+        for i in range(num_envs):
+            # no overlap between episodes at each concurrent env
+            current_seed = seed + (train_episodes // num_envs) * i
 
-            # create one env per process
+            # create the env
             env.append(env_builder(seed=current_seed, play_first=play_first))
 
         # wrap envs in a vectorized env
-        self.env: VecEnv = SubprocVecEnv(env, start_method='spawn')
+        self.env: VecEnv = DummyVecEnv([lambda: e for e in env])
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
-        self.evaluator: Evaluator = Evaluator(eval_env_builder, evaluation_episodes,
-                                              seed + train_episodes, num_processes)
+        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes,
+                                              seed + train_episodes, num_envs)
 
         # build the model
         self.logger.debug("Building the model...")
@@ -202,7 +202,7 @@ class TrainingSession:
 
 
 class Evaluator:
-    def __init__(self, env_builder, episodes, seed, num_processes=1):
+    def __init__(self, env_builder, episodes, seed, num_envs):
         # log start time
         start_time = time.perf_counter()
 
@@ -211,8 +211,8 @@ class Evaluator:
 
         # initialize parallel environments
         self.logger.debug("Initializing envs...")
-        self.env: VecEnv = SubprocVecEnv([env_builder() for _ in range(num_processes)],
-                                         start_method='spawn')
+        self.env = [lambda: env_builder() for _ in range(num_envs)]
+        self.env: VecEnv = DummyVecEnv(self.env)
 
         # save parameters
         self.episodes = episodes
