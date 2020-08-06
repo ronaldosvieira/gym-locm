@@ -300,6 +300,13 @@ class SelfPlay(TrainingSession):
         model = _locals['self']
         episodes_so_far = model.num_timesteps // 30
 
+        turns = model.env.get_attr('turn')
+        playing_first = model.env.get_attr('play_first')
+
+        for i in range(model.env.num_envs):
+            if turns[i] in range(0, model.env.num_envs):
+                model.env.set_attr('play_first', not playing_first[i], indices=[i])
+
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
             # save model
