@@ -67,7 +67,7 @@ class TrainingSession:
 
         # save parameters
         self.params = params
-        self.path = path
+        self.path = os.path.dirname(__file__) + "/../../" + path
         self.seed = seed
 
     @abstractmethod
