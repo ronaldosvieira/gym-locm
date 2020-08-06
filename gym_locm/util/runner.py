@@ -173,8 +173,7 @@ def run():
     wins, games = wins_by_p0
     ratio = 100 * wins / games
 
-    print(f"{datetime.now()} Result of {games} episodes: "
-          f"{'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
+    print(f"{'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
 
 
 if __name__ == '__main__':
