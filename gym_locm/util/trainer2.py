@@ -217,6 +217,171 @@ class FixedAdversary(TrainingSession):
             e.close()
 
 
+class SelfPlay(TrainingSession):
+    def __init__(self, env_builder, eval_env_builder, model_builder,
+                 train_episodes, eval_episodes, num_evals,
+                 num_switches, params, path, seed, num_envs=1):
+        super(SelfPlay, self).__init__(params, path, seed)
+
+        # log start time
+        start_time = time.perf_counter()
+
+        # initialize parallel training environments
+        self.logger.debug("Initializing training envs...")
+        env = []
+
+        for i in range(num_envs):
+            # no overlap between episodes at each process
+            current_seed = seed + (train_episodes // num_envs) * i
+
+            # create one env per process
+            env.append(env_builder(seed=current_seed, play_first=True))
+
+        # wrap envs in a vectorized env
+        self.env = DummyVecEnv([lambda: e for e in env])
+
+        # initialize parallel evaluating environments
+        self.logger.debug("Initializing evaluation envs...")
+        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes // 2,
+                                               seed + train_episodes, num_envs)
+
+        # build the models
+        self.logger.debug("Building the models...")
+        self.model = model_builder(self.env, seed, **params)
+        self.model.adversary = model_builder(self.env, seed, **params)
+
+        # initialize parameters of adversary models accordingly
+        self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
+
+        # set adversary models as adversary policies of the self-play envs
+        def make_adversary_policy(model, env):
+            def adversary_policy(obs):
+                zero_completed_obs = np.zeros((num_envs,) + env.observation_space.shape)
+                zero_completed_obs[0, :] = obs
+
+                actions, _ = model.adversary.predict(zero_completed_obs)
+
+                return actions[0]
+
+            return adversary_policy
+
+        self.env.set_attr('adversary_policy',
+                           make_adversary_policy(self.model, self.env))
+
+        # create necessary folders
+        os.makedirs(path, exist_ok=True)
+
+        # set tensorflow log dirs
+        self.model.tensorflow_log = path
+
+        # save parameters
+        self.train_episodes = train_episodes
+        self.eval_episodes = eval_episodes
+        self.num_evals = num_evals
+        self.num_switches = num_switches
+        self.eval_frequency = train_episodes / num_evals
+
+        # initialize control attributes
+        self.model.last_eval, self.model.next_eval = None, 0
+
+        # initialize results
+        self.checkpoints = []
+        self.win_rates = []
+        self.episode_lengths = []
+        self.action_histograms = []
+
+        # log end time
+        end_time = time.perf_counter()
+
+        self.logger.debug("Finished initializing training session "
+                          f"({round(end_time - start_time, ndigits=3)}s).")
+
+    def _training_callback(self, _locals=None, _globals=None):
+        model = _locals['self']
+        episodes_so_far = model.num_timesteps // 30
+
+        # if it is time to evaluate, do so
+        if episodes_so_far >= model.next_eval:
+            # save model
+            model_path = self.path + f'/{episodes_so_far}'
+            model.save(model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip.")
+
+            # evaluate the model
+            self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
+            start_time = time.perf_counter()
+
+            self.evaluator.seed = self.seed + self.train_episodes
+            mean_reward, ep_length, act_hist = \
+                self.evaluator.run(RLDraftAgent(model), play_first=True)
+
+            self.evaluator.seed += self.eval_episodes
+            mean_reward2, ep_length2, act_hist2 = \
+                self.evaluator.run(RLDraftAgent(model), play_first=False)
+
+            mean_reward = (mean_reward + mean_reward2) / 2
+            ep_length = (ep_length + ep_length2) / 2
+            act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(3)]
+
+            end_time = time.perf_counter()
+            self.logger.info(f"Finished evaluating "
+                             f"({round(end_time - start_time, 3)}s). "
+                             f"Avg. reward: {mean_reward}")
+
+            # save the results
+            self.checkpoints.append(episodes_so_far)
+            self.win_rates.append((mean_reward + 1) / 2)
+            self.episode_lengths.append(ep_length)
+            self.action_histograms.append(act_hist)
+
+            # update control attributes
+            model.last_eval = episodes_so_far
+            model.next_eval += self.eval_frequency
+
+        # if training should end, return False to end training
+        training_is_finished = episodes_so_far >= self.train_episodes
+
+        if training_is_finished:
+            self.logger.debug(f"Training ended at {episodes_so_far} episodes")
+
+        return not training_is_finished
+
+    def _train(self):
+        # save and evaluate starting models
+        self._training_callback({'self': self.model})
+
+        try:
+            episodes_per_switch = self.train_episodes // self.num_switches
+            self.logger.debug(f"Training will switch models every "
+                              f"{episodes_per_switch} episodes")
+
+            for _ in range(self.num_switches):
+                # train the model
+                self.model.learn(total_timesteps=30 * episodes_per_switch,
+                                 reset_num_timesteps=False,
+                                 callback=self._training_callback)
+                self.logger.debug(f"Model trained for "
+                                  f"{self.model.num_timesteps // 30} episodes. ")
+
+                # update parameters of adversary models
+                self.model.adversary.load_parameters(self.model.get_parameters(),
+                                                     exact_match=True)
+                self.logger.debug("Parameters of adversary network updated.")
+        except KeyboardInterrupt:
+            pass
+
+        # save and evaluate final models, if not done yet
+        if len(self.win_rates) < self.num_evals:
+            self._training_callback({'self': self.model})
+
+        if len(self.win_rates) < self.num_evals:
+            self._training_callback({'self': self.model})
+
+        # close the envs
+        for e in (self.env, self.evaluator):
+            e.close()
+
+
 class AsymmetricSelfPlay(TrainingSession):
     def __init__(self, env_builder, eval_env_builder, model_builder,
                  train_episodes, eval_episodes, num_evals,
