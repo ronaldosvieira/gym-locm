@@ -47,6 +47,8 @@ def get_arg_parser():
     p.add_argument("--processes", type=int, help="amount of processes to use",
                    default=1)
     p.add_argument("--seed", type=int, help="seed to use on episodes", default=0)
+    p.add_argument("--silent", action="store_true",
+                   help="whether to print partial results")
     p.add_argument("--profile", action="store_true",
                    help="whether to profile the runs (runs in a single process)")
 
@@ -80,7 +82,7 @@ def parse_agent(draft_agent, battle_agent):
 
 
 def evaluate(params):
-    game_id, player_1, player_2, seed = params
+    game_id, player_1, player_2, seed, silent = params
 
     draft_bots = (player_1[0], player_2[0])
     battle_bots = (player_1[1], player_2[1])
@@ -108,8 +110,9 @@ def evaluate(params):
 
     ratio = 100 * wins / games
 
-    print(f"{datetime.now()} Episode {games}: "
-          f"{'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
+    if not silent:
+        print(f"{datetime.now()} Episode {games}: "
+              f"{'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
 
     return game.winner
 
@@ -161,10 +164,17 @@ def run():
 
         print(result.getvalue())
     else:
-        params = ((j, player_1, player_2, args.seed) for j in range(args.games))
+        params = ((j, player_1, player_2, args.seed, args.silent)
+                  for j in range(args.games))
 
         with Pool(args.processes) as pool:
             pool.map(evaluate, params)
+
+    wins, games = wins_by_p0
+    ratio = 100 * wins / games
+
+    print(f"{datetime.now()} Result of {games} episodes: "
+          f"{'%.2f' % ratio}% {'%.2f' % (100 - ratio)}%")
 
 
 if __name__ == '__main__':
