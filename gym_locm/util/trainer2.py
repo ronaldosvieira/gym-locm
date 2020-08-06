@@ -27,6 +27,7 @@ from gym_locm.envs import LOCMDraftSingleEnv
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
 
 verbose = True
+REALLY_BIG_INT = 1_000_000_000
 
 if verbose:
     logging.basicConfig(level=logging.DEBUG)
@@ -203,7 +204,8 @@ class FixedAdversary(TrainingSession):
 
         try:
             # train the model
-            self.model.learn(total_timesteps=30 * self.train_episodes,
+            # note: dynamic learning or clip rates will require accurate # of timesteps
+            self.model.learn(total_timesteps=REALLY_BIG_INT,  # we'll stop manually
                              callback=self._training_callback)
         except KeyboardInterrupt:
             pass
@@ -280,9 +282,11 @@ class SelfPlay(TrainingSession):
         self.num_evals = num_evals
         self.num_switches = num_switches
         self.eval_frequency = train_episodes / num_evals
+        self.switch_frequency = train_episodes / num_switches
 
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
+        self.model.last_switch, self.model.next_switch = None, self.switch_frequency
 
         # initialize results
         self.checkpoints = []
@@ -346,10 +350,11 @@ class SelfPlay(TrainingSession):
             model.next_eval += self.eval_frequency
 
         # if training should end, return False to end training
-        training_is_finished = episodes_so_far >= self.train_episodes
+        training_is_finished = episodes_so_far >= model.next_switch
 
         if training_is_finished:
-            self.logger.debug(f"Training ended at {episodes_so_far} episodes")
+            model.last_switch = episodes_so_far
+            model.next_switch += self.switch_frequency
 
         return not training_is_finished
 
@@ -358,13 +363,12 @@ class SelfPlay(TrainingSession):
         self._training_callback({'self': self.model})
 
         try:
-            episodes_per_switch = self.train_episodes // self.num_switches
             self.logger.debug(f"Training will switch models every "
-                              f"{episodes_per_switch} episodes")
+                              f"{self.switch_frequency} episodes")
 
             for _ in range(self.num_switches):
                 # train the model
-                self.model.learn(total_timesteps=30 * episodes_per_switch,
+                self.model.learn(total_timesteps=REALLY_BIG_INT,
                                  reset_num_timesteps=False,
                                  callback=self._training_callback)
                 self.logger.debug(f"Model trained for "
@@ -376,6 +380,9 @@ class SelfPlay(TrainingSession):
                 self.logger.debug("Parameters of adversary network updated.")
         except KeyboardInterrupt:
             pass
+
+        self.logger.debug(f"Training ended at {self.model.num_timesteps // 30} "
+                          f"episodes")
 
         # save and evaluate final models, if not done yet
         if len(self.win_rates) < self.num_evals:
@@ -461,11 +468,14 @@ class AsymmetricSelfPlay(TrainingSession):
         self.num_evals = num_evals
         self.num_switches = num_switches
         self.eval_frequency = train_episodes / num_evals
+        self.switch_frequency = train_episodes / num_switches
 
         # initialize control attributes
+        self.model1.role_id, self.model2.role_id = 0, 1
         self.model1.last_eval, self.model1.next_eval = None, 0
         self.model2.last_eval, self.model2.next_eval = None, 0
-        self.model1.role_id, self.model2.role_id = 0, 1
+        self.model1.last_switch, self.model1.next_switch = 0, self.switch_frequency
+        self.model2.last_switch, self.model2.next_switch = 0, self.switch_frequency
 
         # initialize results
         self.checkpoints = [], []
@@ -514,10 +524,11 @@ class AsymmetricSelfPlay(TrainingSession):
             model.next_eval += self.eval_frequency
 
         # if training should end, return False to end training
-        training_is_finished = episodes_so_far >= self.train_episodes
+        training_is_finished = episodes_so_far >= model.next_switch
 
         if training_is_finished:
-            self.logger.debug(f"Training ended at {episodes_so_far} episodes")
+            model.last_switch = episodes_so_far
+            model.next_switch += self.switch_frequency
 
         return not training_is_finished
 
@@ -527,13 +538,12 @@ class AsymmetricSelfPlay(TrainingSession):
         self._training_callback({'self': self.model2})
 
         try:
-            episodes_per_switch = self.train_episodes // self.num_switches
             self.logger.debug(f"Training will switch models every "
-                              f"{episodes_per_switch} episodes")
+                              f"{self.switch_frequency} episodes")
 
             for _ in range(self.num_switches):
                 # train the first player model
-                self.model1.learn(total_timesteps=30 * episodes_per_switch,
+                self.model1.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
                                   callback=self._training_callback)
                 self.logger.debug(f"Model {self.model1.role_id} trained for "
@@ -541,7 +551,7 @@ class AsymmetricSelfPlay(TrainingSession):
                                   f"Switching to model {self.model2.role_id}.")
 
                 # train the second player model
-                self.model2.learn(total_timesteps=30 * episodes_per_switch,
+                self.model2.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
                                   callback=self._training_callback)
                 self.logger.debug(f"Model {self.model2.role_id} trained for "
@@ -556,6 +566,9 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.logger.debug("Parameters of adversary networks updated.")
         except KeyboardInterrupt:
             pass
+
+        self.logger.debug(f"Training ended at {self.model1.num_timesteps // 30} "
+                          f"episodes")
 
         # save and evaluate final models, if not done yet
         if len(self.win_rates[0]) < self.num_evals:
