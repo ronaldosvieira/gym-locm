@@ -136,10 +136,10 @@ class FixedAdversary(TrainingSession):
         self.model = model_builder(self.env, seed, **params)
 
         # create necessary folders
-        os.makedirs(path, exist_ok=True)
+        os.makedirs(self.path, exist_ok=True)
 
         # set tensorflow log dir
-        self.model.tensorflow_log = path
+        self.model.tensorflow_log = self.path
 
         # save parameters
         self.train_episodes = train_episodes
@@ -271,10 +271,10 @@ class SelfPlay(TrainingSession):
                            make_adversary_policy(self.model, self.env))
 
         # create necessary folders
-        os.makedirs(path, exist_ok=True)
+        os.makedirs(self.path, exist_ok=True)
 
         # set tensorflow log dirs
-        self.model.tensorflow_log = path
+        self.model.tensorflow_log = self.path
 
         # save parameters
         self.train_episodes = train_episodes
@@ -455,12 +455,12 @@ class AsymmetricSelfPlay(TrainingSession):
                            make_adversary_policy(self.model2, self.env2))
 
         # create necessary folders
-        os.makedirs(path + '/role0', exist_ok=True)
-        os.makedirs(path + '/role1', exist_ok=True)
+        os.makedirs(self.path + '/role0', exist_ok=True)
+        os.makedirs(self.path + '/role1', exist_ok=True)
 
         # set tensorflow log dirs
-        self.model1.tensorflow_log = path + '/role0'
-        self.model2.tensorflow_log = path + '/role1'
+        self.model1.tensorflow_log = self.path + '/role0'
+        self.model2.tensorflow_log = self.path + '/role1'
 
         # save parameters
         self.train_episodes = train_episodes
