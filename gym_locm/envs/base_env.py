@@ -395,7 +395,7 @@ class LOCMEnv(gym.Env, ABC):
 
     @property
     def available_actions(self):
-        return self.available_actions
+        return self.state.available_actions
 
     @property
     def _draft_is_finished(self):
