@@ -1,1320 +1,736 @@
 import json
+import logging
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import pickle
+import time
 import warnings
+import numpy as np
+from abc import abstractmethod
 from datetime import datetime
-from functools import partial
-from random import choice
+from statistics import mean
 
-from gym.wrappers import TimeLimit
-
-from gym_locm.envs.battle import LOCMBattleSelfPlayEnv, LOCMBattleSingleEnv, LOCMBattleEnv
-
-warnings.filterwarnings('ignore')
-warnings.filterwarnings(action='ignore', category=DeprecationWarning)
-warnings.filterwarnings(action='ignore', category=FutureWarning)
-
-import tensorflow.python.util.deprecation as deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False
+# suppress tensorflow deprecated warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=Warning)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
 import tensorflow as tf
-import numpy as np
-from hyperopt import hp, STATUS_OK, Trials, fmin, tpe, trials_from_docs
-from hyperopt.pyll import scope
-from stable_baselines import PPO2, DQN
-from stable_baselines.deepq.policies import LnMlpPolicy
+
+tf.get_logger().setLevel('INFO')
+tf.get_logger().setLevel(logging.ERROR)
+
+from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
-from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
-from statistics import mean, stdev
+from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
 
-from gym_locm.engine import PlayerOrder, Phase
-from gym_locm.agents import MaxAttackBattleAgent, MaxAttackDraftAgent, IceboxDraftAgent, RandomBattleAgent
-from gym_locm.envs.draft import LOCMDraftSelfPlayEnv, LOCMDraftSingleEnv, LOCMDraftEnv
+from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent
+from gym_locm.envs import LOCMDraftSingleEnv
+from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
 
-# which phase to train
-phase = Phase.DRAFT
+verbose = True
+REALLY_BIG_INT = 1_000_000_000
 
-# draft strategy ('basic', 'history', 'lstm' or 'curve')
-draft_strat = 'basic'
-
-# battle strategy ('punish', 'map', 'clip')
-battle_strat = 'map'
-
-# training mode ('normal', 'interleaved-self-play', 'self-play')
-training_mode = 'interleaved-self-play'
-
-# algorithm ('dqn', 'ppo2')
-algorithm = 'ppo2'
-
-# training parameters
-seed = 96765
-num_processes = 4
-train_episodes = 30000
-eval_episodes = 3000
-num_evals = 10
-
-# bayesian optimization parameters
-num_trials = 50
-num_warmup_trials = 20
-optimize_for = PlayerOrder.FIRST
-
-# where to save the model
-path = 'models/new-hyp-search/basic-max-attack'
-
-# hyperparameter space
-if algorithm == 'ppo2':
-    param_dict = {
-        'n_switches': hp.choice('n_switches', [10, 100, 1000]),
-        'layers': hp.uniformint('layers', 1, 3),
-        'neurons': hp.uniformint('neurons', 24, 256),
-        'activation': hp.choice('activation', ['tanh', 'relu', 'elu']),
-        'n_steps': scope.int(hp.quniform('n_steps', 30, 300, 30)),
-        'nminibatches': scope.int(hp.quniform('nminibatches', 1, 300, 1)),
-        'noptepochs': scope.int(hp.quniform('noptepochs', 3, 20, 1)),
-        'cliprange': hp.quniform('cliprange', 0.1, 0.3, 0.1),
-        'vf_coef': hp.quniform('vf_coef', 0.5, 1.0, 0.5),
-        'ent_coef': hp.uniform('ent_coef', 0, 0.01),
-        'learning_rate': hp.loguniform('learning_rate',
-                                       np.log(0.00005),
-                                       np.log(0.01)),
-    }
-
-    if phase == phase.DRAFT and draft_strat == 'lstm':
-        param_dict['layers'] = hp.uniformint('layers', 0, 2)
-        param_dict['nminibatches'] = hp.choice('nminibatches', [1])
-
-    if phase == Phase.BATTLE:
-        param_dict['noptepochs'] = scope.int(hp.quniform('noptepochs', 3, 100, 1))
-        param_dict['n_steps'] = scope.int(hp.quniform('n_steps', 30, 3000, 1))
-        param_dict['nminibatches'] = scope.int(hp.quniform('nminibatches', 1, 3000, 1))
-        param_dict['learning_rate'] = hp.loguniform('learning_rate',
-                                   np.log(0.000005),
-                                   np.log(0.01))
-elif algorithm == 'dqn':
-    assert draft_strat != 'lstm', 'DQN not currently supported for lstm-draft'
-
-    param_dict = {
-        'n_switches': hp.choice('n_switches', [10, 100, 1000]),
-        'layers': hp.uniformint('layers', 1, 7),
-        'neurons': hp.uniformint('neurons', 24, 512),
-        'buffer_size': hp.choice('buffer_size', [5000, 25000, 50000]),
-        'batch_size': hp.uniformint('batch_size', 4, 256),
-        'learning_rate': hp.loguniform('learning_rate', np.log(.00005), np.log(.01)),
-        'exploration_fraction': hp.quniform('exploration_fraction', .2, .6, .005),
-        'prioritized_replay_alpha': hp.quniform('prioritized_replay_alpha',
-                                                0., 1., .1),
-        'prioritized_replay_beta0': hp.quniform('prioritized_replay_beta0',
-                                                0.2, 0.8, .2),
-        'target_network_update_freq': hp.choice('target_network_update_freq',
-                                                [5000, 25000, 50000])
-    }
-
-    num_processes = 1
-else:
-    raise ValueError("Invalid algorithm. Should be 'ppo2' or 'dqn'.")
-
-# initializations
-counter = 0
-make_draft_agents = lambda: (MaxAttackDraftAgent(), MaxAttackDraftAgent())
-make_battle_agents = lambda: (MaxAttackBattleAgent(), MaxAttackBattleAgent())
+if verbose:
+    logging.basicConfig(level=logging.DEBUG)
 
 
-def env_builder_draft(seed, play_first=True, **params):
-    env = LOCMDraftSelfPlayEnv2(seed=seed, battle_agents=make_battle_agents(),
-                                use_draft_history=draft_strat == 'history',
-                                use_mana_curve=draft_strat == 'curve')
-    env.play_first = play_first
+class RLDraftAgent(Agent):
+    def __init__(self, model):
+        self.model = model
 
-    return lambda: env
+        self.hidden_states = None
+        self.dones = None
 
-
-def env_builder_battle(seed, play_first=True, **params):
-    env = LOCMBattleSelfPlayEnv2(seed=seed, draft_agents=make_draft_agents(),
-                                 return_action_mask=battle_strat == 'clip')
-    env.play_first = play_first
-    env = TimeLimit(env, max_episode_steps=200)
-
-    return lambda: env
-
-
-def eval_env_builder_draft(seed, play_first=True, **params):
-    env = LOCMDraftSingleEnv(seed=seed, draft_agent=MaxAttackDraftAgent(),
-                             battle_agents=make_battle_agents(),
-                             use_draft_history=draft_strat == 'history',
-                             use_mana_curve=draft_strat == 'curve')
-    env.play_first = play_first
-
-    return lambda: env
-
-
-def eval_env_builder_battle(seed, play_first=True, **params):
-    env = LOCMBattleSingleEnv2(seed=seed, battle_agent=MaxAttackBattleAgent(),
-                               draft_agents=make_draft_agents(),
-                               return_action_mask=battle_strat == 'clip')
-    env.play_first = play_first
-    env = TimeLimit(env, max_episode_steps=200)
-
-    return lambda: env
-
-
-def eval_env_builder_battle2(seed, play_first=True, **params):
-    env = LOCMBattleSingleEnv2(seed=seed, battle_agent=RandomBattleAgent(),
-                               draft_agents=make_draft_agents(),
-                               return_action_mask=battle_strat == 'clip')
-    env.play_first = play_first
-    env = TimeLimit(env, max_episode_steps=200)
-
-    return lambda: env
-
-
-def model_builder_mlp(env, **params):
-    net_arch = [params['neurons']] * params['layers']
-    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[params['activation']]
-
-    if algorithm == 'ppo2':
-        return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
-                    policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
-                    n_steps=params['n_steps'],
-                    nminibatches=params['nminibatches'],
-                    noptepochs=params['noptepochs'],
-                    cliprange=params['cliprange'],
-                    vf_coef=params['vf_coef'],
-                    ent_coef=params['ent_coef'],
-                    learning_rate=params['learning_rate'],
-                    tensorboard_log=None)
-    elif algorithm == 'dqn':
-        return DQN(LnMlpPolicy, env, verbose=0, gamma=1, seed=seed,
-                   policy_kwargs=dict(layers=net_arch),
-                   double_q=True, prioritized_replay=True,
-                   prioritized_replay_beta_iters=1000000,
-                   learning_rate=params['learning_rate'],
-                   buffer_size=params['buffer_size'],
-                   batch_size=params['batch_size'],
-                   exploration_fraction=params['exploration_fraction'],
-                   prioritized_replay_alpha=params['prioritized_replay_alpha'],
-                   prioritized_replay_beta0=params['prioritized_replay_beta0'],
-                   target_network_update_freq=params['target_network_update_freq'])
-
-
-def model_builder_lstm(env, **params):
-    net_arch = ['lstm'] + [params['neurons']] * params['layers']
-    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[params['activation']]
-
-    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
-                policy_kwargs=dict(net_arch=net_arch, n_lstm=params['neurons'],
-                                   act_fun=activation),
-                n_steps=params['n_steps'],
-                nminibatches=params['nminibatches'],
-                noptepochs=params['noptepochs'],
-                cliprange=params['cliprange'],
-                vf_coef=params['vf_coef'],
-                ent_coef=params['ent_coef'],
-                learning_rate=params['learning_rate'],
-                tensorboard_log=None)
-
-
-if phase == Phase.DRAFT:
-    env_builder = env_builder_draft
-    eval_env_builder = eval_env_builder_draft
-
-    if draft_strat == 'lstm':
-        model_builder = model_builder_lstm
-    else:
-        model_builder = model_builder_mlp
-elif phase == Phase.BATTLE:
-    env_builder = env_builder_battle
-    eval_env_builder = eval_env_builder_battle
-    model_builder = model_builder_mlp
-
-
-def map_invalid_action(action_mask, action):
-    if action < 0 or action > 144:
-        return action  # out of bounds, action decoder will handle it
-
-    try:
-        return action + action_mask[action:].index(1)
-    except ValueError:
-        return 0
-
-
-class LOCMBattleSelfPlayEnv2(LOCMBattleSelfPlayEnv):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def seed(self, seed):
+        pass
 
     def reset(self):
-        self.play_first = not self.play_first
+        self.hidden_states = None
+        self.dones = None
 
-        return super().reset()
+    def act(self, state):
+        actions, self.hidden_states = \
+            self.model.predict(state, deterministic=True,
+                               state=self.hidden_states, mask=self.dones)
 
-    def create_model(self, **params):
-        self.model = model_builder(DummyVecEnv([lambda: self]), **params)
+        return actions
 
-    if battle_strat == 'punish':
-        def step(self, action: int):
-            state, reward, done, info = super().step(action)
 
-            if info['invalid'] and not done:
-                state, reward, done, _ = super().step(0)
+class TrainingSession:
+    def __init__(self, params, path, seed):
+        # initialize logger
+        self.logger = logging.getLogger('{0}.{1}'.format(__name__,
+                                                         type(self).__name__))
 
-                reward -= 0.025
+        # initialize results
+        self.checkpoints = []
+        self.win_rates = []
+        self.episode_lengths = []
+        self.action_histograms = []
 
-            return state, reward, done, info
-    elif battle_strat == 'map':
-        def step(self, action: int):
-            """Makes an action in the game."""
-            player = self.state.current_player.id
+        # save parameters
+        self.params = params
+        self.path = os.path.dirname(__file__) + "/../../" + path
+        self.seed = seed
 
-            # do the action
-            new_action = map_invalid_action(self.state.action_mask, action)
-            state, reward, done, info = LOCMBattleEnv.step(self, new_action)
+    @abstractmethod
+    def _train(self):
+        pass
 
-            # have opponent play until its player's turn or there's a winner
-            while self.state.current_player.id != player and self.state.winner is None:
-                state = self.encode_state()
-                action = self.model.predict(state)[0]
+    def run(self):
+        # log start time
+        start_time = datetime.now()
+        self.logger.info("Training...")
 
-                action = map_invalid_action(self.state.action_mask, action)
-                state, reward, done, info2 = LOCMBattleEnv.step(self, action)
+        # do the training
+        self._train()
 
-                if info2['invalid'] and not done:
-                    state, reward, done, info2 = LOCMBattleEnv.step(self, 0)
-                    break
+        # log end time
+        end_time = datetime.now()
+        self.logger.info(f"End of training. Time elapsed: {end_time - start_time}.")
 
-            if not self.play_first:
-                reward = -reward
+        # save model info to results file
+        results_path = self.path + '/results.txt'
 
-            return state, reward, done, info
-    elif battle_strat == 'clip':
-        def step(self, action: int):
-            state, reward, done, info = super().step(action)
+        with open(results_path, 'a') as file:
+            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
+                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
+                        action_histograms=self.action_histograms,
+                        start_time=str(start_time), end_time=str(end_time))
+            info = json.dumps(info, indent=2)
 
-            while sum(self.action_mask) == 1:
-                state, reward2, done, info2 = super().step(0)
+            file.write(info)
 
-                reward += reward2
-                info2['invalid'] = info['invalid']
-                info = info2
+        self.logger.debug(f"Results saved at {results_path}.")
 
-            return state, reward, done, info
 
+class FixedAdversary(TrainingSession):
+    def __init__(self, env_builder, eval_env_builder, model_builder,
+                 train_episodes, eval_episodes, num_evals,
+                 play_first, params, path, seed, num_envs=1):
+        super(FixedAdversary, self).__init__(params, path, seed)
 
-class LOCMBattleSingleEnv2(LOCMBattleSingleEnv):
-    def __init__(self, *args, player_initial_health=30,
-                 opponent_initial_health=30, **kwargs):
-        super().__init__(*args, items=False, **kwargs)
+        # log start time
+        start_time = time.perf_counter()
 
-        self.player_initial_health = player_initial_health
-        self.opponent_initial_health = opponent_initial_health
+        # initialize parallel environments
+        self.logger.debug("Initializing training env...")
+        env = []
 
-    def reset(self):
-        self.play_first = not self.play_first
+        for i in range(num_envs):
+            # no overlap between episodes at each concurrent env
+            current_seed = seed + (train_episodes // num_envs) * i
 
-        super().reset()
+            # create the env
+            env.append(env_builder(seed=current_seed, play_first=play_first))
 
-        self.state.current_player.health = self.player_initial_health
-        self.state.opposing_player.health = self.opponent_initial_health
+        # wrap envs in a vectorized env
+        self.env: VecEnv = DummyVecEnv([lambda: e for e in env])
 
-        return self.encode_state()
+        # initialize evaluator
+        self.logger.debug("Initializing evaluator...")
+        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes,
+                                              seed + train_episodes, num_envs)
 
-    if battle_strat == 'punish':
-        def step(self, action: int):
-            state, reward, done, info = super().step(action)
+        # build the model
+        self.logger.debug("Building the model...")
+        self.model = model_builder(self.env, seed, **params)
 
-            if info['invalid'] and not done:
-                state, reward, done, _ = super().step(0)
+        # create necessary folders
+        os.makedirs(path, exist_ok=True)
 
-                reward -= 0.025
+        # set tensorflow log dir
+        self.model.tensorflow_log = path
 
-            return state, reward, done, info
-    elif battle_strat == 'map':
-        def step(self, action: int):
-            action_mask = self.state.action_mask
+        # save parameters
+        self.train_episodes = train_episodes
+        self.num_evals = num_evals
+        self.eval_frequency = train_episodes / num_evals
+
+        # initialize control attributes
+        self.model.last_eval = None
+        self.model.next_eval = 0
+        self.model.role_id = 0 if play_first else 1
+
+        # log end time
+        end_time = time.perf_counter()
+
+        self.logger.debug("Finished initializing training session "
+                          f"({round(end_time - start_time, ndigits=3)}s).")
 
-            return super().step(map_invalid_action(action_mask, action))
-    elif battle_strat == 'clip':
-        def step(self, action: int):
-            state, reward, done, info = super().step(action)
+    def _training_callback(self, _locals=None, _globals=None):
+        episodes_so_far = self.model.num_timesteps // 30
+
+        # if it is time to evaluate, do so
+        if episodes_so_far >= self.model.next_eval:
+            # save model
+            model_path = self.path + f'/{episodes_so_far}'
+            self.model.save(model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip.")
 
-            while sum(self.action_mask) == 1:
-                state, reward2, done, info2 = super().step(0)
+            # evaluate the model
+            self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
+            start_time = time.perf_counter()
 
-                reward += reward2
-                info2['invalid'] = info['invalid']
-                info = info2
+            mean_reward, ep_length, act_hist = \
+                self.evaluator.run(RLDraftAgent(self.model),
+                                   play_first=self.model.role_id == 0)
 
-            return state, reward, done, info
+            end_time = time.perf_counter()
+            self.logger.info(f"Finished evaluating "
+                             f"({round(end_time - start_time, 3)}s). "
+                             f"Avg. reward: {mean_reward}")
 
+            # save the results
+            self.checkpoints.append(episodes_so_far)
+            self.win_rates.append((mean_reward + 1) / 2)
+            self.episode_lengths.append(ep_length)
+            self.action_histograms.append(act_hist)
 
-class LOCMDraftSelfPlayEnv2(LOCMDraftSelfPlayEnv):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+            # update control attributes
+            self.model.last_eval = episodes_so_far
+            self.model.next_eval += self.eval_frequency
 
-        self.rstate = None
-        self.done = [False] + [True] * (num_processes - 1)
+        # if training should end, return False to end training
+        training_is_finished = episodes_so_far >= self.train_episodes
 
-    def create_model(self, **params):
-        if draft_strat == 'lstm':
-            self.rstate = np.zeros(shape=(num_processes, params['neurons'] * 2))
+        if training_is_finished:
+            self.logger.debug(f"Training ended at {episodes_so_far} episodes")
 
-        env = [env_builder(0, **params) for _ in range(num_processes)]
-        env = DummyVecEnv(env)
+        return not training_is_finished
 
-        self.model = model_builder(env, **params)
+    def _train(self):
+        # save and evaluate starting model
+        self._training_callback()
 
-    if draft_strat == 'lstm':
-        def step(self, action):
-            """Makes an action in the game."""
-            obs = self.encode_state()
+        try:
+            # train the model
+            # note: dynamic learning or clip rates will require accurate # of timesteps
+            self.model.learn(total_timesteps=REALLY_BIG_INT,  # we'll stop manually
+                             callback=self._training_callback)
+        except KeyboardInterrupt:
+            pass
 
-            zero_completed_obs = np.zeros((num_processes, *self.observation_space.shape))
-            zero_completed_obs[0, :] = obs
+        # save and evaluate final model, if not done yet
+        if len(self.win_rates) < self.num_evals:
+            self._training_callback()
 
-            prediction, self.rstate = self.model.predict(zero_completed_obs,
-                                                         state=self.rstate,
-                                                         mask=self.done)
+        # close the envs
+        for e in (self.env, self.evaluator):
+            e.close()
 
-            # act according to first and second players
-            if self.play_first:
-                LOCMDraftEnv.step(self, action)
-                state, reward, self.done[0], info = \
-                    LOCMDraftEnv.step(self, prediction[0])
-            else:
-                LOCMDraftEnv.step(self, prediction[0])
-                state, reward, self.done[0], info = \
-                    LOCMDraftEnv.step(self, action)
-                reward = -reward
 
-            return state, reward, self.done[0], info
+class SelfPlay(TrainingSession):
+    def __init__(self, env_builder, eval_env_builder, model_builder,
+                 train_episodes, eval_episodes, num_evals,
+                 num_switches, params, path, seed, num_envs=1):
+        super(SelfPlay, self).__init__(params, path, seed)
 
+        # log start time
+        start_time = time.perf_counter()
 
-def normal_training(params):
-    global counter
+        # initialize parallel training environments
+        self.logger.debug("Initializing training envs...")
+        env = []
 
-    counter += 1
+        for i in range(num_envs):
+            # no overlap between episodes at each process
+            current_seed = seed + (train_episodes // num_envs) * i
 
-    # get and print start time
-    start_time = str(datetime.now())
-    print('Start time:', start_time)
+            # create one env per process
+            env.append(env_builder(seed=current_seed, play_first=True))
 
-    if algorithm == 'ppo2':
-        # ensure integer hyperparams
-        params['n_steps'] = int(params['n_steps'])
-        params['nminibatches'] = int(params['nminibatches'])
-        params['noptepochs'] = int(params['noptepochs'])
+        # wrap envs in a vectorized env
+        self.env = DummyVecEnv([lambda: e for e in env])
 
-        # ensure nminibatches <= n_steps
-        params['nminibatches'] = min(params['nminibatches'],
-                                     params['n_steps'])
+        # initialize parallel evaluating environments
+        self.logger.debug("Initializing evaluation envs...")
+        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes // 2,
+                                               seed + train_episodes, num_envs)
 
-        # ensure n_steps % nminibatches == 0
-        while params['n_steps'] % params['nminibatches'] != 0:
-            params['nminibatches'] -= 1
+        # build the models
+        self.logger.debug("Building the models...")
+        self.model = model_builder(self.env, seed, **params)
+        self.model.adversary = model_builder(self.env, seed, **params)
 
-    # build the env
-    env = []
+        # initialize parameters of adversary models accordingly
+        self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
 
-    for i in range(num_processes):
-        current_seed = seed + (train_episodes // num_processes) * i
+        # set adversary models as adversary policies of the self-play envs
+        def make_adversary_policy(model, env):
+            def adversary_policy(obs):
+                zero_completed_obs = np.zeros((num_envs,) + env.observation_space.shape)
+                zero_completed_obs[0, :] = obs
 
-        env.append(eval_env_builder(current_seed, True, **params))
+                actions, _ = model.adversary.predict(zero_completed_obs)
 
-    env = SubprocVecEnv(env, start_method='spawn')
+                return actions[0]
 
-    # build the evaluation env
-    eval_seed = seed + train_episodes
+            return adversary_policy
 
-    eval_env = []
+        self.env.set_attr('adversary_policy',
+                           make_adversary_policy(self.model, self.env))
 
-    for i in range(num_processes):
-        current_seed = eval_seed + (eval_episodes // num_processes) * i
+        # create necessary folders
+        os.makedirs(path, exist_ok=True)
 
-        eval_env.append(eval_env_builder(current_seed, True, **params))
+        # set tensorflow log dirs
+        self.model.tensorflow_log = path
 
-    eval_env = SubprocVecEnv(eval_env, start_method='spawn')
+        # save parameters
+        self.train_episodes = train_episodes
+        self.eval_episodes = eval_episodes
+        self.num_evals = num_evals
+        self.num_switches = num_switches
+        self.eval_frequency = train_episodes / num_evals
+        self.switch_frequency = train_episodes / num_switches
 
-    # build the model
-    model = model_builder(env, **params)
+        # initialize control attributes
+        self.model.last_eval, self.model.next_eval = None, 0
+        self.model.last_switch, self.model.next_switch = None, self.switch_frequency
 
-    # create the model name
-    model_name = f'{counter}'
+        # initialize results
+        self.checkpoints = []
+        self.win_rates = []
+        self.episode_lengths = []
+        self.action_histograms = []
 
-    # build the model path
-    model_path = path + '/' + model_name
+        # log end time
+        end_time = time.perf_counter()
 
-    # set tensorflow log dir
-    model.tensorboard_log = model_path
+        self.logger.debug("Finished initializing training session "
+                          f"({round(end_time - start_time, ndigits=3)}s).")
 
-    # create necessary folders
-    os.makedirs(model_path, exist_ok=True)
+    def _training_callback(self, _locals=None, _globals=None):
+        model = _locals['self']
+        episodes_so_far = model.num_timesteps // 30
 
-    # save starting model
-    model.save(model_path + '/0-episodes')
+        turns = model.env.get_attr('turn')
+        playing_first = model.env.get_attr('play_first')
 
-    results = []
-
-    # calculate utilities
-    eval_every_ep = train_episodes / num_evals
-    model.last_eval, model.next_eval = 0, eval_every_ep
-
-    # print hyperparameters
-    print(f"{battle_strat}-battle" if phase == phase.BATTLE else f"{draft_strat}-draft")
-    print(f"algorithm={algorithm}, training_mode={training_mode}")
-    print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
-          f"eval_episodes={eval_episodes}, num_evals={num_evals}")
-    print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
-          f"optimize_for={optimize_for}")
-    print(f"path={path}")
-    print(params)
-
-    def make_evaluate(eval_env):
-        def evaluate(model):
-            """
-            Evaluates a model.
-            :param model: (stable_baselines model) Model to be evaluated.
-            :return: The mean (win rate) and standard deviation.
-            """
-            # initialize structures
-            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
-            episode_lengths = []
-            episode_wins = []
-
-            # set seeds
-            for i in range(num_processes):
-                current_seed = eval_seed + (eval_episodes // num_processes) * i
-
-                eval_env.env_method('seed', current_seed, indices=[i])
-
-            # reset the env
-            obs = eval_env.reset()
-            episodes = 0
-
-            model.set_env(eval_env)
-
-            action_hist = [0] * eval_env.action_space.n
-
-            while True:
-                # get current turns
-                turns = eval_env.get_attr('turn')
-
-                # get a deterministic prediction from model
-                actions, _ = model.predict(obs, deterministic=True)
-
-                for action in actions:
-                    action_hist[action] += 1
-
-                # do the predicted action and save the outcome
-                obs, rewards, dones, info = eval_env.step(actions)
-
-                # save current reward into episode rewards
-                for i in range(eval_env.num_envs):
-                    episode_rewards[i][-1] += rewards[i]
-
-                    if dones[i]:
-                        episode_wins.append(1 if rewards[i] > 0 else 0)
-                        episode_lengths.append(turns[i])
-                        episode_rewards[i].append(0.0)
-
-                        episodes += 1
-
-                if any(dones):
-                    if episodes >= eval_episodes:
-                        for i in range(eval_env.num_envs):
-                            if episode_rewards[i][-1] == 0:
-                                episode_rewards[i].pop()
-
-                        print("action histogram:", action_hist)
-                        print(sum(action_hist) / episodes, "actions per episode")
-
-                        break
-
-            all_rewards = []
-
-            # flatten episode rewards lists
-            for part in episode_rewards:
-                all_rewards.extend(part)
-
-            model.set_env(env)
-
-            # return the mean reward of all episodes
-            return mean(all_rewards), mean(episode_wins), mean(episode_lengths)
-
-        return evaluate
-
-    def callback(_locals, _globals):
-        episodes_so_far = sum(env.get_attr('episodes'))
+        for i in range(model.env.num_envs):
+            if turns[i] in range(0, model.env.num_envs):
+                model.env.set_attr('play_first', not playing_first[i], indices=[i])
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
             # save model
-            model.save(model_path + f'/{episodes_so_far}-episodes')
+            model_path = self.path + f'/{episodes_so_far}'
+            model.save(model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip.")
 
-            # evaluate the models and get the metrics
-            print(f"Evaluating... ({episodes_so_far})")
-            mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-            print(f"Done. {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-            print()
+            # evaluate the model
+            self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
+            start_time = time.perf_counter()
 
-            results.append(mean_reward)
+            self.evaluator.seed = self.seed + self.train_episodes
+            mean_reward, ep_length, act_hist = \
+                self.evaluator.run(RLDraftAgent(model), play_first=True)
 
+            self.evaluator.seed += self.eval_episodes
+            mean_reward2, ep_length2, act_hist2 = \
+                self.evaluator.run(RLDraftAgent(model), play_first=False)
+
+            mean_reward = (mean_reward + mean_reward2) / 2
+            ep_length = (ep_length + ep_length2) / 2
+            act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(3)]
+
+            end_time = time.perf_counter()
+            self.logger.info(f"Finished evaluating "
+                             f"({round(end_time - start_time, 3)}s). "
+                             f"Avg. reward: {mean_reward}")
+
+            # save the results
+            self.checkpoints.append(episodes_so_far)
+            self.win_rates.append((mean_reward + 1) / 2)
+            self.episode_lengths.append(ep_length)
+            self.action_histograms.append(act_hist)
+
+            # update control attributes
             model.last_eval = episodes_so_far
-            model.next_eval += eval_every_ep
+            model.next_eval += self.eval_frequency
 
-        return episodes_so_far < train_episodes
+        # if training should end, return False to end training
+        training_is_finished = episodes_so_far >= model.next_switch
 
-    # evaluate the initial model
-    print("Evaluating... (0)")
-    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-    print(f"Done. {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-    print()
-
-    results.append(mean_reward)
-
-    try:
-        # train the model
-        model.learn(total_timesteps=25 * train_episodes, callback=callback)
-    except KeyboardInterrupt:
-        print(f'Training stopped at {sum(env.get_attr("episodes"))}')
-
-    # evaluate the final model
-    print("Evaluating... (final)")
-    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-    print(f"Done. {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-    print()
-
-    results.append(mean_reward)
-
-    # save the final model
-    model.save(model_path + '/final')
-
-    # close the envs
-    for e in (env, eval_env):
-        e.close()
-
-    # get and print end time
-    end_time = str(datetime.now())
-    print('End time:', end_time)
-
-    # save model info to results file
-    with open(path + '/' + 'results.txt', 'a') as file:
-        file.write(json.dumps(dict(id=counter, **params, results=results,
-                                   start_time=start_time,
-                                   end_time=end_time), indent=2))
-
-    return {'loss': -max(results), 'status': STATUS_OK}
-
-
-def interleaved_self_play(params):
-    global counter
-
-    counter += 1
-
-    # get and print start time
-    start_time = str(datetime.now())
-    print('Start time:', start_time)
-
-    if algorithm == 'ppo2':
-        # ensure integer hyperparams
-        params['n_steps'] = int(params['n_steps'])
-        params['nminibatches'] = int(params['nminibatches'])
-        params['noptepochs'] = int(params['noptepochs'])
-
-        # ensure nminibatches <= n_steps
-        params['nminibatches'] = min(params['nminibatches'],
-                                     params['n_steps'])
-
-        # ensure n_steps % nminibatches == 0
-        while params['n_steps'] % params['nminibatches'] != 0:
-            params['nminibatches'] -= 1
-
-    # build the envs
-    env1, env2 = [], []
-
-    for i in range(num_processes):
-        current_seed = seed + (train_episodes // num_processes) * i
-
-        env1.append(env_builder(current_seed, True, **params))
-        env2.append(env_builder(current_seed, False, **params))
-
-    env1 = SubprocVecEnv(env1, start_method='spawn')
-    env2 = SubprocVecEnv(env2, start_method='spawn')
-
-    env1.env_method('create_model', **params)
-    env2.env_method('create_model', **params)
-
-    # build the evaluation envs
-    eval_seed = seed + train_episodes
-
-    eval_env1, eval_env2 = [], []
-
-    for i in range(num_processes):
-        current_seed = eval_seed + (eval_episodes // num_processes) * i
-
-        eval_env1.append(eval_env_builder(current_seed, True, **params))
-        eval_env2.append(eval_env_builder(current_seed, False, **params))
-
-    eval_env1 = SubprocVecEnv(eval_env1, start_method='spawn')
-    eval_env2 = SubprocVecEnv(eval_env2, start_method='spawn')
-
-    # build the models
-    model1 = model_builder(env1, **params)
-    model2 = model_builder(env2, **params)
-
-    if optimize_for == PlayerOrder.SECOND:
-        model1, model2 = model2, model1
-        env1, env2 = env2, env1
-        eval_env1, eval_env2 = eval_env2, eval_env1
-
-    # update parameters on surrogate models
-    env1.env_method('update_parameters', model2.get_parameters())
-    env2.env_method('update_parameters', model1.get_parameters())
-
-    # create the model name
-    model_name = f'{counter}'
-
-    # build model paths
-    model_path1 = path + '/' + model_name + '/1st'
-    model_path2 = path + '/' + model_name + '/2nd'
-
-    if optimize_for == PlayerOrder.SECOND:
-        model_path1, model_path2 = model_path2, model_path1
-
-    # set tensorflow log dir
-    model1.tensorboard_log = model_path1
-    model2.tensorboard_log = model_path2
-
-    # create necessary folders
-    os.makedirs(model_path1, exist_ok=True)
-    os.makedirs(model_path2, exist_ok=True)
-
-    # save starting models
-    model1.save(model_path1 + '/0-episodes')
-    model2.save(model_path2 + '/0-episodes')
-
-    results = [[], []]
-
-    # calculate utilities
-    eval_every_ep = train_episodes / num_evals
-    switch_every_ep = train_episodes / params['n_switches']
-
-    model1.last_eval, model1.next_eval = 0, eval_every_ep
-    model2.last_eval, model2.next_eval = 0, eval_every_ep
-
-    model1.last_switch, model1.next_switch = 0, switch_every_ep
-
-    # print hyperparameters
-    print(f"{battle_strat}-battle" if phase == phase.BATTLE else f"{draft_strat}-draft")
-    print(f"algorithm={algorithm}, training_mode={training_mode}")
-    print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
-          f"eval_episodes={eval_episodes}, num_evals={num_evals}")
-    print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
-          f"optimize_for={optimize_for}")
-    print(f"path={path}")
-    print(params)
-
-    def make_evaluate(eval_env):
-        def evaluate(model):
-            """
-            Evaluates a model.
-            :param model: (stable_baselines model) Model to be evaluated.
-            :return: The mean (win rate) and standard deviation.
-            """
-            # initialize structures
-            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
-
-            # set seeds
-            for i in range(num_processes):
-                current_seed = eval_seed + (eval_episodes // num_processes) * i
-
-                eval_env.env_method('seed', current_seed, indices=[i])
-
-            # reset the env
-            obs = eval_env.reset()
-            states = None
-            dones = [False] * num_processes
-            episodes = 0
-
-            action_hist = [0] * eval_env.action_space.n
-
-            # runs `num_steps` steps
-            while True:
-                # get a deterministic prediction from model
-                if draft_strat == 'lstm':
-                    actions, states = model.predict(obs, deterministic=True,
-                                                    state=states, mask=dones)
-                else:
-                    actions, _ = model.predict(obs, deterministic=True)
-
-                for action in actions:
-                    action_hist[action] += 1
-
-                # do the predicted action and save the outcome
-                obs, rewards, dones, _ = eval_env.step(actions)
-
-                # save current reward into episode rewards
-                for i in range(eval_env.num_envs):
-                    episode_rewards[i][-1] += rewards[i]
-
-                    if dones[i]:
-                        episode_rewards[i].append(0.0)
-
-                        episodes += 1
-
-                if any(dones):
-                    if episodes >= eval_episodes:
-                        print("action histogram:", action_hist)
-
-                        break
-
-            all_rewards = []
-
-            # flatten episode rewards lists
-            for part in episode_rewards:
-                all_rewards.extend(part)
-
-            # return the mean reward and standard deviation from all episodes
-            return mean(all_rewards), stdev(all_rewards)
-
-        return evaluate
-
-    def callback2(_locals, _globals):
-        episodes_so_far = sum(env2.get_attr('episodes'))
-
-        # if it is time to evaluate, do so
-        if episodes_so_far >= model2.next_eval:
-            # save models
-            model2.save(model_path2 + f'/{episodes_so_far}-episodes')
-
-            # evaluate the models and get the metrics
-            print(f"Evaluating player 2... ({episodes_so_far})")
-            mean2, std2 = make_evaluate(eval_env2)(model2)
-            print(f"Done: {mean2}")
-            print()
-
-            results[1 if optimize_for == PlayerOrder.FIRST else 0].append(mean2)
-
-            model2.last_eval = episodes_so_far
-            model2.next_eval += eval_every_ep
-
-        return episodes_so_far < sum(env1.get_attr('episodes'))
-
-    def callback(_locals, _globals):
-        episodes_so_far = sum(env1.get_attr('episodes'))
-
-        # if it is time to evaluate, do so
-        if episodes_so_far >= model1.next_eval:
-            # save model
-            model1.save(model_path1 + f'/{episodes_so_far}-episodes')
-
-            # evaluate the models and get the metrics
-            print(f"Evaluating player 1... ({episodes_so_far})")
-            mean1, std1 = make_evaluate(eval_env1)(model1)
-            print(f"Done: {mean1}")
-            print()
-
-            results[0 if optimize_for == PlayerOrder.FIRST else 1].append(mean1)
-
-            model1.last_eval = episodes_so_far
-            model1.next_eval += eval_every_ep
-
-        # if it is time to switch, do so
-        if episodes_so_far >= model1.next_switch:
-            # train the second player model
-            model2.learn(total_timesteps=1000000000,
-                         reset_num_timesteps=False, callback=callback2)
-
-            # update parameters on surrogate models
-            env1.env_method('update_parameters', model2.get_parameters())
-            env2.env_method('update_parameters', model1.get_parameters())
-
-            model1.last_switch = episodes_so_far
-            model1.next_switch += switch_every_ep
-
-        return episodes_so_far < train_episodes
-
-    # evaluate the initial models
-    print(f"Evaluating player 1... ({sum(env1.get_attr('episodes'))})")
-    mean_reward1, std_reward1 = make_evaluate(eval_env1)(model1)
-    print(f"Done: {mean_reward1}")
-    print()
-
-    print(f"Evaluating player 2... ({sum(env2.get_attr('episodes'))})")
-    mean_reward2, std_reward2 = make_evaluate(eval_env2)(model2)
-    print(f"Done: {mean_reward2}")
-    print()
-
-    if optimize_for == PlayerOrder.SECOND:
-        mean_reward1, mean_reward2 = mean_reward2, mean_reward1
-
-    results[0].append(mean_reward1)
-    results[1].append(mean_reward2)
-
-    # train the first player model
-    model1.learn(total_timesteps=1000000000, callback=callback)
-
-    # train the second player model
-    model2.learn(total_timesteps=1000000000,
-                 reset_num_timesteps=False, callback=callback2)
-
-    # evaluate the final models
-    print(f"Evaluating player 1... ({sum(env1.get_attr('episodes'))})")
-    mean_reward1, std_reward1 = make_evaluate(eval_env1)(model1)
-    print(f"Done: {mean_reward1}")
-    print()
-
-    print(f"Evaluating player 2... ({sum(env2.get_attr('episodes'))})")
-    mean_reward2, std_reward2 = make_evaluate(eval_env2)(model2)
-    print(f"Done: {mean_reward2}")
-    print()
-
-    if optimize_for == PlayerOrder.SECOND:
-        mean_reward1, mean_reward2 = mean_reward2, mean_reward1
-
-    results[0].append(mean_reward1)
-    results[1].append(mean_reward2)
-
-    # save the final models
-    model1.save(model_path1 + '/final')
-    model2.save(model_path2 + '/final')
-
-    # close the envs
-    for e in (env1, env2, eval_env1, eval_env2):
-        e.close()
-
-    # get and print end time
-    end_time = str(datetime.now())
-    print('End time:', end_time)
-
-    # save model info to results file
-    with open(path + '/' + 'results.txt', 'a') as file:
-        file.write(json.dumps(dict(id=counter, **params, results=results,
-                                   start_time=start_time,
-                                   end_time=end_time), indent=2))
-
-    # calculate and return the metrics
-    main_metric, aux_metric = -max(results[0]), -max(results[1])
-
-    if optimize_for == PlayerOrder.SECOND:
-        main_metric, aux_metric = aux_metric, main_metric
-
-    return {'loss': main_metric, 'loss2': aux_metric, 'status': STATUS_OK}
-
-
-def self_play(params):
-    global counter
-
-    counter += 1
-
-    # get and print start time
-    start_time = str(datetime.now())
-    print('Start time:', start_time)
-
-    if algorithm == 'ppo2':
-        # ensure integer hyperparams
-        params['n_steps'] = int(params['n_steps'])
-        params['nminibatches'] = int(params['nminibatches'])
-        params['noptepochs'] = int(params['noptepochs'])
-
-        # ensure nminibatches <= n_steps
-        params['nminibatches'] = min(params['nminibatches'],
-                                     params['n_steps'])
-
-        # ensure n_steps % nminibatches == 0
-        while params['n_steps'] % params['nminibatches'] != 0:
-            params['nminibatches'] -= 1
-
-    # build the env
-    env = []
-
-    for i in range(num_processes):
-        current_seed = seed + (train_episodes // num_processes) * i
-
-        env.append(env_builder(current_seed, True, **params))
-
-    env = SubprocVecEnv(env, start_method='spawn')
-
-    env.env_method('create_model', **params)
-
-    # build the evaluation envs
-    eval_seed = seed + train_episodes
-
-    eval_env = []
-    eval_env2 = []
-
-    for i in range(num_processes):
-        current_seed = eval_seed + (eval_episodes // num_processes) * i
-
-        eval_env.append(eval_env_builder(current_seed, True, **params))
-        eval_env2.append(eval_env_builder_battle2(current_seed, True, **params))
-
-    eval_env = SubprocVecEnv(eval_env, start_method='spawn')
-    eval_env2 = SubprocVecEnv(eval_env2, start_method='spawn')
-
-    # build the model
-    model = model_builder(env, **params)
-
-    # update parameters on surrogate models
-    env.env_method('update_parameters', model.get_parameters())
-
-    # create the model name
-    model_name = f'{counter}'
-
-    # build the model path
-    model_path = path + '/' + model_name
-
-    # set tensorflow log dir
-    model.tensorboard_log = model_path
-
-    # create necessary folders
-    os.makedirs(model_path, exist_ok=True)
-
-    # save starting model
-    model.save(model_path + '/0-episodes')
-
-    results = [[], [], []]
-
-    # calculate utilities
-    eval_every_ep = train_episodes / num_evals
-    switch_every_ep = train_episodes / params['n_switches']
-
-    model.last_eval, model.next_eval = 0, eval_every_ep
-    model.last_switch, model.next_switch = 0, switch_every_ep
-
-    # print hyperparameters
-    print(f"{battle_strat}-battle" if phase == phase.BATTLE else f"{draft_strat}-draft")
-    print(f"algorithm={algorithm}, training_mode={training_mode}")
-    print(f"seed={seed}, num_processes={num_processes}, train_episodes={train_episodes}, "
-          f"eval_episodes={eval_episodes}, num_evals={num_evals}")
-    print(f"num_trials={num_trials}, num_warmup_trials={num_warmup_trials}, "
-          f"optimize_for={optimize_for}")
-    print(f"path={path}")
-    print(params)
-
-    def make_evaluate(eval_env):
-        def evaluate(model):
-            """
-            Evaluates a model.
-            :param model: (stable_baselines model) Model to be evaluated.
-            :return: The mean (win rate) and standard deviation.
-            """
-            # initialize structures
-            episode_rewards = [[0.0] for _ in range(eval_env.num_envs)]
-            episode_lengths = []
-            episode_wins = []
-
-            # set seeds
-            for i in range(num_processes):
-                current_seed = eval_seed + (eval_episodes // num_processes) * i
-
-                eval_env.env_method('seed', current_seed, indices=[i])
-
-            # reset the env
-            obs = eval_env.reset()
-            episodes = 0
-
-            model.set_env(eval_env)
-
-            action_hist = [0] * eval_env.action_space.n
-
-            while True:
-                # get current turns
-                turns = eval_env.get_attr('turn')
-
-                # get a deterministic prediction from model
-                actions, _ = model.predict(obs, deterministic=True)
-
-                # print(actions[0], sum(eval_env.get_attr('action_mask')[0]))
-
-                for action in actions:
-                    action_hist[action] += 1
-
-                # do the predicted action and save the outcome
-                obs, rewards, dones, info = eval_env.step(actions)
-
-                # save current reward into episode rewards
-                for i in range(eval_env.num_envs):
-                    episode_rewards[i][-1] += rewards[i]
-
-                    if dones[i]:
-                        episode_wins.append(1 if rewards[i] > 0 else 0)
-                        episode_lengths.append(turns[i])
-                        # print(rewards[i])
-                        episode_rewards[i].append(0.0)
-
-                        episodes += 1
-
-                if any(dones):
-                    if episodes >= eval_episodes:
-                        for i in range(eval_env.num_envs):
-                            if episode_rewards[i][-1] == 0:
-                                episode_rewards[i].pop()
-
-                        print("action histogram:", action_hist)
-
-                        break
-
-            all_rewards = []
-
-            # flatten episode rewards lists
-            for part in episode_rewards:
-                all_rewards.extend(part)
-
-            model.set_env(env)
-
-            # return the mean reward and standard deviation from all episodes
-            return mean(all_rewards), mean(episode_wins), mean(episode_lengths)
-
-        return evaluate
-
-    def callback(_locals, _globals):
-        episodes_so_far = sum(env.get_attr('episodes'))
-
-        # if it is time to evaluate, do so
-        if episodes_so_far >= model.next_eval:
-            # save model
-            model.save(model_path + f'/{episodes_so_far}-episodes')
-
-            # evaluate the models and get the metrics
-            print(f"Evaluating... ({episodes_so_far})")
-            mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-            print(f"vs max-attack: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-            mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
-            print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-            print()
-
-            results[0].append(mean_reward)
-            results[1].append(win_rate)
-            results[2].append(mean_length)
-
-            model.last_eval = episodes_so_far
-            model.next_eval += eval_every_ep
-
-        # if it is time to switch, do so
-        if episodes_so_far >= model.next_switch:
-            # update parameters on surrogate models
-            env.env_method('update_parameters', model.get_parameters())
-
+        if training_is_finished:
             model.last_switch = episodes_so_far
-            model.next_switch += switch_every_ep
+            model.next_switch += self.switch_frequency
 
-        return episodes_so_far < train_episodes
+        return not training_is_finished
 
-    # evaluate the initial model
-    print("Evaluating... (0)")
-    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-    print(f"vs max-attack: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-    mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
-    print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-    print()
+    def _train(self):
+        # save and evaluate starting models
+        self._training_callback({'self': self.model})
 
-    results[0].append(mean_reward)
-    results[1].append(win_rate)
-    results[2].append(mean_length)
-    
-    try:
-        # train the model
-        model.learn(total_timesteps=1000000000, callback=callback)
-    except KeyboardInterrupt:
-        print(f'Training stopped at {sum(env.get_attr("episodes"))}')
+        try:
+            self.logger.debug(f"Training will switch models every "
+                              f"{self.switch_frequency} episodes")
 
-    # update opponent
-    env.env_method('update_parameters', model.get_parameters())
+            for _ in range(self.num_switches):
+                # train the model
+                self.model.learn(total_timesteps=REALLY_BIG_INT,
+                                 reset_num_timesteps=False,
+                                 callback=self._training_callback)
+                self.logger.debug(f"Model trained for "
+                                  f"{self.model.num_timesteps // 30} episodes. ")
 
-    # evaluate the final model
-    print("Evaluating... (final)")
-    mean_reward, win_rate, mean_length = make_evaluate(eval_env)(model)
-    print(f"vs max-attack: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-    mean_reward, win_rate, mean_length = make_evaluate(eval_env2)(model)
-    print(f"vs random: {mean_reward} mr / {win_rate * 100}% wr / {mean_length} ml")
-    print()
+                # update parameters of adversary models
+                self.model.adversary.load_parameters(self.model.get_parameters(),
+                                                     exact_match=True)
+                self.logger.debug("Parameters of adversary network updated.")
+        except KeyboardInterrupt:
+            pass
 
-    results[0].append(mean_reward)
-    results[1].append(win_rate)
-    results[2].append(mean_length)
+        self.logger.debug(f"Training ended at {self.model.num_timesteps // 30} "
+                          f"episodes")
 
-    # save the final model
-    model.save(model_path + '/final')
+        # save and evaluate final models, if not done yet
+        if len(self.win_rates) < self.num_evals:
+            self._training_callback({'self': self.model})
 
-    # close the envs
-    for e in (env, eval_env):
-        e.close()
+        if len(self.win_rates) < self.num_evals:
+            self._training_callback({'self': self.model})
 
-    # get and print end time
-    end_time = str(datetime.now())
-    print('End time:', end_time)
-
-    # save model info to results file
-    with open(path + '/' + 'results.txt', 'a') as file:
-        file.write(json.dumps(dict(id=counter, **params, results=results,
-                                   start_time=start_time,
-                                   end_time=end_time), indent=2))
-
-    return {'loss': -max(results[0]), 'status': STATUS_OK}
+        # close the envs
+        for e in (self.env, self.evaluator):
+            e.close()
 
 
-if training_mode == 'normal':
-    train_and_eval = normal_training
-elif training_mode == 'self-play':
-    train_and_eval = self_play
-elif training_mode == 'interleaved-self-play':
-    train_and_eval = interleaved_self_play
-else:
-    raise ValueError("Invalid training mode.")
+class AsymmetricSelfPlay(TrainingSession):
+    def __init__(self, env_builder, eval_env_builder, model_builder,
+                 train_episodes, eval_episodes, num_evals,
+                 num_switches, params, path, seed, num_envs=1):
+        super(AsymmetricSelfPlay, self).__init__(params, path, seed)
+
+        # log start time
+        start_time = time.perf_counter()
+
+        # initialize parallel training environments
+        self.logger.debug("Initializing training envs...")
+        env1, env2 = [], []
+
+        for i in range(num_envs):
+            # no overlap between episodes at each process
+            current_seed = seed + (train_episodes // num_envs) * i
+
+            # create one env per process
+            env1.append(env_builder(seed=current_seed, play_first=True))
+            env2.append(env_builder(seed=current_seed, play_first=False))
+
+        # wrap envs in a vectorized env
+        self.env1 = DummyVecEnv([lambda: e for e in env1])
+        self.env2 = DummyVecEnv([lambda: e for e in env2])
+
+        # initialize parallel evaluating environments
+        self.logger.debug("Initializing evaluation envs...")
+        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes,
+                                              seed + train_episodes, num_envs)
+
+        # build the models
+        self.logger.debug("Building the models...")
+        self.model1 = model_builder(self.env1, seed, **params)
+        self.model1.adversary = model_builder(self.env2, seed, **params)
+        self.model2 = model_builder(self.env2, seed, **params)
+        self.model2.adversary = model_builder(self.env1, seed, **params)
+
+        # initialize parameters of adversary models accordingly
+        self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
+        self.model2.adversary.load_parameters(self.model1.get_parameters(), exact_match=True)
+
+        # set adversary models as adversary policies of the self-play envs
+        def make_adversary_policy(model, env):
+            def adversary_policy(obs):
+                zero_completed_obs = np.zeros((num_envs,) + env.observation_space.shape)
+                zero_completed_obs[0, :] = obs
+
+                actions, _ = model.adversary.predict(zero_completed_obs)
+
+                return actions[0]
+
+            return adversary_policy
+
+        self.env1.set_attr('adversary_policy',
+                           make_adversary_policy(self.model1, self.env1))
+        self.env2.set_attr('adversary_policy',
+                           make_adversary_policy(self.model2, self.env2))
+
+        # create necessary folders
+        os.makedirs(path + '/role0', exist_ok=True)
+        os.makedirs(path + '/role1', exist_ok=True)
+
+        # set tensorflow log dirs
+        self.model1.tensorflow_log = path + '/role0'
+        self.model2.tensorflow_log = path + '/role1'
+
+        # save parameters
+        self.train_episodes = train_episodes
+        self.eval_episodes = eval_episodes
+        self.num_evals = num_evals
+        self.num_switches = num_switches
+        self.eval_frequency = train_episodes / num_evals
+        self.switch_frequency = train_episodes / num_switches
+
+        # initialize control attributes
+        self.model1.role_id, self.model2.role_id = 0, 1
+        self.model1.last_eval, self.model1.next_eval = None, 0
+        self.model2.last_eval, self.model2.next_eval = None, 0
+        self.model1.last_switch, self.model1.next_switch = 0, self.switch_frequency
+        self.model2.last_switch, self.model2.next_switch = 0, self.switch_frequency
+
+        # initialize results
+        self.checkpoints = [], []
+        self.win_rates = [], []
+        self.episode_lengths = [], []
+        self.action_histograms = [], []
+
+        # log end time
+        end_time = time.perf_counter()
+
+        self.logger.debug("Finished initializing training session "
+                          f"({round(end_time - start_time, ndigits=3)}s).")
+
+    def _training_callback(self, _locals=None, _globals=None):
+        model = _locals['self']
+        episodes_so_far = model.num_timesteps // 30
+
+        # if it is time to evaluate, do so
+        if episodes_so_far >= model.next_eval:
+            # save model
+            model_path = self.path + f'/{episodes_so_far}'
+            model.save(model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip.")
+
+            # evaluate the model
+            self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
+            start_time = time.perf_counter()
+
+            mean_reward, ep_length, act_hist = \
+                self.evaluator.run(RLDraftAgent(model),
+                                   play_first=model.role_id == 0)
+
+            end_time = time.perf_counter()
+            self.logger.info(f"Finished evaluating "
+                             f"({round(end_time - start_time, 3)}s). "
+                             f"Avg. reward: {mean_reward}")
+
+            # save the results
+            self.checkpoints[model.role_id].append(episodes_so_far)
+            self.win_rates[model.role_id].append((mean_reward + 1) / 2)
+            self.episode_lengths[model.role_id].append(ep_length)
+            self.action_histograms[model.role_id].append(act_hist)
+
+            # update control attributes
+            model.last_eval = episodes_so_far
+            model.next_eval += self.eval_frequency
+
+        # if training should end, return False to end training
+        training_is_finished = episodes_so_far >= model.next_switch
+
+        if training_is_finished:
+            model.last_switch = episodes_so_far
+            model.next_switch += self.switch_frequency
+
+        return not training_is_finished
+
+    def _train(self):
+        # save and evaluate starting models
+        self._training_callback({'self': self.model1})
+        self._training_callback({'self': self.model2})
+
+        try:
+            self.logger.debug(f"Training will switch models every "
+                              f"{self.switch_frequency} episodes")
+
+            for _ in range(self.num_switches):
+                # train the first player model
+                self.model1.learn(total_timesteps=REALLY_BIG_INT,
+                                  reset_num_timesteps=False,
+                                  callback=self._training_callback)
+                self.logger.debug(f"Model {self.model1.role_id} trained for "
+                                  f"{self.model1.num_timesteps // 30} episodes. "
+                                  f"Switching to model {self.model2.role_id}.")
+
+                # train the second player model
+                self.model2.learn(total_timesteps=REALLY_BIG_INT,
+                                  reset_num_timesteps=False,
+                                  callback=self._training_callback)
+                self.logger.debug(f"Model {self.model2.role_id} trained for "
+                                  f"{self.model2.num_timesteps // 30} episodes. "
+                                  f"Switching to model {self.model1.role_id}.")
+
+                # update parameters of adversary models
+                self.model1.adversary.load_parameters(self.model2.get_parameters(),
+                                                      exact_match=True)
+                self.model2.adversary.load_parameters(self.model1.get_parameters(),
+                                                      exact_match=True)
+                self.logger.debug("Parameters of adversary networks updated.")
+        except KeyboardInterrupt:
+            pass
+
+        self.logger.debug(f"Training ended at {self.model1.num_timesteps // 30} "
+                          f"episodes")
+
+        # save and evaluate final models, if not done yet
+        if len(self.win_rates[0]) < self.num_evals:
+            self._training_callback({'self': self.model1})
+
+        if len(self.win_rates[1]) < self.num_evals:
+            self._training_callback({'self': self.model1})
+
+        # close the envs
+        for e in (self.env1, self.env2, self.evaluator):
+            e.close()
+
+
+class Evaluator:
+    def __init__(self, env_builder, episodes, seed, num_envs):
+        # log start time
+        start_time = time.perf_counter()
+
+        # initialize logger
+        self.logger = logging.getLogger('{0}.{1}'.format(__name__, type(self).__name__))
+
+        # initialize parallel environments
+        self.logger.debug("Initializing envs...")
+        self.env = [lambda: env_builder() for _ in range(num_envs)]
+        self.env: VecEnv = DummyVecEnv(self.env)
+
+        # save parameters
+        self.episodes = episodes
+        self.seed = seed
+
+        # log end time
+        end_time = time.perf_counter()
+
+        self.logger.debug("Finished initializing evaluator "
+                          f"({round(end_time - start_time, ndigits=3)}s).")
+
+    def run(self, agent: Agent, play_first=True):
+        """
+        Evaluates an agent.
+        :param agent: (gym_locm.agents.Agent) Agent to be evaluated.
+        :param play_first: Whether the agent will be playing first.
+        :return: A tuple containing the `mean_reward`, the `mean_length`
+        and the `action_histogram` of the evaluation episodes.
+        """
+        # set appropriate seeds
+        for i in range(self.env.num_envs):
+            current_seed = self.seed + (self.episodes // self.env.num_envs) * i
+            current_seed -= 1  # resetting the env increases the seed by one
+
+            self.env.env_method('seed', current_seed, indices=[i])
+
+        # set agent role
+        self.env.set_attr('play_first', play_first)
+
+        # reset the env
+        observations = self.env.reset()
+
+        # initialize metrics
+        episodes_so_far = 0
+        episode_rewards = [[0.0] for _ in range(self.env.num_envs)]
+        episode_lengths = [[0] for _ in range(self.env.num_envs)]
+        action_histogram = [0] * self.env.action_space.n
+
+        # run the episodes
+        while True:
+            # get the agent's action for all parallel envs
+            # todo: do this in a more elegant way
+            if isinstance(agent, RLDraftAgent):
+                actions = agent.act(observations)
+            else:
+                observations = self.env.get_attr('state')
+                actions = [agent.act(observation) for observation in observations]
+
+            # update the action histogram
+            for action in actions:
+                action_histogram[action] += 1
+
+            # perform the action and get the outcome
+            observations, rewards, dones, _ = self.env.step(actions)
+
+            # update metrics
+            for i in range(self.env.num_envs):
+                episode_rewards[i][-1] += rewards[i]
+                episode_lengths[i][-1] += 1
+
+                if dones[i]:
+                    episode_rewards[i].append(0.0)
+                    episode_lengths[i].append(0)
+
+                    episodes_so_far += 1
+
+            # check exiting condition
+            if episodes_so_far >= self.episodes:
+                break
+
+        # join all parallel metrics
+        all_rewards = [reward for rewards in episode_rewards
+                       for reward in rewards[:-1]]
+        all_lengths = [length for lengths in episode_lengths
+                       for length in lengths[:-1]]
+
+        # transform the action histogram in a probability distribution
+        action_histogram = [action_freq / sum(action_histogram)
+                            for action_freq in action_histogram]
+
+        # cap any unsolicited additional episodes
+        all_rewards = all_rewards[:self.episodes]
+        all_lengths = all_lengths[:self.episodes]
+
+        return mean(all_rewards), mean(all_lengths), action_histogram
+
+    def close(self):
+        self.env.close()
+
 
 if __name__ == '__main__':
-    '''seeds = 32359627, 91615349, 88803987, 83140551, 50731732, \
-            19279988, 35717793, 48046766, 86798618, 62644993'''
+    def build_env(seed=None, play_first=True):
+        battle_agents = (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
-    # best lstm3 1p
-    '''params = {
-        'n_switches': 100,
-        'layers': 2,
-        'neurons': 51,
-        'n_steps': 240,
-        'nminibatches': 1,
-        'noptepochs': 9,
-        'cliprange': 0.1,
-        'vf_coef': 1.0,
-        'ent_coef': 0.008091157254597916,
-        'learning_rate': 0.00045636274185317246
-    }'''
-    
-    # best history 1p
-    '''params = {
-        'n_switches': 100,
-        'layers': 2,
-        'neurons': 27,
-        'n_steps': 270,
-        'nminibatches': 90,
-        'noptepochs': 5,
-        'cliprange': 0.1,
-        'vf_coef': 0.5,
-        'ent_coef': 0.007796057055268702,
-        'learning_rate': 5.209278763667857e-05
-    }'''
+        return LOCMDraftSelfPlayEnv(seed=seed, play_first=play_first,
+                                    battle_agents=battle_agents,
+                                    use_draft_history=False, use_mana_curve=False)
 
-    # best basic 1p
-    '''params = {
-        'n_switches': 1000,
-        'layers': 1,
-        'neurons': 82,
-        'n_steps': 210,
-        'nminibatches': 105,
-        'noptepochs': 4,
-        'cliprange': 0.3,
-        'vf_coef': 1.0,
-        'ent_coef': 0.004117115213304482,
-        'learning_rate': 5.314238600325468e-05
-    }'''
+    def build_eval_env(seed=None, play_first=True):
+        adversary_draft_agent = MaxAttackDraftAgent()
+        battle_agents = (MaxAttackBattleAgent(), MaxAttackBattleAgent())
 
-    # best clip 1p ppo2
-    '''params = {
-        'n_switches': 1000,
-        'layers': 3,
-        'neurons': 256,
-        'n_steps': 300,
-        'nminibatches': 30,
-        'noptepochs': 50,
-        'cliprange': 0.001,
-        'vf_coef': 1.0,
-        'ent_coef': 0.008977698974531571,
-        'learning_rate': 0.00013139891826766765
-    }'''
+        return LOCMDraftSingleEnv(seed=seed, draft_agent=adversary_draft_agent,
+                                  battle_agents=battle_agents, play_first=play_first,
+                                  use_draft_history=False, use_mana_curve=False)
 
-    # best clip dqn
-    '''params = {
-        "batch_size": 128,
-        "buffer_size": 5000,
-        "layers": 5,
-        "learning_rate": 0.0001797875148905446,
-        "n_switches": 10,
-        "neurons": 256,
-        "target_network_update_freq": 5000,
-        "exploration_fraction": 0.25,
-        "prioritized_replay_alpha": 0.6,
-        "prioritized_replay_beta0": 0.4,
-    }'''
+    def build_model(env, seed, neurons, layers, activation, n_steps, nminibatches,
+                    noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
+        net_arch = [neurons] * layers
+        activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
 
-    # best lstm greedy draft
-    '''params = {
-        'n_switches': 10,
-        'layers': 0,
-        'neurons': 69,
-        'n_steps': 210,
-        'nminibatches': 1,
-        'noptepochs': 11,
-        'cliprange': 0.2,
-        'vf_coef': 1.0,
-        'ent_coef': 0.0071839743895664625,
-        'learning_rate': 0.0001572080572248569
-    }'''
+        return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
+                    policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
+                    n_steps=n_steps, nminibatches=nminibatches,
+                    noptepochs=noptepochs, cliprange=cliprange,
+                    vf_coef=vf_coef, ent_coef=ent_coef,
+                    learning_rate=learning_rate, tensorboard_log='models/trashcan/trash03/tf_log/',
+                    n_cpu_tf_sess=env.num_envs)
+        '''net_arch = ['lstm'] + [neurons] * layers
+        activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
 
-    # best basic greedy
-    '''params = {
-        'n_switches': 100,
-        'layers': 1,
-        'neurons': 29,
-        'n_steps': 210,
-        'nminibatches': 30,
-        'noptepochs': 19,
-        'cliprange': 0.1,
-        'vf_coef': 1.0,
-        'ent_coef': 0.00781891437626065,
-        'learning_rate': 0.0001488768154153614
-    }'''
+        return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
+                    policy_kwargs=dict(net_arch=net_arch, n_lstm=neurons, act_fun=activation),
+                    n_steps=n_steps, nminibatches=nminibatches,
+                    noptepochs=noptepochs, cliprange=cliprange,
+                    vf_coef=vf_coef, ent_coef=ent_coef,
+                    learning_rate=learning_rate, tensorboard_log=None,
+                    n_cpu_tf_sess=env.num_envs)'''
 
-    '''for seed in seeds:
-        train_and_eval(params)'''
 
-    os.makedirs(path, exist_ok=True)
+    params = {'layers': 1, 'neurons': 29, 'n_steps': 30, 'nminibatches': 1,#30,
+              'noptepochs': 19, 'cliprange': 0.1, 'vf_coef': 1.0,
+              'ent_coef': 0.00781891437626065, 'learning_rate': 0.0001488768154153614,
+              'activation': 'tanh'}
 
-    # tries to load past trials
-    try:
-        with open(path + '/trials.p', 'rb') as trials_file:
-            trials = pickle.load(trials_file)
+    ts = SelfPlay(build_env, build_eval_env, build_model, 3000, 300,
+                            10, 10, params, 'models/trashcan/trash03', 36987,
+                            num_envs=4)
 
-            if trials.trials[-1]['result']['status'] != STATUS_OK:
-                trials = trials_from_docs(trials.trials[:-1])
-
-            finished_trials = len(trials)
-            print(f'Found run state file with {finished_trials} trials.')
-    except FileNotFoundError:
-        trials = Trials()
-        finished_trials = 0
-
-    # tries to load past random state
-    try:
-        with open(path + '/rstate.p', 'rb') as random_state_file:
-            random_state = pickle.load(random_state_file)
-
-        counter = finished_trials
-    except FileNotFoundError:
-        random_state = np.random.RandomState(seed)
-
-    def save_current_trials():
-        with open(path + '/trials.p', 'wb') as trials_file:
-            pickle.dump(trials, trials_file)
-
-        with open(path + '/rstate.p', 'wb') as random_state_file:
-            pickle.dump(random_state, random_state_file)
-
-    def wrapper(params):
-        save_current_trials()
-
-        return train_and_eval(params)
-
-    algo = partial(tpe.suggest,
-                   n_startup_jobs=max(0, num_warmup_trials - finished_trials))
-
-    best_param = fmin(wrapper, param_dict, algo=algo,
-                      max_evals=num_trials, trials=trials,
-                      rstate=random_state)
-
-    save_current_trials()
-
-    loss = [x['result']['loss'] for x in trials.trials]
-
-    print("")
-    print("##### Results")
-    print("Score best parameters: ", min(loss) * -1)
-    print("Best parameters: ", best_param)
+    ts.run()
