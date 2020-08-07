@@ -121,11 +121,11 @@ class FixedAdversary(TrainingSession):
             current_seed = seed + (train_episodes // num_envs) * i
 
             # create the env
-            env.append(LOCMDraftSingleEnv(seed=current_seed, play_first=play_first,
-                                          **env_params))
+            env.append(lambda: LOCMDraftSingleEnv(seed=current_seed,
+                                                  play_first=play_first, **env_params))
 
         # wrap envs in a vectorized env
-        self.env: VecEnv = DummyVecEnv([lambda: e for e in env])
+        self.env: VecEnv = DummyVecEnv(env)
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
@@ -238,11 +238,11 @@ class SelfPlay(TrainingSession):
             current_seed = seed + (train_episodes // num_envs) * i
 
             # create one env per process
-            env.append(LOCMDraftSelfPlayEnv(seed=current_seed, play_first=True,
-                                            **env_params))
+            env.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
+                                                    play_first=True, **env_params))
 
         # wrap envs in a vectorized env
-        self.env = DummyVecEnv([lambda: e for e in env])
+        self.env = DummyVecEnv(env)
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
@@ -416,10 +416,10 @@ class AsymmetricSelfPlay(TrainingSession):
             current_seed = seed + (train_episodes // num_envs) * i
 
             # create one env per process
-            env1.append(LOCMDraftSelfPlayEnv(seed=current_seed, play_first=True,
-                                             **env_params))
-            env2.append(LOCMDraftSelfPlayEnv(seed=current_seed, play_first=False,
-                                             **env_params))
+            env1.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
+                                                     play_first=True, **env_params))
+            env2.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
+                                                     play_first=False, **env_params))
 
         # wrap envs in a vectorized env
         self.env1 = DummyVecEnv([lambda: e for e in env1])
