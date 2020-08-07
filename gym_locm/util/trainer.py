@@ -596,8 +596,9 @@ class Evaluator:
 
         # initialize parallel environments
         self.logger.debug("Initializing envs...")
-        self.env = [LOCMDraftSingleEnv(**env_params) for _ in range(num_envs)]
-        self.env: VecEnv = DummyVecEnv([lambda: e for e in self.env])
+        self.env = [lambda: LOCMDraftSingleEnv(**env_params)
+                    for _ in range(num_envs)]
+        self.env: VecEnv = DummyVecEnv(self.env)
 
         # save parameters
         self.episodes = episodes
