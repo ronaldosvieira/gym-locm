@@ -422,8 +422,8 @@ class AsymmetricSelfPlay(TrainingSession):
                                                      play_first=False, **env_params))
 
         # wrap envs in a vectorized env
-        self.env1 = DummyVecEnv([lambda: e for e in env1])
-        self.env2 = DummyVecEnv([lambda: e for e in env2])
+        self.env1 = DummyVecEnv(env1)
+        self.env2 = DummyVecEnv(env2)
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
