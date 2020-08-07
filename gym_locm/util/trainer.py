@@ -688,6 +688,32 @@ class Evaluator:
         self.env.close()
 
 
+def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatches,
+                noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
+    net_arch = [neurons] * layers
+    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
+
+    return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
+                policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
+                n_steps=n_steps, nminibatches=nminibatches,
+                noptepochs=noptepochs, cliprange=cliprange,
+                vf_coef=vf_coef, ent_coef=ent_coef, learning_rate=learning_rate,
+                n_cpu_tf_sess=env.num_envs)
+
+
+def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibatches,
+                       noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
+    net_arch = ['lstm'] + [neurons] * (layers - 1)
+    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
+
+    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
+                policy_kwargs=dict(net_arch=net_arch, n_lstm=neurons, act_fun=activation),
+                n_steps=n_steps, nminibatches=nminibatches,
+                noptepochs=noptepochs, cliprange=cliprange,
+                vf_coef=vf_coef, ent_coef=ent_coef,
+                learning_rate=learning_rate, n_cpu_tf_sess=env.num_envs)
+
+
 if __name__ == '__main__':
     env_params = {
         'battle_agents': (MaxAttackBattleAgent(), MaxAttackBattleAgent()),
@@ -702,37 +728,13 @@ if __name__ == '__main__':
         'use_mana_curve': False
     }
 
-    def build_model(env, seed, neurons, layers, activation, n_steps, nminibatches,
-                    noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
-        net_arch = [neurons] * layers
-        activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
+    model_params = {'layers': 1, 'neurons': 29, 'n_steps': 30, 'nminibatches': 30,
+                    'noptepochs': 19, 'cliprange': 0.1, 'vf_coef': 1.0,
+                    'ent_coef': 0.00781891437626065, 'activation': 'tanh',
+                    'learning_rate': 0.0001488768154153614}
 
-        return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
-                    policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
-                    n_steps=n_steps, nminibatches=nminibatches,
-                    noptepochs=noptepochs, cliprange=cliprange,
-                    vf_coef=vf_coef, ent_coef=ent_coef,
-                    learning_rate=learning_rate, tensorboard_log='models/trashcan/trash03/tf_log/',
-                    n_cpu_tf_sess=env.num_envs)
-        '''net_arch = ['lstm'] + [neurons] * layers
-        activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
-
-        return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
-                    policy_kwargs=dict(net_arch=net_arch, n_lstm=neurons, act_fun=activation),
-                    n_steps=n_steps, nminibatches=nminibatches,
-                    noptepochs=noptepochs, cliprange=cliprange,
-                    vf_coef=vf_coef, ent_coef=ent_coef,
-                    learning_rate=learning_rate, tensorboard_log=None,
-                    n_cpu_tf_sess=env.num_envs)'''
-
-
-    model_params = {'layers': 1, 'neurons': 29, 'n_steps': 30, 'nminibatches': 1,  #30,
-              'noptepochs': 19, 'cliprange': 0.1, 'vf_coef': 1.0,
-              'ent_coef': 0.00781891437626065, 'learning_rate': 0.0001488768154153614,
-              'activation': 'tanh'}
-
-    ts = SelfPlay(build_env, build_eval_env, build_model, 3000, 300,
-                            10, 10, params, 'models/trashcan/trash03', 36987,
-                            num_envs=4)
+    ts = FixedAdversary(model_builder_mlp, model_params, env_params, eval_env_params,
+                        30000, 1000, 12, True, 'models/trashcan/trash04', 36987,
+                        num_envs=4)
 
     ts.run()
