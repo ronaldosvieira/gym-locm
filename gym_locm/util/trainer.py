@@ -104,10 +104,10 @@ class TrainingSession:
 
 
 class FixedAdversary(TrainingSession):
-    def __init__(self, env_builder, eval_env_builder, model_builder,
-                 train_episodes, eval_episodes, num_evals,
-                 play_first, params, path, seed, num_envs=1):
-        super(FixedAdversary, self).__init__(params, path, seed)
+    def __init__(self, model_builder, model_params, env_params, eval_env_params,
+                 train_episodes, eval_episodes, num_evals, play_first, path,
+                 seed, num_envs=1):
+        super(FixedAdversary, self).__init__(model_params, path, seed)
 
         # log start time
         start_time = time.perf_counter()
@@ -121,19 +121,20 @@ class FixedAdversary(TrainingSession):
             current_seed = seed + (train_episodes // num_envs) * i
 
             # create the env
-            env.append(env_builder(seed=current_seed, play_first=play_first))
+            env.append(LOCMDraftSingleEnv(seed=current_seed, play_first=play_first,
+                                          **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv = DummyVecEnv([lambda: e for e in env])
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
-        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes,
+        self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes,
                                               seed + train_episodes, num_envs)
 
         # build the model
         self.logger.debug("Building the model...")
-        self.model = model_builder(self.env, seed, **params)
+        self.model = model_builder(self.env, seed, **model_params)
 
         # create necessary folders
         os.makedirs(self.path, exist_ok=True)
@@ -220,10 +221,10 @@ class FixedAdversary(TrainingSession):
 
 
 class SelfPlay(TrainingSession):
-    def __init__(self, env_builder, eval_env_builder, model_builder,
-                 train_episodes, eval_episodes, num_evals,
-                 num_switches, params, path, seed, num_envs=1):
-        super(SelfPlay, self).__init__(params, path, seed)
+    def __init__(self, model_builder, model_params, env_params, eval_env_params,
+                 train_episodes, eval_episodes, num_evals, num_switches, path,
+                 seed, num_envs=1):
+        super(SelfPlay, self).__init__(model_params, path, seed)
 
         # log start time
         start_time = time.perf_counter()
@@ -237,20 +238,21 @@ class SelfPlay(TrainingSession):
             current_seed = seed + (train_episodes // num_envs) * i
 
             # create one env per process
-            env.append(env_builder(seed=current_seed, play_first=True))
+            env.append(LOCMDraftSelfPlayEnv(seed=current_seed, play_first=True,
+                                            **env_params))
 
         # wrap envs in a vectorized env
         self.env = DummyVecEnv([lambda: e for e in env])
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
-        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes // 2,
-                                               seed + train_episodes, num_envs)
+        self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes // 2,
+                                              seed + train_episodes, num_envs)
 
         # build the models
         self.logger.debug("Building the models...")
-        self.model = model_builder(self.env, seed, **params)
-        self.model.adversary = model_builder(self.env, seed, **params)
+        self.model = model_builder(self.env, seed, **model_params)
+        self.model.adversary = model_builder(self.env, seed, **model_params)
 
         # initialize parameters of adversary models accordingly
         self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
@@ -397,10 +399,10 @@ class SelfPlay(TrainingSession):
 
 
 class AsymmetricSelfPlay(TrainingSession):
-    def __init__(self, env_builder, eval_env_builder, model_builder,
+    def __init__(self, model_builder, model_params, env_params, eval_env_params,
                  train_episodes, eval_episodes, num_evals,
-                 num_switches, params, path, seed, num_envs=1):
-        super(AsymmetricSelfPlay, self).__init__(params, path, seed)
+                 num_switches, path, seed, num_envs=1):
+        super(AsymmetricSelfPlay, self).__init__(model_params, path, seed)
 
         # log start time
         start_time = time.perf_counter()
@@ -414,8 +416,10 @@ class AsymmetricSelfPlay(TrainingSession):
             current_seed = seed + (train_episodes // num_envs) * i
 
             # create one env per process
-            env1.append(env_builder(seed=current_seed, play_first=True))
-            env2.append(env_builder(seed=current_seed, play_first=False))
+            env1.append(LOCMDraftSelfPlayEnv(seed=current_seed, play_first=True,
+                                             **env_params))
+            env2.append(LOCMDraftSelfPlayEnv(seed=current_seed, play_first=False,
+                                             **env_params))
 
         # wrap envs in a vectorized env
         self.env1 = DummyVecEnv([lambda: e for e in env1])
@@ -423,15 +427,15 @@ class AsymmetricSelfPlay(TrainingSession):
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
-        self.evaluator: Evaluator = Evaluator(eval_env_builder, eval_episodes,
+        self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes,
                                               seed + train_episodes, num_envs)
 
         # build the models
         self.logger.debug("Building the models...")
-        self.model1 = model_builder(self.env1, seed, **params)
-        self.model1.adversary = model_builder(self.env2, seed, **params)
-        self.model2 = model_builder(self.env2, seed, **params)
-        self.model2.adversary = model_builder(self.env1, seed, **params)
+        self.model1 = model_builder(self.env1, seed, **model_params)
+        self.model1.adversary = model_builder(self.env2, seed, **model_params)
+        self.model2 = model_builder(self.env2, seed, **model_params)
+        self.model2.adversary = model_builder(self.env1, seed, **model_params)
 
         # initialize parameters of adversary models accordingly
         self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
@@ -583,7 +587,7 @@ class AsymmetricSelfPlay(TrainingSession):
 
 
 class Evaluator:
-    def __init__(self, env_builder, episodes, seed, num_envs):
+    def __init__(self, env_params, episodes, seed, num_envs):
         # log start time
         start_time = time.perf_counter()
 
@@ -592,8 +596,8 @@ class Evaluator:
 
         # initialize parallel environments
         self.logger.debug("Initializing envs...")
-        self.env = [lambda: env_builder() for _ in range(num_envs)]
-        self.env: VecEnv = DummyVecEnv(self.env)
+        self.env = [LOCMDraftSingleEnv(**env_params) for _ in range(num_envs)]
+        self.env: VecEnv = DummyVecEnv([lambda: e for e in self.env])
 
         # save parameters
         self.episodes = episodes
@@ -685,20 +689,18 @@ class Evaluator:
 
 
 if __name__ == '__main__':
-    def build_env(seed=None, play_first=True):
-        battle_agents = (MaxAttackBattleAgent(), MaxAttackBattleAgent())
+    env_params = {
+        'battle_agents': (MaxAttackBattleAgent(), MaxAttackBattleAgent()),
+        'use_draft_history': False,
+        'use_mana_curve': False
+    }
 
-        return LOCMDraftSelfPlayEnv(seed=seed, play_first=play_first,
-                                    battle_agents=battle_agents,
-                                    use_draft_history=False, use_mana_curve=False)
-
-    def build_eval_env(seed=None, play_first=True):
-        adversary_draft_agent = MaxAttackDraftAgent()
-        battle_agents = (MaxAttackBattleAgent(), MaxAttackBattleAgent())
-
-        return LOCMDraftSingleEnv(seed=seed, draft_agent=adversary_draft_agent,
-                                  battle_agents=battle_agents, play_first=play_first,
-                                  use_draft_history=False, use_mana_curve=False)
+    eval_env_params = {
+        'draft_agent': MaxAttackDraftAgent(),
+        'battle_agents': (MaxAttackBattleAgent(), MaxAttackBattleAgent()),
+        'use_draft_history': False,
+        'use_mana_curve': False
+    }
 
     def build_model(env, seed, neurons, layers, activation, n_steps, nminibatches,
                     noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
@@ -724,7 +726,7 @@ if __name__ == '__main__':
                     n_cpu_tf_sess=env.num_envs)'''
 
 
-    params = {'layers': 1, 'neurons': 29, 'n_steps': 30, 'nminibatches': 1,#30,
+    model_params = {'layers': 1, 'neurons': 29, 'n_steps': 30, 'nminibatches': 1,  #30,
               'noptepochs': 19, 'cliprange': 0.1, 'vf_coef': 1.0,
               'ent_coef': 0.00781891437626065, 'learning_rate': 0.0001488768154153614,
               'activation': 'tanh'}
