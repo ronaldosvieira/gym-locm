@@ -162,6 +162,8 @@ def run():
     # for each combination of two drafters
     for drafter1 in args.drafters:
         for drafter2 in args.drafters:
+            win_rates = []
+
             # for each seed
             for i, seed in enumerate(args.seeds):
                 # if any drafter is a path to a folder, then select the
@@ -172,19 +174,22 @@ def run():
                 if drafter2.endswith('/'):
                     drafter2 += f'2nd/{i + 1}.zip'
 
-                # run the match-up and get the win rate
-                win_rate_of_1st_player = run_matchup(drafter1, drafter2,
-                                                     args.battler, args.games,
-                                                     seed, args.concurrency)
+                # run the match-up and get the win rate of the first player
+                win_rates.append(run_matchup(drafter1, drafter2,
+                                             args.battler, args.games,
+                                             seed, args.concurrency))
 
-                # round the win rate up to three decimal places
-                win_rate_of_1st_player = round(win_rate_of_1st_player, 3)
+            # get the mean win rate of the first player
+            mean_win_rate = mean(win_rates)
 
-                # get the current time
-                current_time = datetime.now()
+            # round the mean win rate up to three decimal places
+            mean_win_rate = round(mean_win_rate, 3)
 
-                # print the match-up and its result
-                print(current_time, drafter1, drafter2, win_rate_of_1st_player)
+            # get the current time
+            current_time = datetime.now()
+
+            # print the match-up and its result
+            print(current_time, drafter1, drafter2, mean_win_rate)
 
 
 if __name__ == '__main__':
