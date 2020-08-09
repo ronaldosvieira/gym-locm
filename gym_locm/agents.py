@@ -949,8 +949,6 @@ class RLDraftAgent(Agent):
             self.model.predict(state, state=self.hidden_states,
                                mask=self.dones, deterministic=True)
 
-        self.dones = False
-
         return action
 
 
