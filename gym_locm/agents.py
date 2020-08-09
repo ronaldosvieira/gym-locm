@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from operator import attrgetter
+from typing import Type
 
 from pexpect import TIMEOUT, EOF
 
@@ -951,3 +952,35 @@ class RLDraftAgent(Agent):
         self.dones = False
 
         return action
+
+
+draft_agents = {
+    "pass": PassDraftAgent,
+    "random": RandomDraftAgent,
+    "rule-based": RuleBasedDraftAgent,
+    "max-attack": MaxAttackDraftAgent,
+    "icebox": IceboxDraftAgent,
+    "closet-ai": ClosetAIDraftAgent,
+    "uji1": UJI1DraftAgent,
+    "uji2": UJI2DraftAgent,
+    "coac": CoacDraftAgent,
+    "rl": RLDraftAgent
+}
+
+battle_agents = {
+    "pass": PassBattleAgent,
+    "random": RandomBattleAgent,
+    "greedy": GreedyBattleAgent,
+    "rule-based": RuleBasedBattleAgent,
+    "max-attack": MaxAttackBattleAgent,
+    "coac": CoacBattleAgent,
+    "mcts": MCTSBattleAgent
+}
+
+
+def parse_draft_agent(agent_name: str) -> Type:
+    return draft_agents[agent_name.lower().replace(" ", "-")]
+
+
+def parse_battle_agent(agent_name: str) -> Type:
+    return battle_agents[agent_name.lower().replace(" ", "-")]

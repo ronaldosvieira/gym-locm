@@ -7,6 +7,7 @@ from pstats import Stats
 from multiprocessing import Pool, Manager, Lock
 
 from gym_locm import agents, engine
+from gym_locm.agents import parse_draft_agent, parse_battle_agent
 
 wins_by_p0 = Manager().list([0, 0])
 lock = Lock()
@@ -17,15 +18,10 @@ def get_arg_parser():
         description="This is runner script for agent experimentation on gym-locm.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    draft_choices = ["pass", "random", "rule-based", "max-attack",
-                     "icebox", "closet-ai", "uji1", "uji2", "coac"]
-    battle_choices = ["pass", "random", "greedy", "rule-based", "max-attack",
-                      "coac", "mcts"]
-
     p.add_argument("--p1-draft", help="draft strategy used by player 1",
-                   choices=draft_choices)
+                   choices=agents.draft_agents.keys())
     p.add_argument("--p1-player", help="battle strategy used by player 1",
-                   choices=battle_choices)
+                   choices=agents.battle_agents.keys())
     p.add_argument("--p1-time", help="max thinking time for player 1",
                    default=200)
     p.add_argument("--p1-path",
@@ -33,9 +29,9 @@ def get_arg_parser():
                         "mutually exclusive with draft, battle and time args.")
 
     p.add_argument("--p2-draft", help="draft strategy used by player 2",
-                   choices=draft_choices)
+                   choices=agents.draft_agents.keys())
     p.add_argument("--p2-player", help="battle strategy used by player 2",
-                   choices=battle_choices)
+                   choices=agents.battle_agents.keys())
     p.add_argument("--p2-time", help="max thinking time for player 2",
                    default=200)
     p.add_argument("--p2-path",
@@ -53,32 +49,6 @@ def get_arg_parser():
                    help="whether to profile the runs (runs in a single process)")
 
     return p
-
-
-def parse_agent(draft_agent, battle_agent):
-    draft_choices = {
-        "pass": agents.PassDraftAgent,
-        "random": agents.RandomDraftAgent,
-        "rule-based": agents.RuleBasedDraftAgent,
-        "max-attack": agents.MaxAttackDraftAgent,
-        "icebox": agents.IceboxDraftAgent,
-        "closet-ai": agents.ClosetAIDraftAgent,
-        "uji1": agents.UJI1DraftAgent,
-        "uji2": agents.UJI2DraftAgent,
-        "coac": agents.CoacDraftAgent
-    }
-
-    battle_choices = {
-        "pass": agents.PassBattleAgent,
-        "random": agents.RandomBattleAgent,
-        "greedy": agents.GreedyBattleAgent,
-        "rule-based": agents.RuleBasedBattleAgent,
-        "max-attack": agents.MaxAttackBattleAgent,
-        "coac": agents.CoacBattleAgent,
-        "mcts": agents.MCTSBattleAgent
-    }
-
-    return draft_choices[draft_agent](), battle_choices[battle_agent]()
 
 
 def evaluate(params):
@@ -136,13 +106,15 @@ def run():
         player_1 = agents.NativeAgent(args.p1_path)
         player_1 = (player_1, player_1)
     else:
-        player_1 = parse_agent(args.p1_draft, args.p1_player)
+        player_1 = parse_draft_agent(args.p1_draft)(), \
+                   parse_battle_agent(args.p1_player)()
 
     if args.p2_path is not None:
         player_2 = agents.NativeAgent(args.p2_path)
         player_2 = (player_2, player_2)
     else:
-        player_2 = parse_agent(args.p2_draft, args.p2_player)
+        player_2 = parse_draft_agent(args.p2_draft)(), \
+                   parse_battle_agent(args.p2_player)()
 
     if args.profile:
         profiler = cProfile.Profile()
