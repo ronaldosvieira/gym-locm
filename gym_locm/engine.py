@@ -10,7 +10,7 @@ from enum import Enum, IntEnum
 from gym.utils import seeding
 
 from gym_locm.exceptions import *
-from gym_locm.helpers import has_enough_mana, is_it
+from gym_locm.util import has_enough_mana, is_it
 
 
 def eprint(*args, **kwargs):
