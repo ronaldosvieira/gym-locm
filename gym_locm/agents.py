@@ -930,23 +930,24 @@ class CoacDraftAgent(Agent):
 
 
 class RLDraftAgent(Agent):
+    def __init__(self, model):
+        self.model = model
+
+        self.hidden_states = None
+        self.dones = None
+
     def seed(self, seed):
         pass
 
     def reset(self):
-        self._state = None
-        self.done = True
-
-    def __init__(self, algorithm, model='draft-trpo-3kk'):
-        self.model = algorithm.load("models/" + model)
-        self._state = None
-        self.done = True
+        self.hidden_states = None
+        self.dones = None
 
     def act(self, state):
-        action, self._state = self.model.predict(state,
-                                                 state=self._state,
-                                                 mask=self.done)
+        action, self.hidden_states = \
+            self.model.predict(state, state=self.hidden_states,
+                               mask=self.dones, deterministic=True)
 
-        self.done = False
+        self.dones = False
 
-        return Action(ActionType.PICK, action[0])
+        return action

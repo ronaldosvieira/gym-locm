@@ -22,7 +22,7 @@ from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
 
-from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent
+from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent
 from gym_locm.envs import LOCMDraftSingleEnv
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
 
@@ -31,28 +31,6 @@ REALLY_BIG_INT = 1_000_000_000
 
 if verbose:
     logging.basicConfig(level=logging.DEBUG)
-
-
-class RLDraftAgent(Agent):
-    def __init__(self, model):
-        self.model = model
-
-        self.hidden_states = None
-        self.dones = None
-
-    def seed(self, seed):
-        pass
-
-    def reset(self):
-        self.hidden_states = None
-        self.dones = None
-
-    def act(self, state):
-        actions, self.hidden_states = \
-            self.model.predict(state, deterministic=True,
-                               state=self.hidden_states, mask=self.dones)
-
-        return actions
 
 
 class TrainingSession:
