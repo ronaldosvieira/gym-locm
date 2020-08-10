@@ -194,6 +194,10 @@ class Card:
 
         return new_copy
 
+    @staticmethod
+    def mockup_card():
+        return Card(0, "", 0, 0, 0, 0, "------", 0, 0, 0, "", instance_id=None)
+
 
 class Creature(Card):
     def __init__(self, *args, **kwargs):
