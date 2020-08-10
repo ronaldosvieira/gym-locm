@@ -7,6 +7,8 @@ from datetime import datetime
 from statistics import mean
 
 # suppress tensorflow deprecated warnings
+from gym_locm.util import encode_state_draft
+
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=Warning)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
@@ -84,18 +86,20 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
 
     # initialize first player
     if drafter1.endswith('zip'):
-        current_drafter = agents.RLDraftAgent(PPO2.load(drafter1, env=env))
+        current_drafter = agents.RLDraftAgent(PPO2.load(drafter1))
+        current_drafter.use_history = "history" in drafter1
     else:
         current_drafter = agents.parse_draft_agent(drafter1)()
 
     # initialize second player
     if drafter2.endswith('zip'):
-        other_drafter = agents.RLDraftAgent(PPO2.load(drafter2, env=env))
+        other_drafter = agents.RLDraftAgent(PPO2.load(drafter2))
+        other_drafter.use_history = "history" in drafter2
     else:
         other_drafter = agents.parse_draft_agent(drafter2)()
 
     # reset the env
-    observations = env.reset()
+    env.reset()
 
     # initialize metrics
     episodes_so_far = 0
@@ -103,16 +107,29 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
 
     # run the episodes
     while True:
+        observations = env.get_attr('state')
+
         # get the current agent's action for all concurrent envs
         if isinstance(current_drafter, agents.RLDraftAgent):
-            actions = current_drafter.act(observations)
+            all_past_choices = env.get_attr('choices')
+            new_observations = []
+
+            for i, observation in enumerate(observations):
+                new_observation = encode_state_draft(
+                    observation,
+                    use_history=current_drafter.use_history,
+                    past_choices=all_past_choices[i][observation.current_player.id]
+                )
+
+                new_observations.append(new_observation)
+
+            actions = current_drafter.act(new_observations)
         else:
-            observations = env.get_attr('state')
             actions = [current_drafter.act(observation)
                        for observation in observations]
 
         # perform the action and get the outcome
-        observations, rewards, dones, _ = env.step(actions)
+        _, rewards, dones, _ = env.step(actions)
 
         if isinstance(current_drafter, agents.RLDraftAgent):
             current_drafter.dones = dones
