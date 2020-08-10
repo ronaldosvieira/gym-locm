@@ -23,3 +23,49 @@ def encode_card(card):
 
     return card_type + [cost, attack, defense, player_hp,
                         enemy_hp, card_draw] + keywords
+
+
+def encode_state_draft(state, use_history=False,
+                       use_mana_curve=False, past_choices=None):
+    card_features = 16
+    current_card_choices = 3
+    state_size = card_features * current_card_choices
+
+    if use_history:
+        state_size += card_features * 30
+        assert past_choices is not None, \
+            "If encoding the draft history, past_choices should not be None."
+
+    if use_mana_curve:
+        state_size += 13
+        assert past_choices is not None, \
+            "If encoding the mana curve, past_choices should not be None."
+
+    encoded_state = np.full((state_size,), 0, dtype=np.float32)
+
+    # if draft is not over, fill current choices
+    if state.is_draft():
+        card_choices = state.current_player.hand[0:3]
+
+        for i in range(len(card_choices)):
+            lo = -(3 - i) * card_features
+            hi = lo + card_features
+            hi = hi if hi < 0 else None
+
+            encoded_state[lo:hi] = encode_card(card_choices[i])
+
+    # if using history, fill past choices
+    if use_history:
+        for j, card in enumerate(past_choices):
+            lo = -(33 - j) * card_features
+            hi = lo + card_features
+            hi = hi if hi < 0 else None
+
+            encoded_state[lo:hi] = encode_card(card)
+
+    # if using mana curve, fill mana curve slots
+    if use_mana_curve:
+        for chosen_card in past_choices:
+            encoded_state[chosen_card.cost] += 1
+
+    return encoded_state
