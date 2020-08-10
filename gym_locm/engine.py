@@ -280,17 +280,17 @@ def load_cards() -> List['Card']:
 
     with open(os.path.dirname(__file__) + '/cardlist.txt', 'r') as card_list:
         raw_cards = card_list.readlines()
-        type_mapping = {'creature': Creature, 'itemRed': RedItem,
-                        'itemGreen': GreenItem, 'itemBlue': BlueItem}
+        type_mapping = {'creature': (Creature, 0), 'itemGreen': (GreenItem, 1),
+                        'itemRed': (RedItem, 2), 'itemBlue': (BlueItem, 3)}
 
         for card in raw_cards:
             card_id, name, card_type, cost, attack, defense, \
                 keywords, player_hp, enemy_hp, card_draw, text = \
                 map(str.strip, card.split(';'))
 
-            card_class = type_mapping[card_type]
+            card_class, type_id = type_mapping[card_type]
 
-            cards.append(card_class(int(card_id), name, card_type, int(cost),
+            cards.append(card_class(int(card_id), name, type_id, int(cost),
                                     int(attack), int(defense), keywords,
                                     int(player_hp), int(enemy_hp),
                                     int(card_draw), text))
