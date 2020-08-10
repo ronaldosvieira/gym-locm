@@ -19,7 +19,7 @@ def encode_card(card):
     keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
     player_hp = card.player_hp / 12
     enemy_hp = card.enemy_hp / 12
-    card_draw = card.card_draw / 12
+    card_draw = card.card_draw / 2
 
     return card_type + [cost, attack, defense, player_hp,
                         enemy_hp, card_draw] + keywords
