@@ -185,15 +185,11 @@ def run():
             for i, seed in enumerate(args.seeds):
                 # if any drafter is a path to a folder, then select the
                 # appropriate model inside the folder
-                if drafter1.endswith('/'):
-                    drafter1 += f'1st/{i + 1}.zip'
-
-                if drafter2.endswith('/'):
-                    drafter2 += f'2nd/{i + 1}.zip'
+                d1 = drafter1 + f'1st/{i + 1}.zip' if drafter1.endswith('/') else drafter1
+                d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the win rate of the first player
-                win_rates.append(run_matchup(drafter1, drafter2,
-                                             args.battler, args.games,
+                win_rates.append(run_matchup(d1, d2, args.battler, args.games,
                                              seed, args.concurrency))
 
             # get the mean win rate of the first player
