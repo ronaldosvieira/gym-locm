@@ -7,8 +7,6 @@ from datetime import datetime
 from statistics import mean
 
 # suppress tensorflow deprecated warnings
-from gym_locm.util import encode_state_draft
-
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=Warning)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
@@ -24,6 +22,7 @@ from stable_baselines.common.vec_env import DummyVecEnv
 
 from gym_locm import agents
 from gym_locm.envs import LOCMDraftEnv
+from gym_locm.util import encode_state_draft
 
 
 def get_arg_parser() -> argparse.ArgumentParser:
