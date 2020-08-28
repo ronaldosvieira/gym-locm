@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import warnings
+import numpy as np
 import pandas as pd
 from datetime import datetime
 from statistics import mean
@@ -178,6 +179,7 @@ def run():
 
     # initialize data frames
     agg_results = pd.DataFrame(index=args.drafters, columns=args.drafters)
+    ind_results = []
 
     # for each combination of two drafters
     for drafter1 in args.drafters:
@@ -192,14 +194,17 @@ def run():
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the win rate of the first player
-                win_rates.append(run_matchup(d1, d2, args.battler, args.games,
-                                             seed, args.concurrency))
+                win_rate = run_matchup(d1, d2, args.battler, args.games,
+                                       seed, args.concurrency)
+
+                win_rates.append(win_rate)
+
+                # save individual result
+                ind_results.append([drafter1, drafter2, seed,
+                                    win_rate, datetime.now()])
 
             # get the mean win rate of the first player
             mean_win_rate = mean(win_rates)
-
-            # save mean win rate
-            agg_results[drafter1][drafter2] = mean_win_rate
 
             # round the mean win rate up to three decimal places
             mean_win_rate = round(mean_win_rate, 3)
@@ -210,8 +215,21 @@ def run():
             # print the match-up and its result
             print(current_time, drafter1, drafter2, mean_win_rate)
 
-    # save tournament data to csv file
+            # save aggregate result
+            agg_results[drafter1][drafter2] = mean_win_rate
+
+    # transform individual results matrix into a data frame
+    ind_results = np.array(ind_results)
+    ind_results_index = pd.MultiIndex.from_product(
+        [args.drafters, args.drafters, args.seeds],
+        names=['drafter1', 'drafter2', 'seed']
+    )
+    ind_results = pd.DataFrame(data=ind_results[:, 3:], index=ind_results_index,
+                               columns=['win_rate', 'datetime'])
+
+    # save all tournament data to csv files
     agg_results.to_csv('tournament.csv', index_label="1p \\ 2p")
+    ind_results.to_csv('tournament_ind.csv')
 
 
 if __name__ == '__main__':
