@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import warnings
+import pandas as pd
 from datetime import datetime
 from statistics import mean
 
@@ -175,6 +176,9 @@ def run():
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
 
+    # initialize data frames
+    agg_results = pd.DataFrame(index=args.drafters, columns=args.drafters)
+
     # for each combination of two drafters
     for drafter1 in args.drafters:
         for drafter2 in args.drafters:
@@ -194,6 +198,9 @@ def run():
             # get the mean win rate of the first player
             mean_win_rate = mean(win_rates)
 
+            # save mean win rate
+            agg_results[drafter1][drafter2] = mean_win_rate
+
             # round the mean win rate up to three decimal places
             mean_win_rate = round(mean_win_rate, 3)
 
@@ -202,6 +209,9 @@ def run():
 
             # print the match-up and its result
             print(current_time, drafter1, drafter2, mean_win_rate)
+
+    # save tournament data to csv file
+    agg_results.to_csv('tournament.csv', index_label="1p \\ 2p")
 
 
 if __name__ == '__main__':
