@@ -3,6 +3,8 @@ import logging
 import os
 import sys
 import warnings
+from typing import Iterable, Tuple
+
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -57,7 +59,8 @@ def get_arg_parser() -> argparse.ArgumentParser:
 
 
 def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
-                seed: int, concurrency: int) -> float:
+                seed: int, concurrency: int) \
+        -> Tuple[Tuple[float, float], Tuple[Iterable, Iterable]]:
     """
     Run the match-up between `drafter1` and `drafter2` using `battler` battler
     :param drafter1: drafter to play as first player
@@ -66,7 +69,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     :param games: amount of matches to simulate
     :param seed: seed used to generate the matches
     :param concurrency: amount of matches executed at the same time
-    :return: the win rate of the first player
+    :return: a tuple containing (i) a tuple containing the win rate of the
+    first and second players, and (ii) a tuple containing the average mana curves
+    of the first and second players
     """
     # parse the battle agent
     battler = agents.parse_battle_agent(battler)
@@ -92,6 +97,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     else:
         current_drafter = agents.parse_draft_agent(drafter1)()
 
+    current_drafter.name = drafter1
+    drafter1 = current_drafter
+
     # initialize second player
     if drafter2.endswith('zip'):
         other_drafter = agents.RLDraftAgent(PPO2.load(drafter2))
@@ -99,12 +107,17 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     else:
         other_drafter = agents.parse_draft_agent(drafter2)()
 
+    other_drafter.name = drafter2
+    drafter2 = other_drafter
+
     # reset the env
     env.reset()
 
     # initialize metrics
     episodes_so_far = 0
     episode_rewards = [[0.0] for _ in range(env.num_envs)]
+    drafter1.mana_curve = np.zeros((13,))
+    drafter2.mana_curve = np.zeros((13,))
 
     # run the episodes
     while True:
@@ -129,6 +142,20 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
             actions = [current_drafter.act(observation)
                        for observation in observations]
 
+        # log chosen cards into current agent's mana curve
+        for i, (action, observation) in enumerate(zip(actions, observations)):
+            # get chosen index
+            try:
+                chosen_index = action.origin
+            except AttributeError:
+                chosen_index = action
+
+            # get chosen card
+            chosen_card = observation.current_player.hand[chosen_index]
+
+            # increase amount of cards chosen with the chosen card's cost
+            current_drafter.mana_curve[chosen_card.cost] += 1
+
         # perform the action and get the outcome
         _, rewards, dones, _ = env.step(actions)
 
@@ -151,6 +178,10 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
         # swap drafters
         current_drafter, other_drafter = other_drafter, current_drafter
 
+    # normalize mana curves
+    drafter1.mana_curve /= sum(drafter1.mana_curve)
+    drafter2.mana_curve /= sum(drafter2.mana_curve)
+
     # join all parallel rewards
     all_rewards = [reward for rewards in episode_rewards
                    for reward in rewards[:-1]]
@@ -161,7 +192,7 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     # convert the list of rewards to the first player's win rate
     win_rate = (mean(all_rewards) + 1) * 50
 
-    return win_rate
+    return (win_rate, 100 - win_rate), (drafter1.mana_curve, drafter2.mana_curve)
 
 
 def run():
@@ -184,7 +215,7 @@ def run():
     # for each combination of two drafters
     for drafter1 in args.drafters:
         for drafter2 in args.drafters:
-            win_rates = []
+            mean_win_rate = 0
 
             # for each seed
             for i, seed in enumerate(args.seeds):
@@ -194,17 +225,17 @@ def run():
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the win rate of the first player
-                win_rate = run_matchup(d1, d2, args.battler, args.games,
-                                       seed, args.concurrency)
+                win_rates, mana_curves = run_matchup(
+                    d1, d2, args.battler, args.games, seed, args.concurrency)
 
-                win_rates.append(win_rate)
+                mean_win_rate += win_rates[0]
 
                 # save individual result
                 ind_results.append([drafter1, drafter2, seed,
-                                    win_rate, datetime.now()])
+                                    win_rates[0], datetime.now()])
 
             # get the mean win rate of the first player
-            mean_win_rate = mean(win_rates)
+            mean_win_rate /= len(args.seeds)
 
             # round the mean win rate up to three decimal places
             mean_win_rate = round(mean_win_rate, 3)
