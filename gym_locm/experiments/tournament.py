@@ -227,16 +227,18 @@ def run():
     agg_results = pd.DataFrame(index=args.drafters, columns=args.drafters)
     ind_results = []
 
-    mana_curves_index = pd.MultiIndex.from_product(
+    drafter_role_index = pd.MultiIndex.from_product(
         [args.drafters, ['1st', '2nd']], names=['drafter', 'role'])
-    mana_curves = pd.DataFrame(index=mana_curves_index, columns=range(13))
+    mana_curves = pd.DataFrame(index=drafter_role_index, columns=range(13))
+    choices = pd.DataFrame(index=drafter_role_index,
+                           columns=range(30 * args.games * len(args.seeds)))
 
     # for each combination of two drafters
     for drafter1 in args.drafters:
         for drafter2 in args.drafters:
             mean_win_rate = 0
-            mean_mana_curves_1p = []
-            mean_mana_curves_2p = []
+            mean_mana_curves_1p, mean_mana_curves_2p = [], []
+            choices_1p, choices_2p = [], []
 
             # for each seed
             for i, seed in enumerate(args.seeds):
@@ -246,12 +248,14 @@ def run():
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the statistics
-                wrs, mcs, _ = run_matchup(d1, d2, args.battler, args.games,
-                                          seed, args.concurrency)
+                wrs, mcs, chs = run_matchup(d1, d2, args.battler, args.games,
+                                            seed, args.concurrency)
 
                 mean_win_rate += wrs[0]
                 mean_mana_curves_1p.append(mcs[0])
                 mean_mana_curves_2p.append(mcs[1])
+                choices_1p.extend(chs[0])
+                choices_2p.extend(chs[1])
 
                 # save individual result
                 ind_results.append([drafter1, drafter2, seed,
@@ -272,7 +276,7 @@ def run():
             # save aggregate result
             agg_results.loc[drafter1][drafter2] = mean_win_rate
 
-            # save drafters' mana curves if they have not been saved yet
+            # save mana curves and choices if they have not been saved yet
             if np.isnan(mana_curves.loc[drafter1, '1st'][0]):
                 # get the mean mana curve for the drafter
                 mean_mana_curves_1p = np.array(mean_mana_curves_1p).mean(axis=0)
@@ -283,6 +287,9 @@ def run():
                 # update appropriate mana curves data frame row
                 mana_curves.loc[drafter1, '1st'] = mean_mana_curves_1p
 
+                # update appropriate choices data frame row
+                choices.loc[drafter1, '1st'] = choices_1p
+
             if np.isnan(mana_curves.loc[drafter2, '2nd'][0]):
                 # get the mean mana curve for the drafter
                 mean_mana_curves_2p = np.array(mean_mana_curves_2p).mean(axis=0)
@@ -292,6 +299,9 @@ def run():
 
                 # update appropriate mana curves data frame row
                 mana_curves.loc[drafter2, '2nd'] = mean_mana_curves_2p
+
+                # update appropriate choices data frame row
+                choices.loc[drafter2, '2nd'] = choices_2p
 
     # add average win rate to aggregate results
     avg_wr_as_1st_player = agg_results.mean(axis=1)
@@ -311,6 +321,7 @@ def run():
     agg_results.to_csv('tournament.csv', index_label="1p \\ 2p")
     ind_results.to_csv('tournament_ind.csv')
     mana_curves.to_csv('mana_curves.csv')
+    choices.T.to_csv('choices.csv')
 
 
 if __name__ == '__main__':
