@@ -197,8 +197,10 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     drafter1.choices = [c for choices in drafter1.choices for c in choices]
     drafter2.choices = [c for choices in drafter2.choices for c in choices]
 
-    # cap any unsolicited additional episodes
+    # cap any unsolicited data from additional episodes
     all_rewards = all_rewards[:games]
+    drafter1.choices = drafter1.choices[:30 * games]
+    drafter2.choices = drafter2.choices[:30 * games]
 
     # convert the list of rewards to the first player's win rate
     win_rate = (mean(all_rewards) + 1) * 50
