@@ -212,10 +212,16 @@ def run():
     agg_results = pd.DataFrame(index=args.drafters, columns=args.drafters)
     ind_results = []
 
+    mana_curves_index = pd.MultiIndex.from_product(
+        [args.drafters, ['1st', '2nd']], names=['drafter', 'role'])
+    mana_curves = pd.DataFrame(index=mana_curves_index, columns=range(13))
+
     # for each combination of two drafters
     for drafter1 in args.drafters:
         for drafter2 in args.drafters:
             mean_win_rate = 0
+            mean_mana_curves_1p = []
+            mean_mana_curves_2p = []
 
             # for each seed
             for i, seed in enumerate(args.seeds):
@@ -225,14 +231,16 @@ def run():
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the win rate of the first player
-                win_rates, mana_curves = run_matchup(
-                    d1, d2, args.battler, args.games, seed, args.concurrency)
+                wrs, mcs = run_matchup(d1, d2, args.battler, args.games,
+                                       seed, args.concurrency)
 
-                mean_win_rate += win_rates[0]
+                mean_win_rate += wrs[0]
+                mean_mana_curves_1p.append(mcs[0])
+                mean_mana_curves_2p.append(mcs[1])
 
                 # save individual result
                 ind_results.append([drafter1, drafter2, seed,
-                                    win_rates[0], datetime.now()])
+                                    wrs[0], datetime.now()])
 
             # get the mean win rate of the first player
             mean_win_rate /= len(args.seeds)
@@ -248,6 +256,27 @@ def run():
 
             # save aggregate result
             agg_results.loc[drafter1][drafter2] = mean_win_rate
+
+            # save drafters' mana curves if they have not been saved yet
+            if np.isnan(mana_curves.loc[drafter1, '1st'][0]):
+                # get the mean mana curve for the drafter
+                mean_mana_curves_1p = np.array(mean_mana_curves_1p).mean(axis=0)
+
+                # change unit from percentage to amount of cards
+                mean_mana_curves_1p *= 30
+
+                # update appropriate mana curves data frame row
+                mana_curves.loc[drafter1, '1st'] = mean_mana_curves_1p
+
+            if np.isnan(mana_curves.loc[drafter2, '2nd'][0]):
+                # get the mean mana curve for the drafter
+                mean_mana_curves_2p = np.array(mean_mana_curves_2p).mean(axis=0)
+
+                # change unit from percentage to amount of cards
+                mean_mana_curves_1p *= 30
+
+                # update appropriate mana curves data frame row
+                mana_curves.loc[drafter2, '2nd'] = mean_mana_curves_2p
 
     # add average win rate to aggregate results
     avg_wr_as_1st_player = agg_results.mean(axis=1)
@@ -266,6 +295,7 @@ def run():
     # save all tournament data to csv files
     agg_results.to_csv('tournament.csv', index_label="1p \\ 2p")
     ind_results.to_csv('tournament_ind.csv')
+    mana_curves.to_csv('mana_curves.csv')
 
 
 if __name__ == '__main__':
