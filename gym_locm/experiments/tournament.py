@@ -218,6 +218,11 @@ def run():
             # save aggregate result
             agg_results[drafter1][drafter2] = mean_win_rate
 
+    # add average win rate to aggregate results
+    avg_wr_as_1st_player = agg_results.mean(axis=1)
+    avg_wr_as_2nd_player = 100 - agg_results.mean(axis=0)
+    agg_results['average'] = (avg_wr_as_1st_player + avg_wr_as_2nd_player) / 2
+
     # transform individual results matrix into a data frame
     ind_results = np.array(ind_results)
     ind_results_index = pd.MultiIndex.from_product(
