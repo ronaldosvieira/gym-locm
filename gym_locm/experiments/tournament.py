@@ -59,8 +59,9 @@ def get_arg_parser() -> argparse.ArgumentParser:
 
 
 def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
-                seed: int, concurrency: int) \
-        -> Tuple[Tuple[float, float], Tuple[Iterable, Iterable]]:
+                seed: int, concurrency: int) -> Tuple[Tuple[float, float],
+                                                      Tuple[Iterable, Iterable],
+                                                      Tuple[Iterable, Iterable]]:
     """
     Run the match-up between `drafter1` and `drafter2` using `battler` battler
     :param drafter1: drafter to play as first player
@@ -70,8 +71,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     :param seed: seed used to generate the matches
     :param concurrency: amount of matches executed at the same time
     :return: a tuple containing (i) a tuple containing the win rate of the
-    first and second players, and (ii) a tuple containing the average mana curves
-    of the first and second players
+    first and second players, (ii) a tuple containing the average mana curves
+    of the first and second players, and (iii) a tuple containing the
+    `30 * games` individual draft choices of the first and second players.
     """
     # parse the battle agent
     battler = agents.parse_battle_agent(battler)
@@ -118,6 +120,8 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     episode_rewards = [[0.0] for _ in range(env.num_envs)]
     drafter1.mana_curve = np.zeros((13,))
     drafter2.mana_curve = np.zeros((13,))
+    drafter1.choices = [[] for _ in range(env.num_envs)]
+    drafter2.choices = [[] for _ in range(env.num_envs)]
 
     # run the episodes
     while True:
@@ -149,6 +153,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
                 chosen_index = action.origin
             except AttributeError:
                 chosen_index = action
+
+            # save choice
+            current_drafter.choices[i].append(chosen_index)
 
             # get chosen card
             chosen_card = observation.current_player.hand[chosen_index]
@@ -186,13 +193,19 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     all_rewards = [reward for rewards in episode_rewards
                    for reward in rewards[:-1]]
 
+    # join all parallel choices
+    drafter1.choices = [c for choices in drafter1.choices for c in choices]
+    drafter2.choices = [c for choices in drafter2.choices for c in choices]
+
     # cap any unsolicited additional episodes
     all_rewards = all_rewards[:games]
 
     # convert the list of rewards to the first player's win rate
     win_rate = (mean(all_rewards) + 1) * 50
 
-    return (win_rate, 100 - win_rate), (drafter1.mana_curve, drafter2.mana_curve)
+    return (win_rate, 100 - win_rate), \
+           (drafter1.mana_curve, drafter2.mana_curve), \
+           (drafter1.choices, drafter2.choices)
 
 
 def run():
@@ -230,9 +243,9 @@ def run():
                 d1 = drafter1 + f'1st/{i + 1}.zip' if drafter1.endswith('/') else drafter1
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
-                # run the match-up and get the win rate of the first player
-                wrs, mcs = run_matchup(d1, d2, args.battler, args.games,
-                                       seed, args.concurrency)
+                # run the match-up and get the statistics
+                wrs, mcs, _ = run_matchup(d1, d2, args.battler, args.games,
+                                          seed, args.concurrency)
 
                 mean_win_rate += wrs[0]
                 mean_mana_curves_1p.append(mcs[0])
