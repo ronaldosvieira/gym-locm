@@ -216,7 +216,7 @@ def run():
             print(current_time, drafter1, drafter2, mean_win_rate)
 
             # save aggregate result
-            agg_results[drafter1][drafter2] = mean_win_rate
+            agg_results.loc[drafter1][drafter2] = mean_win_rate
 
     # add average win rate to aggregate results
     avg_wr_as_1st_player = agg_results.mean(axis=1)
