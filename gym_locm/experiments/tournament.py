@@ -59,9 +59,8 @@ def get_arg_parser() -> argparse.ArgumentParser:
 
 
 def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
-                seed: int, concurrency: int) -> Tuple[Tuple[float, float],
-                                                      Tuple[Iterable, Iterable],
-                                                      Tuple[Iterable, Iterable]]:
+                seed: int, concurrency: int) \
+        -> Tuple[Tuple[float, float], Tuple[list, list], Tuple[list, list]]:
     """
     Run the match-up between `drafter1` and `drafter2` using `battler` battler
     :param drafter1: drafter to play as first player
@@ -118,8 +117,8 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     # initialize metrics
     episodes_so_far = 0
     episode_rewards = [[0.0] for _ in range(env.num_envs)]
-    drafter1.mana_curve = np.zeros((13,))
-    drafter2.mana_curve = np.zeros((13,))
+    drafter1.mana_curve = [0 for _ in range(13)]
+    drafter2.mana_curve = [0 for _ in range(13)]
     drafter1.choices = [[] for _ in range(env.num_envs)]
     drafter2.choices = [[] for _ in range(env.num_envs)]
 
@@ -186,8 +185,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
         current_drafter, other_drafter = other_drafter, current_drafter
 
     # normalize mana curves
-    drafter1.mana_curve /= sum(drafter1.mana_curve)
-    drafter2.mana_curve /= sum(drafter2.mana_curve)
+    total_choices = sum(drafter1.mana_curve)
+    drafter1.mana_curve = [freq / total_choices for freq in drafter1.mana_curve]
+    drafter2.mana_curve = [freq / total_choices for freq in drafter2.mana_curve]
 
     # join all parallel rewards
     all_rewards = [reward for rewards in episode_rewards
