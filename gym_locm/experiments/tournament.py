@@ -50,6 +50,8 @@ def get_arg_parser() -> argparse.ArgumentParser:
                         'repeated with each seed')
     p.add_argument('--concurrency', '-c', type=int, default=1,
                    help='amount of concurrent games')
+    p.add_argument('--path', '-p', '-o', default='.',
+                   help='path to save result files')
 
     # todo: implement time limit for search-based battlers
     # p.add_argument('--time', '-t', default=200,
@@ -223,6 +225,9 @@ def run():
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
 
+    # create output folder if it doesn't exist
+    os.makedirs(args.path, exist_ok=True)
+
     # initialize data frames
     agg_results = pd.DataFrame(index=args.drafters, columns=args.drafters)
     ind_results = []
@@ -318,16 +323,16 @@ def run():
                                columns=['win_rate', 'datetime'])
 
     # save all tournament data to csv files
-    agg_results.to_csv('aggregate_win_rates.csv', index_label="1p \\ 2p")
-    ind_results.to_csv('individual_win_rates.csv')
-    mana_curves.to_csv('mana_curves.csv')
-    choices.T.to_csv('choices.csv')
+    agg_results.to_csv(args.path + '/aggregate_win_rates.csv', index_label="1p \\ 2p")
+    ind_results.to_csv(args.path + '/individual_win_rates.csv')
+    mana_curves.to_csv(args.path + '/mana_curves.csv')
+    choices.T.to_csv(args.path + '/choices.csv')
 
     # and also pickle files for easy reading
-    agg_results.to_pickle('aggregated_win_rates.pkl')
-    ind_results.to_pickle('individual_win_rates.pkl')
-    mana_curves.to_csv('mana_curves.pkl')
-    choices.to_csv('choices.pkl')
+    agg_results.to_pickle(args.path + '/aggregated_win_rates.pkl')
+    ind_results.to_pickle(args.path + '/individual_win_rates.pkl')
+    mana_curves.to_csv(args.path + '/mana_curves.pkl')
+    choices.to_csv(args.path + '/choices.pkl')
 
 
 if __name__ == '__main__':
