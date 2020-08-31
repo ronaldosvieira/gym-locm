@@ -318,8 +318,8 @@ def run():
                                columns=['win_rate', 'datetime'])
 
     # save all tournament data to csv files
-    agg_results.to_csv('tournament.csv', index_label="1p \\ 2p")
-    ind_results.to_csv('tournament_ind.csv')
+    agg_results.to_csv('aggregate_win_rates.csv', index_label="1p \\ 2p")
+    ind_results.to_csv('individual_win_rates.csv')
     mana_curves.to_csv('mana_curves.csv')
     choices.T.to_csv('choices.csv')
 
