@@ -295,7 +295,7 @@ def run():
                 mean_mana_curves_2p = np.array(mean_mana_curves_2p).mean(axis=0)
 
                 # change unit from percentage to amount of cards
-                mean_mana_curves_1p *= 30
+                mean_mana_curves_2p *= 30
 
                 # update appropriate mana curves data frame row
                 mana_curves.loc[drafter2, '2nd'] = mean_mana_curves_2p
