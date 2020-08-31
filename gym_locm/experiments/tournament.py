@@ -323,6 +323,12 @@ def run():
     mana_curves.to_csv('mana_curves.csv')
     choices.T.to_csv('choices.csv')
 
+    # and also pickle files for easy reading
+    agg_results.to_pickle('aggregated_win_rates.pkl')
+    ind_results.to_pickle('individual_win_rates.pkl')
+    mana_curves.to_csv('mana_curves.pkl')
+    choices.to_csv('choices.pkl')
+
 
 if __name__ == '__main__':
     run()
