@@ -328,7 +328,7 @@ def run():
     mana_curves.to_csv(args.path + '/mana_curves.csv')
 
     # and also pickle files for easy reading
-    agg_results.to_pickle(args.path + '/aggregated_win_rates.pkl')
+    agg_results.to_pickle(args.path + '/aggregate_win_rates.pkl')
     ind_results.to_pickle(args.path + '/individual_win_rates.pkl')
     mana_curves.to_csv(args.path + '/mana_curves.pkl')
     choices.to_csv(args.path + '/choices.pkl')
