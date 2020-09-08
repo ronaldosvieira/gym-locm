@@ -100,6 +100,7 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     else:
         current_drafter = agents.parse_draft_agent(drafter1)()
 
+    current_drafter.seed(seed)
     current_drafter.name = drafter1
     drafter1 = current_drafter
 
@@ -110,6 +111,7 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     else:
         other_drafter = agents.parse_draft_agent(drafter2)()
 
+    other_drafter.seed(seed)
     other_drafter.name = drafter2
     drafter2 = other_drafter
 
