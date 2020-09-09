@@ -51,7 +51,7 @@ def run():
     choices.drop(columns=['drafter', 'entropy'], level=0, inplace=True)
 
     # get list of drafters from remaining columns
-    drafters = choices.columns.get_level_values(0).unique()
+    drafters = list(choices.columns.get_level_values(0).unique())
 
     print("Processing data...")
 
@@ -118,10 +118,20 @@ def run():
 
     # color the drafters according to their cluster
     all_colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple',
-              'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
+                  'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
     coords['color'] = [all_colors[cluster_id] for cluster_id in kmeans.labels_]
 
     print("All done.")
+
+    # rename agents
+    for i in range(len(drafters)):
+        tokens = drafters[i].split('/')
+
+        if len(tokens) > 1:
+            battler = {'max-attack': 'MA', 'greedy': 'GR'}[tokens[-3]]
+            drafter = tokens[-2]
+
+            drafters[i] = f"{drafter}/{battler}"
 
     print(coords)
 
