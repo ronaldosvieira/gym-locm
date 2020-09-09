@@ -133,6 +133,14 @@ def run():
 
             drafters[i] = f"{drafter}/{battler}"
 
+    # normalize the axes
+    coords['x'] -= coords['x'].min()
+    coords['x'] /= coords['x'].max()
+    coords['y'] -= coords['y'].min()
+    coords['y'] /= coords['y'].max()
+    coords['z'] -= coords['z'].min()
+    coords['z'] /= coords['z'].max()
+
     print(coords)
 
     # plot the PCA coordinates in 3D
