@@ -107,14 +107,14 @@ def run():
     choices = choices.applymap(choices_to_points.__getitem__)
 
     # apply PCA down to 3 dimensions
-    pca = PCA(n_components=3, random_state=82)
+    pca = PCA(n_components=3, random_state=824)
     coords = pca.fit_transform(choices.T)
     coords.columns = ['x', 'y', 'z']
 
     print("Applying k-means...")
 
     # apply K-Means (k=4) to original choices data
-    kmeans = KMeans(n_clusters=4, random_state=82).fit(choices.T)
+    kmeans = KMeans(n_clusters=4, random_state=824).fit(choices.T)
 
     # color the drafters according to their cluster
     all_colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple',
