@@ -110,12 +110,13 @@ If you use gym-locm in your work, please consider citing it with:
 
 ```
 @misc{gym-locm,
-    author = {Vieira, Ronaldo; Chaimowicz, Luiz; Tavares, Anderson Rocha},
+    author = {Vieira, Ronaldo and Chaimowicz, Luiz and Tavares, Anderson Rocha},
     title = {OpenAI Gym Environments for Legends of Code and Magic},
     year = {2019},
     publisher = {GitHub},
     journal = {GitHub repository},
-    howpublished = {\url{https://github.com/ronaldosvieira/gym-locm}},
+    howpublished = {\url{https://github.com/ronaldosvieira/gym-locm}}
+}
 ```
 
 ## License
