@@ -2,10 +2,12 @@ import argparse
 import math
 import os
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from prince import PCA
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
 
 def get_arg_parser() -> argparse.ArgumentParser:
@@ -113,13 +115,29 @@ def run():
 
     print("Applying k-means...")
 
-    # apply K-Means (k=4) to original choices data
-    kmeans = KMeans(n_clusters=4, random_state=824).fit(choices.T)
+    # apply K-Means to original choices data, finding the optimal value of k
+    # with the average silhouette method
+    silhouettes, clusterings = [], []
+
+    for k in range(2, len(drafters)):
+        print(f"Trying k={k}", end="")
+
+        kmeans = KMeans(n_clusters=k, random_state=824).fit(coords)
+        silhouette = silhouette_score(coords, kmeans.labels_, random_state=824)
+
+        silhouettes.append(silhouette)
+        clusterings.append(kmeans.labels_)
+        print(f", silhouette={silhouette}, labels={kmeans.labels_}")
+
+    best_k = np.argmax(silhouettes) + 2
+
+    labels = clusterings[best_k - 2]
+    print(f"Best k: {best_k}. Labels: {labels}")
 
     # color the drafters according to their cluster
     all_colors = ['tab:blue', 'tab:orange', 'tab:green', 'tab:red', 'tab:purple',
                   'tab:brown', 'tab:pink', 'tab:gray', 'tab:olive', 'tab:cyan']
-    coords['color'] = [all_colors[cluster_id] for cluster_id in kmeans.labels_]
+    coords['color'] = [all_colors[cluster_id] for cluster_id in labels]
 
     print("All done.")
 
