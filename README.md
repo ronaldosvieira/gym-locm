@@ -104,6 +104,30 @@ env = gym.make("LOCM-2p-v0")
 
 Both players are controlled alternately. A reward of *1* is given if the first player wins, and *-1* otherwise. 
 
+### Additional options
+
+Some additional options can be configured at env creation time. These are:
+
+#### Seed
+
+Random seed to be used by the environment. In a match, the random seed will be 
+used to generate card choices for each draft turn and to shuffle both players' 
+deck at the beginning of the battle. 
+
+Usage: `env = gym.make('LOCM-XXX-vX', seed=42)`
+
+Default: `None`
+
+#### Use item cards
+
+This option determines whether consider green, red and blue item cards in the game. If set to 
+false, item cards will not be available to draft, and USE actions will not be 
+present on battle envs' action space (ATTACK action codes will start at 17).
+
+Usage: `env = gym.make('LOCM-XXX-vX', items=False)`
+
+Default: `True`
+
 ## Citing
 
 If you use gym-locm in your work, please consider citing it with:
