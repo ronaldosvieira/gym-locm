@@ -108,15 +108,52 @@ Both players are controlled alternately. A reward of *1* is given if the first p
 
 Some additional options can be configured at env creation time. These are:
 
-#### Seed
+#### Set random seed
 
-Random seed to be used by the environment. In a match, the random seed will be 
-used to generate card choices for each draft turn and to shuffle both players' 
-deck at the beginning of the battle. 
+This option determines the random seed to be used by the environment. In a match, 
+the random seed will be used to generate card choices for each draft turn and to 
+shuffle both players' deck at the beginning of the battle. To increase reproducibility,
+every time the env is reset, its random state is reset, and `seed + 1` is used as seed.
 
-Usage: `env = gym.make('LOCM-XXX-vX', seed=42)`
+Usage: `env = gym.make('LOCM-XXX-vX', seed=42)`, default: `None`
 
-Default: `None`
+#### Set agents for the roles you don't control
+
+By default, random draft and battle agents are used in the roles not controlled by the 
+user (e.g. if it's a single-player draft env, a random agent drafts for the opponent 
+player, and random agents battles for both players). To specify different agents for 
+these roles, use:
+
+```python
+env = gym.make('LOCM-draft-XXX-vX', draft_agent=RandomDraftAgent(),
+                battle_agents=(RandomBattleAgents(), RandomBattleAgents()))
+env = gym.make('LOCM-battle-XXX-vX', battle_agent=RandomBattleAgent(),
+                draft_agents=(RandomDraftAgents(), RandomDraftAgents()))
+```
+
+Trying to specify agents that you control will result in an error. The following draft
+agents are available: 
+
+- *PassDraftAgent*: only passes the turn (this is equivalent to always choosing the 
+first card).
+- *RandomDraftAgent*: drafts at random. 
+- *RuleBasedDraftAgent*: drafts like Baseline1 from the Strategy Card Game AI competition.
+- *MaxAttackDraftAgent*: drafts like Baseline2 from the Strategy Card Game AI competition.
+- *IceboxDraftAgent*: drafts using the card ranking CodinGame's user Icebox.
+- *ClosetAIDraftAgent*: drafts using the card ranking CodinGame's user ClosetAI.
+- *UJI1DraftAgent*: drafts like UJIAgent1 from the Strategy Card Game AI competition.
+- *UJI2DraftAgent*: drafts like UJIAgent2 from the Strategy Card Game AI competition.
+- *CoacDraftAgent*: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
+
+The following battle agents are available:
+- *PassBattleAgent*: only passes the turn. 
+- *RandomBattleAgent*: chooses any valid action at random (including passing the turn).
+- *RuleBasedBattleAgent*: battles like Baseline1 from the Strategy Card Game AI competition.
+- *MaxAttackBattleAgent*: battles like Baseline2 from the Strategy Card Game AI competition.
+- *GreedyBattleAgent*: battles like Greedy from Kowalski and Miernik's paper<a href="#kowalski2020">¹</a>.
+- *MCTSBattleAgent*: battles using a MCTS algorithm (experimental). Takes a `time` 
+parameter that determines the amount of time, in milliseconds, that the agent is allowed
+to "think".
 
 #### Use item cards
 
@@ -142,6 +179,10 @@ If you use gym-locm in your work, please consider citing it with:
     howpublished = {\url{https://github.com/ronaldosvieira/gym-locm}}
 }
 ```
+
+## References
+1. <span id="kowalski2020">Kowalski, J., & Miernik, R. (2020). Evolutionary 
+Approach to Collectible Card Game Arena Deckbuilding using Active Genes. arXiv preprint arXiv:2001.01326.</span>
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
