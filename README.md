@@ -122,7 +122,7 @@ Usage: `env = gym.make('LOCM-XXX-vX', seed=42)`, default: `None`
 By default, random draft and battle agents are used in the roles not controlled by the 
 user (e.g. if it's a single-player draft env, a random agent drafts for the opponent 
 player, and random agents battles for both players). To specify different agents for 
-these roles, use:
+these roles, use, for instance:
 
 ```python
 env = gym.make('LOCM-draft-XXX-vX', draft_agent=RandomDraftAgent(),
@@ -131,10 +131,10 @@ env = gym.make('LOCM-battle-XXX-vX', battle_agent=RandomBattleAgent(),
                 draft_agents=(RandomDraftAgents(), RandomDraftAgents()))
 ```
 
-Trying to specify agents that you control will result in an error. The following draft
+Trying to specify agents for roles you control will result in an error. The following draft
 agents are available: 
 
-- *PassDraftAgent*: only passes the turn (this is equivalent to always choosing the 
+- *PassDraftAgent*: always passes the turn (this is equivalent to always choosing the 
 first card).
 - *RandomDraftAgent*: drafts at random. 
 - *RuleBasedDraftAgent*: drafts like Baseline1 from the Strategy Card Game AI competition.
@@ -146,7 +146,7 @@ first card).
 - *CoacDraftAgent*: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
 
 The following battle agents are available:
-- *PassBattleAgent*: only passes the turn. 
+- *PassBattleAgent*: always passes the turn. 
 - *RandomBattleAgent*: chooses any valid action at random (including passing the turn).
 - *RuleBasedBattleAgent*: battles like Baseline1 from the Strategy Card Game AI competition.
 - *MaxAttackBattleAgent*: battles like Baseline2 from the Strategy Card Game AI competition.
