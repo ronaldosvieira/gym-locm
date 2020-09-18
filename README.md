@@ -115,7 +115,7 @@ the random seed will be used to generate card choices for each draft turn and to
 shuffle both players' deck at the beginning of the battle. To increase reproducibility,
 every time the env is reset, its random state is reset, and `seed + 1` is used as seed.
 
-Usage: `env = gym.make('LOCM-XXX-vX', seed=42)`, default: `None`
+Usage: `env = gym.make('LOCM-XXX-vX', seed=42)`, default: `None`.
 
 #### Set agents for the roles you don't control
 
@@ -161,9 +161,25 @@ This option determines whether consider green, red and blue item cards in the ga
 false, item cards will not be available to draft, and USE actions will not be 
 present on battle envs' action space (ATTACK action codes will start at 17).
 
-Usage: `env = gym.make('LOCM-XXX-vX', items=False)`
+Usage: `env = gym.make('LOCM-XXX-vX', items=False)`, default: `True`.
 
-Default: `True`
+#### Add previously drafted cards to state (draft envs only)
+
+This option determines whether the state of draft envs includes the previously drafted
+cards alongside the current card alternatives. If set to true, the state shape of a 
+draft env changes from a 3 x 16 matrix to a 33 x 16 matrix, where the 30 first rows 
+hold the up to 30 cards drafted in the past turns. The card slots of current and future
+picks are filled with zeros.
+
+Usage: `env = gym.make('LOCM-draft-XXX-vX', use_draft_history=True)`, default: `False`.
+
+#### Sort cards in state by mana cost (draft envs only)
+
+This option determines whether the cards in the draft's state matrix will be sorted by 
+mana cost in ascending order. This virtually reduces the state space, as every 
+possible permutation of three specific cards will result in a single state matrix.
+
+Usage: `env = gym.make('LOCM-draft-XXX-vX', sort_cards=True)`, default: `False`.
 
 ## Citing
 
