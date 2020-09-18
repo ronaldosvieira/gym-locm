@@ -163,7 +163,7 @@ present on battle envs' action space (ATTACK action codes will start at 17).
 
 Usage: `env = gym.make('LOCM-XXX-vX', items=False)`, default: `True`.
 
-#### Add previously drafted cards to state (draft envs only)
+#### Include previously drafted cards to state (draft envs only)
 
 This option determines whether the state of draft envs includes the previously drafted
 cards alongside the current card alternatives. If set to true, the state shape of a 
