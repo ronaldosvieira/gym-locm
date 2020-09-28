@@ -144,7 +144,8 @@ class FixedAdversary(TrainingSession):
             # save model
             model_path = self.path + f'/{episodes_so_far}'
             self.model.save(model_path)
-            self.logger.debug(f"Saved model at {model_path}.zip.")
+            save_model_as_json(self.model, self.params['activation'], model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
             # evaluate the model
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
@@ -296,7 +297,8 @@ class SelfPlay(TrainingSession):
             # save model
             model_path = self.path + f'/{episodes_so_far}'
             model.save(model_path)
-            self.logger.debug(f"Saved model at {model_path}.zip.")
+            save_model_as_json(model, self.params['activation'], model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
             # evaluate the model
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
@@ -480,7 +482,8 @@ class AsymmetricSelfPlay(TrainingSession):
             # save model
             model_path = self.path + f'/{episodes_so_far}'
             model.save(model_path)
-            self.logger.debug(f"Saved model at {model_path}.zip.")
+            save_model_as_json(model, self.params['activation'], model_path)
+            self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
             # evaluate the model
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
@@ -665,6 +668,21 @@ class Evaluator:
 
     def close(self):
         self.env.close()
+
+
+def save_model_as_json(model, act_fun, path):
+    with open(path + '.json', 'w') as json_file:
+        params = {}
+
+        # create a parameter dictionary
+        for label, weights in model.get_parameters().items():
+            params[label] = weights.tolist()
+
+        # add activation function to it
+        params['act_fun'] = act_fun
+
+        # and save into the new file
+        json.dump(params, json_file)
 
 
 def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatches,
