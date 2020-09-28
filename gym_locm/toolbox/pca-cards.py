@@ -1,3 +1,4 @@
+import pathlib
 from operator import attrgetter
 
 import mplcursors
@@ -99,5 +100,8 @@ ax.grid()
 cursor = mplcursors.cursor(hover=False)
 cursor.connect(
     "add", lambda sel: sel.annotation.set_text(df["name"][sel.target.index]))
+
+base_path = str(pathlib.Path(__file__).parent.absolute())
+plt.savefig(base_path + '/pca-cards.png')
 
 plt.show()
