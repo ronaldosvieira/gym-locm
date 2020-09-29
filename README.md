@@ -196,8 +196,8 @@ draft agent, using random actions in the battle:
                 --games 1000 --processes 4
     ```
 
-2. Run 1000 matches of a fully random player against a player, using a player developed 
-for the original engine, and with a specific random seed:
+2. Run 1000 matches of a fully random player against a player developed for the original 
+engine, and with a specific random seed:
     ```bash
     locm-runner --p1-draft random --p1-battle random \
                 --p2-path "python /path/to/agent.py" \
