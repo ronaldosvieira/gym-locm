@@ -1,10 +1,13 @@
 import argparse
 import json
 import os
+import pathlib
 
 import numpy as np
 import pexpect
 from scipy.special import softmax
+
+base_path = str(pathlib.Path(__file__).parent.absolute())
 
 
 def get_arg_parser():
@@ -134,10 +137,28 @@ def is_valid_action(action):
 
 def load_model(path: str):
     # read the parameters
-    with open(path, 'r') as json_file:
+    with open(base_path + "/" + path, 'r') as json_file:
         params = json.load(json_file)
 
-    network = dict((label, np.array(weights)) for label, weights in params.items())
+    # initialize the network dict
+    network = {}
+
+    # load activation function for hidden layers
+    if 'version' not in params or params['version'] < 2:
+        network['act_fun'] = np.tanh
+    else:
+        network['act_fun'] = dict(
+            tanh=np.tanh,
+            relu=lambda x: np.maximum(x, 0),
+            elu=lambda x: np.where(x > 0, x, np.exp(x) - 1)
+        )[params['act_fun']]
+
+    del params['version']
+    del params['act_fun']
+
+    # load weights as numpy arrays
+    for label, weights in params.items():
+        network[label] = np.array(weights)
 
     return network
 
