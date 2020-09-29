@@ -3,7 +3,7 @@
 A collection of [OpenAI Gym](https://github.com/openai/gym) environments for the collectible card game [Legends of Code and Magic (LOCM)](https://jakubkowalski.tech/Projects/LOCM/).
 
 ## Installation
-```
+```python
 git clone https://github.com/ronaldosvieira/gym-locm.git
 cd gym-locm
 pip install -e .
@@ -150,7 +150,7 @@ The following battle agents are available:
 - *RandomBattleAgent*: chooses any valid action at random (including passing the turn).
 - *RuleBasedBattleAgent*: battles like Baseline1 from the Strategy Card Game AI competition.
 - *MaxAttackBattleAgent*: battles like Baseline2 from the Strategy Card Game AI competition.
-- *GreedyBattleAgent*: battles like Greedy from Kowalski and Miernik's paper<a href="#kowalski2020">¹</a>.
+- *GreedyBattleAgent*: battles like Greedy from Kowalski and Miernik's paper <a href="#kowalski2020">[1]</a>.
 - *MCTSBattleAgent*: battles using a MCTS algorithm (experimental). Takes a `time` 
 parameter that determines the amount of time, in milliseconds, that the agent is allowed
 to "think".
@@ -181,6 +181,53 @@ possible permutation of three specific cards will result in a single state matri
 
 Usage: `env = gym.make('LOCM-draft-XXX-vX', sort_cards=True)`, default: `False`.
 
+## Other resources
+
+### Runner
+
+We provide a command-line interface (CLI) to run LOCM matches. It is available as soon as the
+repository is installed. Some basic use cases are listed below.
+
+1. Run 1000 matches in parallel with 4 processes of the Icebox draft agent versus the Coac
+draft agent, using random actions in the battle:
+    ```bash
+    locm-runner --p1-draft icebox --p1-battle random \
+                --p2-draft coac --p2-battle random \
+                --games 1000 --processes 4
+    ```
+
+2. Run 1000 matches of a fully random player against a player, using a player developed 
+for the original engine, and with a specific random seed:
+    ```bash
+    locm-runner --p1-draft random --p1-battle random \
+                --p2-path "python /path/to/agent.py" \
+                --games 1000 --seed 42
+    ```
+
+### Train draft agents with deep reinforcement learning
+
+We provide scripts to train deep reinforcement learning draft agents as described in our 
+paper <a href="#vieira2020">[2]</a>. Further instructions are available in the README.md in 
+the [experiments](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/experiments) 
+package.
+
+To install the dependencies necessary to run the scripts, install 
+the repository with 
+```python
+pip install -e .['experiments']
+```
+
+### Use trained draft agents
+
+We provide a collection of draft agents trained with deep 
+reinforcement learning, and a script to use them in the LOCM's original engine.
+Further details on these agents and instructions for the script are available in the
+README.md in the 
+[trained_models](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/trained_models) 
+package.
+
+The use of these draft agents with the Runner script is not implemented yet.
+
 ## Citing
 
 If you use gym-locm in your work, please consider citing it with:
@@ -197,8 +244,12 @@ If you use gym-locm in your work, please consider citing it with:
 ```
 
 ## References
-1. <span id="kowalski2020">Kowalski, J., & Miernik, R. (2020). Evolutionary 
+1. <span id="kowalski2020">Kowalski, J., Miernik, R. (2020). Evolutionary 
 Approach to Collectible Card Game Arena Deckbuilding using Active Genes. arXiv preprint arXiv:2001.01326.</span>
+
+2. <span id="vieira2020">Vieira, R., Tavares, A. R., Chaimowicz, L. (2020). Drafting in 
+Collectible Card Games via Reinforcement Learning. 19th Brazilian Symposium of Computer Games
+and Digital Entertainment (SBGames).</span>
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
