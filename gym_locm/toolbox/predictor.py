@@ -23,33 +23,8 @@ def get_arg_parser():
                    default="2nd-draft.json")
     p.add_argument("--battle", help="command line to execute the battle agent",
                    default='./battle')
-    p.add_argument("--convert", action="store_true",
-                   help="convert mode - turn a given zip model "
-                        "into usable pkl model.")
 
     return p
-
-
-def convert(path: str):
-    from stable_baselines import PPO2
-
-    # load model
-    model = PPO2.load(path)
-
-    # save with same name but json extension
-    new_path = path.rstrip(r"\.zip") + ".json"
-
-    with open(new_path, 'w') as json_file:
-        params = {}
-
-        # create a parameter dictionary
-        for label, weights in model.get_parameters().items():
-            params[label] = weights.tolist()
-
-        # and save into the new file
-        json.dump(params, json_file)
-
-        print("Converted model written to", new_path)
 
 
 def read_game_input():
@@ -217,19 +192,13 @@ def run():
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
 
-    # select mode
-    if args.convert:
-        # converts a zip/pkl model into json
-        convert(args.draft)
+    # use json as draft agent
+    if os.path.isfile(args.draft):
+        paths = [args.draft]
     else:
-        # use json as draft agent
+        paths = [args.draft_1, args.draft_2]
 
-        if os.path.isfile(args.draft):
-            paths = [args.draft]
-        else:
-            paths = [args.draft_1, args.draft_2]
-
-        predict(paths, args.battle)
+    predict(paths, args.battle)
 
 
 if __name__ == '__main__':
