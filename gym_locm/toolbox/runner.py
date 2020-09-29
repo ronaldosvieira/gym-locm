@@ -18,9 +18,9 @@ def get_arg_parser():
         description="This is runner script for agent experimentation on gym-locm.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    p.add_argument("--p1-draft", help="draft strategy used by player 1",
+    p.add_argument("--p1-draft", help="draft agent used by player 1",
                    choices=agents.draft_agents.keys())
-    p.add_argument("--p1-player", help="battle strategy used by player 1",
+    p.add_argument("--p1-battle", help="battle agent used by player 1",
                    choices=agents.battle_agents.keys())
     p.add_argument("--p1-time", help="max thinking time for player 1",
                    default=200)
@@ -28,9 +28,9 @@ def get_arg_parser():
                    help="native agent to be used by player 1 - "
                         "mutually exclusive with draft, battle and time args.")
 
-    p.add_argument("--p2-draft", help="draft strategy used by player 2",
+    p.add_argument("--p2-draft", help="draft agent used by player 2",
                    choices=agents.draft_agents.keys())
-    p.add_argument("--p2-player", help="battle strategy used by player 2",
+    p.add_argument("--p2-battle", help="battle agent used by player 2",
                    choices=agents.battle_agents.keys())
     p.add_argument("--p2-time", help="max thinking time for player 2",
                    default=200)
@@ -95,26 +95,26 @@ def run():
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
 
-    if not args.p1_path and (not args.p1_draft or not args.p1_player):
+    if not args.p1_path and (not args.p1_draft or not args.p1_battle):
         arg_parser.error("You should use either p1-path or both "
-                         "p1-draft and p1-player or p1-path.\n")
-    elif not args.p2_path and (not args.p2_draft or not args.p2_player):
+                         "p1-draft and p1-battle.\n")
+    elif not args.p2_path and (not args.p2_draft or not args.p2_battle):
         arg_parser.error("You should use either p2-path or both "
-                         "p2-draft and p2-player.\n")
+                         "p2-draft and p2-battle.\n")
 
     if args.p1_path is not None:
         player_1 = agents.NativeAgent(args.p1_path)
         player_1 = (player_1, player_1)
     else:
         player_1 = parse_draft_agent(args.p1_draft)(), \
-                   parse_battle_agent(args.p1_player)()
+                   parse_battle_agent(args.p1_battle)()
 
     if args.p2_path is not None:
         player_2 = agents.NativeAgent(args.p2_path)
         player_2 = (player_2, player_2)
     else:
         player_2 = parse_draft_agent(args.p2_draft)(), \
-                   parse_battle_agent(args.p2_player)()
+                   parse_battle_agent(args.p2_battle)()
 
     if args.profile:
         profiler = cProfile.Profile()
