@@ -3,7 +3,7 @@
 A collection of [OpenAI Gym](https://github.com/openai/gym) environments for the collectible card game [Legends of Code and Magic (LOCM)](https://jakubkowalski.tech/Projects/LOCM/).
 
 ## Installation
-```python
+```
 git clone https://github.com/ronaldosvieira/gym-locm.git
 cd gym-locm
 pip install -e .
