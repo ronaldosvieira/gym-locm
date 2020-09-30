@@ -66,7 +66,7 @@ from `AGENTS[10]="python3 Baseline2/main.py"` to
 ```bash
 AGENTS[10]="python3 gym_locm/toolbox/predictor.py --battle \"python3 Baseline2/main.py\" \
     --draft-1 path/to/gym_locm/trained_models/max-attack/immediate/1st/6.json \
-    --draft-2 path/to/gym_locm/trained_models/max-attack/immediate/2nd/8.json
+    --draft-2 path/to/gym_locm/trained_models/max-attack/immediate/2nd/8.json"
 ```
 then, executing it. Paralellism can be achieved by running the script in multiple processes/machines. Save the 
 output to text files named `out-*.txt` (with a number instead of `*`) in the same folder, then run 
