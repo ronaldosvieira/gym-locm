@@ -22,8 +22,23 @@ to do
 
 #### Section 5.6 or IV.G: Agent improvement in the CoG 2019 LOCM tournament
 
-to do
-
+We used the 
+[source code of the Strategy Card Game AI competition](https://github.com/acatai/Strategy-Card-Game-AI-Competition/tree/master/contest-2019-08-COG) 
+to re-run the matches, replacing the *max-attack* player (named Baseline2) with a personalized player featuring 
+our best draft agent and the battle portion on the *max-attack* player. This can be reproduced by altering line 
+11 of the runner script 
+([run.sh](https://github.com/acatai/Strategy-Card-Game-AI-Competition/blob/master/contest-2019-08-COG/run.sh))
+from `AGENTS[10]="python3 Baseline2/main.py"` to
+```bash
+AGENTS[10]="python3 gym_locm/toolbox/predictor.py --battle \"python3 Baseline2/main.py\" \
+    --draft-1 path/to/gym_locm/trained_models/max-attack/immediate/1st/6.json \
+    --draft-2 path/to/gym_locm/trained_models/max-attack/immediate/2nd/8.json
+```
+then, executing it. Save the output to a text file in the same folder, then run 
+[analyze.py](https://github.com/acatai/Strategy-Card-Game-AI-Competition/blob/master/contest-2019-08-COG/analyze.py) 
+to extract win rates.
+See the [trained_models](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/trained_models) 
+package for more information on the predictor script.
 
 ### References
 
