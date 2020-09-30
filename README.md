@@ -131,9 +131,13 @@ env = gym.make('LOCM-battle-XXX-vX', battle_agent=RandomBattleAgent(),
                 draft_agents=(RandomDraftAgents(), RandomDraftAgents()))
 ```
 
-Trying to specify agents for roles you control will result in an error. The following draft
-agents are available: 
+Trying to specify agents for roles you control will result in an error.
 
+<details>
+  <summary>Click to see all available agents</summary>
+    
+Draft agents:
+    
 - *PassDraftAgent*: always passes the turn (this is equivalent to always choosing the 
 first card).
 - *RandomDraftAgent*: drafts at random. 
@@ -145,7 +149,7 @@ first card).
 - *UJI2DraftAgent*: drafts like UJIAgent2 from the Strategy Card Game AI competition.
 - *CoacDraftAgent*: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
 
-The following battle agents are available:
+Battle agents:
 - *PassBattleAgent*: always passes the turn. 
 - *RandomBattleAgent*: chooses any valid action at random (including passing the turn).
 - *RuleBasedBattleAgent*: battles like Baseline1 from the Strategy Card Game AI competition.
@@ -154,6 +158,7 @@ The following battle agents are available:
 - *MCTSBattleAgent*: battles using a MCTS algorithm (experimental). Takes a `time` 
 parameter that determines the amount of time, in milliseconds, that the agent is allowed
 to "think".
+</details>
 
 #### Use item cards
 
