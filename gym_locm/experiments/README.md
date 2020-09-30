@@ -13,38 +13,15 @@ described as follows.
 To perform a hyperparameter tuning, simply execute the [hyp-search.py](hyp-search.py) script:
 
 ```
-usage: hyp-search.py [-h] [--approach {immediate,lstm,history}]
-                     [--battle-agent {max-attack,greedy}] --path PATH
-                     [--train-episodes TRAIN_EPISODES]
-                     [--eval-episodes EVAL_EPISODES] [--num-evals NUM_EVALS]
-                     [--seed SEED] [--processes PROCESSES]
-                     [--num-trials NUM_TRIALS]
-                     [--num-warmup-trials NUM_WARMUP_TRIALS]
-
-  -h, --help            show this help message and exit
-  --approach {immediate,lstm,history}, -a {immediate,lstm,history}
-  --battle-agent {max-attack,greedy}, -b {max-attack,greedy}
-  --path PATH, -p PATH  path to save models and results (default: None)
-  --train-episodes TRAIN_EPISODES, -te TRAIN_EPISODES
-                        how many episodes to train (default: 30000)
-  --eval-episodes EVAL_EPISODES, -ee EVAL_EPISODES
-                        how many episodes to eval (default: 1000)
-  --num-evals NUM_EVALS, -ne NUM_EVALS
-                        how many evaluations to perform throughout training (default: 12)
-  --seed SEED           seed to use on the model, envs and hyperparameter search (default: None)
-  --processes PROCESSES
-                        amount of processes to use (default: 1)
-  --num-trials NUM_TRIALS, -n NUM_TRIALS
-                        amount of hyperparameter sets to test (default: 50)
-  --num-warmup-trials NUM_WARMUP_TRIALS, -w NUM_WARMUP_TRIALS
-                        amount of random hyperparameter sets to test before starting optimizing (default: 20)
+python3 gym_locm/experiments/hyp-search.py --approach <approach> --battle-agent <battle_agent> \
+    --path hyp_search_results/ --seed 96765 --processes 4
 ```
 
 The list and range of hyperparameted explored is available in the Appendix of our paper and in Attachment A of 
-our thesis. we performed hyperparameter tunings for all combinations of `max-attack` and `greedy` battle agents 
-and `immediate`, `history` and `lstm` draft approaches, using the script's default values for the optional 
-parameters (except `--processes 4` and `--seed 96765`). Each run of the script took around 2 days with the
-`max-attack` battle agent and more than a week with the `greedy` battle agent.
+our thesis. we performed hyperparameter tunings for all combinations of `<approach>` (`immediate`, `history` 
+and `lstm`) and `<battle_agent>` (`max-attack` and `greedy`). Each run of the script took around 2 days with the
+`max-attack` battle agent and more than a week with the `greedy` battle agent. To learn about other script's 
+parameters, execute it with the `--help` flag.
 
 #### Section 5.4 or IV.E: Comparison between approaches
 
@@ -67,7 +44,8 @@ depicted in the thesis. The tournament results include matches of all draft agen
 draft agent, as depicted in the paper. The script will create files at `tournament_results/` describing 
 the individual win rates of every set of matches, the aggregate win rates, average mana curves and every 
 individual draft choice made by every agent, in CSV format, for human inspection, and as serialized Pandas 
-data frames (PKL format), for easy further data manipulation.
+data frames (PKL format), for easy further data manipulation. To learn about other script's 
+parameters, execute it with the `--help` flag.
 
 To reproduce the plot containing the agent's three-dimensional coordinates found via Principal Component 
 Analysis and grouped via K-Means, simply execute the [similarities.py](similarities.py) script:
