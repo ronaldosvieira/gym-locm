@@ -34,7 +34,8 @@ AGENTS[10]="python3 gym_locm/toolbox/predictor.py --battle \"python3 Baseline2/m
     --draft-1 path/to/gym_locm/trained_models/max-attack/immediate/1st/6.json \
     --draft-2 path/to/gym_locm/trained_models/max-attack/immediate/2nd/8.json
 ```
-then, executing it. Save the output to a text file in the same folder, then run 
+then, executing it. Paralellism can be achieved by running the script in multiple processes/machines. Save the 
+output to text files named `out-*.txt` (with a number instead of `*`) in the same folder, then run 
 [analyze.py](https://github.com/acatai/Strategy-Card-Game-AI-Competition/blob/master/contest-2019-08-COG/analyze.py) 
 to extract win rates.
 See the [trained_models](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/trained_models) 
@@ -42,7 +43,7 @@ package for more information on the predictor script.
 
 ### References
 
-1. <span id="vieira2020a">Vieira, R., Chaimowicz, L., Tavares, A. R. (2020.) Drafting in Collectible Card Games via 
+1. <span id="vieira2020a">Vieira, R., Chaimowicz, L., Tavares, A. R. (2020). Drafting in Collectible Card Games via 
 Reinforcement Learning. Master's thesis, Department of Computer Science, Federal University 
 of Minas Gerais, Belo Horizonte, Brazil.</span>
 
