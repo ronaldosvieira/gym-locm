@@ -52,7 +52,30 @@ to do
 
 #### Section 5.5 or IV.F: Comparison with other draft strategies
 
-to do
+To run the tournament, simply execute the [tournament.py](tournament.py) script:
+```
+python3 gym_locm/experiments/tournament.py \
+    --drafters random max-attack coac closet-ai icebox \
+        gym_locm/trained_models/<battle_agent>/immediate/ \
+        gym_locm/trained_models/<battle_agent>/history/ \
+        gym_locm/trained_models/<battle_agent>/lstm/ \
+    --battler <battle_agent> --concurrency 4 --games 1000 --path tournament_results/ \
+    --seeds 32359627 91615349 88803987 83140551 50731732 19279988 35717793 48046766 86798618 62644993
+```
+replacing `<battle_agent>` for either `max-attack` or `greedy`, respectively, to run either tournament as 
+depicted in the thesis. The tournament results include matches of all draft agents versus the `max-attack`
+draft agent, as depicted in the paper. The script will create files at `tournament_results/` describing 
+the individual win rates of every set of matches, the aggregate win rates, average mana curves and every 
+individual draft choice made by every agent, in CSV format, for human inspection, and as serialized Pandas 
+data frames (PKL format), for easy further data manipulation.
+
+To reproduce the plot containing the agent's three-dimensional coordinates found via Principal Component 
+Analysis and grouped via K-Means, simply execute the [similarities.py](similarities.py) script:
+```
+python3 gym_locm/experiments/similarities.py \
+  --files max_attack_tournament_results/choices.csv greedy_tournament_results/choices.csv
+```
+which will result in a PNG image saved to the current folder.
 
 #### Section 5.6 or IV.G: Agent improvement in the CoG 2019 LOCM tournament
 
