@@ -145,8 +145,8 @@ first card).
 - *RandomDraftAgent*: drafts at random. 
 - *RuleBasedDraftAgent*: drafts like Baseline1 from the Strategy Card Game AI competition.
 - *MaxAttackDraftAgent*: drafts like Baseline2 from the Strategy Card Game AI competition.
-- *IceboxDraftAgent*: drafts using the card ranking CodinGame's user Icebox.
-- *ClosetAIDraftAgent*: drafts using the card ranking CodinGame's user ClosetAI.
+- *IceboxDraftAgent*: drafts using the card ranking created by CodinGame's user Icebox.
+- *ClosetAIDraftAgent*: drafts using the card ranking created by CodinGame's user ClosetAI.
 - *UJI1DraftAgent*: drafts like UJIAgent1 from the Strategy Card Game AI competition.
 - *UJI2DraftAgent*: drafts like UJIAgent2 from the Strategy Card Game AI competition.
 - *CoacDraftAgent*: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
