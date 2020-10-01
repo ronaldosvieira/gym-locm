@@ -500,7 +500,8 @@ class AsymmetricSelfPlay(TrainingSession):
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
             # evaluate the model
-            self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
+            self.logger.info(f"Evaluating model {model.role_id} "
+                             f"({episodes_so_far} episodes)...")
             start_time = time.perf_counter()
 
             mean_reward, ep_length, act_hist = \
