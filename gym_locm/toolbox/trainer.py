@@ -494,7 +494,7 @@ class AsymmetricSelfPlay(TrainingSession):
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
             # save model
-            model_path = self.path + f'/{episodes_so_far}'
+            model_path = f'{self.path}/role{model.role_id}/{episodes_so_far}'
             model.save(model_path)
             save_model_as_json(model, self.params['activation'], model_path)
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
