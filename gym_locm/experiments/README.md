@@ -25,7 +25,26 @@ parameters, execute it with the `--help` flag.
 
 #### Section 5.4 or IV.E: Comparison between approaches
 
-to do
+To train **two** draft agents (a 1st player and a 2nd player) with a specific draft approach and battle agent, 
+in asymmetric self-play, simply execute the [training.py](training.py) script:
+
+```
+python3 gym_locm/experiments/training.py --approach <approach> --battle-agent <battle_agent> \
+    --path training_results/ --n-switches <n_switches> --layers <layers> --neurons <neurons> \
+    --act-fun <activation_function> --n-steps <batch_size> --nminibatches <n_minibatches> \
+    --noptepochs <n_epochs> --cliprange <cliprange> --vf-coef <vf_coef> --ent-coef <ent_coef> \
+    --learning-rate <learning_rate> --seed 32359627 --concurrency 4
+```
+
+We trained 20 draft agents (ten 1st players and 2nd second players) of each combination of `<approach>` and 
+`<battle agent>`, using the best sets of hyperparameters found for them in the previous experiment. That comprises
+ten runs of the script, in which we used the seeds 32359627, 91615349, 88803987, 83140551, 50731732, 19279988, 35717793, 
+48046766, 86798618 and 62644993.
+
+To learn about other script's parameters, execute it with the `--help` flag. Running the script with all default 
+parameters will train a `immediate` drafter with the `max-attack` battler, using the best set of hyperparameters
+we found for that combination. Each run of the script took around 50 minutes with the `max-attack` battle agent and
+around three hours with the `greedy` battle agent.
 
 #### Section 5.5 or IV.F: Comparison with other draft strategies
 
