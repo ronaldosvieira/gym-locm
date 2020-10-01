@@ -214,7 +214,7 @@ engine, and with a specific random seed:
 ### Train draft agents with deep reinforcement learning
 
 We provide scripts to train deep reinforcement learning draft agents as described in our 
-paper <a href="#vieira2020">[2]</a>. Further instructions are available in the README.md in 
+thesis <a href="#vieira2020a">[2]</a> and paper <a href="#vieira2020b">[3]</a>. Further instructions are available in the README.md in 
 the [experiments](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/experiments) 
 package.
 
@@ -254,7 +254,11 @@ If you use gym-locm in your work, please consider citing it with:
 1. <span id="kowalski2020">Kowalski, J., Miernik, R. (2020). Evolutionary 
 Approach to Collectible Card Game Arena Deckbuilding using Active Genes. arXiv preprint arXiv:2001.01326.</span>
 
-2. <span id="vieira2020">Vieira, R., Tavares, A. R., Chaimowicz, L. (2020). Drafting in 
+2. <span id="vieira2020a">Vieira, R., Chaimowicz, L., Tavares, A. R. (2020). Drafting in Collectible Card Games via 
+Reinforcement Learning. Master's thesis, Department of Computer Science, Federal University 
+of Minas Gerais, Belo Horizonte, Brazil.</span>
+
+3. <span id="vieira2020b">Vieira, R., Tavares, A. R., Chaimowicz, L. (2020). Drafting in 
 Collectible Card Games via Reinforcement Learning. 19th Brazilian Symposium of Computer Games
 and Digital Entertainment (SBGames).</span>
 
