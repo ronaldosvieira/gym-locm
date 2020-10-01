@@ -96,7 +96,10 @@ class FixedAdversary(TrainingSession):
 
         for i in range(num_envs):
             # no overlap between episodes at each concurrent env
-            current_seed = seed + (train_episodes // num_envs) * i
+            if seed is not None:
+                current_seed = seed + (train_episodes // num_envs) * i
+            else:
+                current_seed = None
 
             # create the env
             env.append(lambda: LOCMDraftSingleEnv(seed=current_seed,
@@ -107,8 +110,9 @@ class FixedAdversary(TrainingSession):
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
+        eval_seed = seed + train_episodes if seed is not None else None
         self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes,
-                                              seed + train_episodes, num_envs)
+                                              eval_seed, num_envs)
 
         # build the model
         self.logger.debug("Building the model...")
@@ -214,7 +218,10 @@ class SelfPlay(TrainingSession):
 
         for i in range(num_envs):
             # no overlap between episodes at each process
-            current_seed = seed + (train_episodes // num_envs) * i
+            if seed is not None:
+                current_seed = seed + (train_episodes // num_envs) * i
+            else:
+                current_seed = None
 
             # create one env per process
             env.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
@@ -225,8 +232,9 @@ class SelfPlay(TrainingSession):
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
+        eval_seed = seed + train_episodes if seed is not None else None
         self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes // 2,
-                                              seed + train_episodes, num_envs)
+                                              eval_seed, num_envs)
 
         # build the models
         self.logger.debug("Building the models...")
@@ -304,11 +312,13 @@ class SelfPlay(TrainingSession):
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
             start_time = time.perf_counter()
 
-            self.evaluator.seed = self.seed + self.train_episodes
+            if self.evaluator.seed is not None:
+                self.evaluator.seed = self.seed + self.train_episodes
             mean_reward, ep_length, act_hist = \
                 self.evaluator.run(RLDraftAgent(model), play_first=True)
 
-            self.evaluator.seed += self.eval_episodes
+            if self.evaluator.seed is not None:
+                self.evaluator.seed += self.eval_episodes
             mean_reward2, ep_length2, act_hist2 = \
                 self.evaluator.run(RLDraftAgent(model), play_first=False)
 
@@ -393,7 +403,10 @@ class AsymmetricSelfPlay(TrainingSession):
 
         for i in range(num_envs):
             # no overlap between episodes at each process
-            current_seed = seed + (train_episodes // num_envs) * i
+            if seed is not None:
+                current_seed = seed + (train_episodes // num_envs) * i
+            else:
+                current_seed = None
 
             # create one env per process
             env1.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
@@ -407,8 +420,9 @@ class AsymmetricSelfPlay(TrainingSession):
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
+        eval_seed = seed + train_episodes if seed is not None else None
         self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes,
-                                              seed + train_episodes, num_envs)
+                                              eval_seed, num_envs)
 
         # build the models
         self.logger.debug("Building the models...")
@@ -600,11 +614,13 @@ class Evaluator:
         and the `action_histogram` of the evaluation episodes.
         """
         # set appropriate seeds
-        for i in range(self.env.num_envs):
-            current_seed = self.seed + (self.episodes // self.env.num_envs) * i
-            current_seed -= 1  # resetting the env increases the seed by one
+        if self.seed is not None:
+            for i in range(self.env.num_envs):
+                current_seed = self.seed
+                current_seed += (self.episodes // self.env.num_envs) * i
+                current_seed -= 1  # resetting the env increases the seed by one
 
-            self.env.env_method('seed', current_seed, indices=[i])
+                self.env.env_method('seed', current_seed, indices=[i])
 
         # set agent role
         self.env.set_attr('play_first', play_first)
