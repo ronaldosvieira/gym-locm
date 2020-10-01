@@ -150,6 +150,8 @@ first card).
 - *UJI1DraftAgent*: drafts like UJIAgent1 from the Strategy Card Game AI competition.
 - *UJI2DraftAgent*: drafts like UJIAgent2 from the Strategy Card Game AI competition.
 - *CoacDraftAgent*: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
+- *NativeDraftAgent*: drafts like an AI player developed for the original LOCM engine, 
+whose execution command is passed in the constructor (e.g. `NativeDraftAgent('python3 player.py')`).
 
 Battle agents:
 - *PassBattleAgent*: always passes the turn. 
@@ -160,6 +162,11 @@ Battle agents:
 - *MCTSBattleAgent*: battles using a MCTS algorithm (experimental). Takes a `time` 
 parameter that determines the amount of time, in milliseconds, that the agent is allowed
 to "think".
+- *NativeDraftAgent*: battles like an AI player developed for the original LOCM engine, 
+whose execution command is passed in the constructor (e.g. `NativeBattleAgent('python3 player.py')`).
+
+If NativeDraftAgent and NativeBattleAgent are going to be used to represent the same player,
+consider using a single NativeAgent object instead, and passing it as draft and battle agent.
 </details>
 
 #### Use item cards
