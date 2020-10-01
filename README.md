@@ -140,29 +140,29 @@ Trying to specify agents for roles you control will result in an error.
     
 Draft agents:
     
-- *PassDraftAgent*: always passes the turn (this is equivalent to always choosing the 
+- `PassDraftAgent`: always passes the turn (this is equivalent to always choosing the 
 first card).
-- *RandomDraftAgent*: drafts at random. 
-- *RuleBasedDraftAgent*: drafts like Baseline1 from the Strategy Card Game AI competition.
-- *MaxAttackDraftAgent*: drafts like Baseline2 from the Strategy Card Game AI competition.
-- *IceboxDraftAgent*: drafts using the card ranking created by CodinGame's user Icebox.
-- *ClosetAIDraftAgent*: drafts using the card ranking created by CodinGame's user ClosetAI.
-- *UJI1DraftAgent*: drafts like UJIAgent1 from the Strategy Card Game AI competition.
-- *UJI2DraftAgent*: drafts like UJIAgent2 from the Strategy Card Game AI competition.
-- *CoacDraftAgent*: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
-- *NativeDraftAgent*: drafts like an AI player developed for the original LOCM engine, 
+- `RandomDraftAgent`: drafts at random. 
+- `RuleBasedDraftAgent`: drafts like Baseline1 from the Strategy Card Game AI competition.
+- `MaxAttackDraftAgent`: drafts like Baseline2 from the Strategy Card Game AI competition.
+- `IceboxDraftAgent`: drafts using the card ranking created by CodinGame's user Icebox.
+- `ClosetAIDraftAgent`: drafts using the card ranking created by CodinGame's user ClosetAI.
+- `UJI1DraftAgent`: drafts like UJIAgent1 from the Strategy Card Game AI competition.
+- `UJI2DraftAgent`: drafts like UJIAgent2 from the Strategy Card Game AI competition.
+- `CoacDraftAgent`: drafts like Coac from the Strategy Card Game AI competitions pre-2020.
+- `NativeDraftAgent`: drafts like an AI player developed for the original LOCM engine, 
 whose execution command is passed in the constructor (e.g. `NativeDraftAgent('python3 player.py')`).
 
 Battle agents:
-- *PassBattleAgent*: always passes the turn. 
-- *RandomBattleAgent*: chooses any valid action at random (including passing the turn).
-- *RuleBasedBattleAgent*: battles like Baseline1 from the Strategy Card Game AI competition.
-- *MaxAttackBattleAgent*: battles like Baseline2 from the Strategy Card Game AI competition.
-- *GreedyBattleAgent*: battles like Greedy from Kowalski and Miernik's paper <a href="#kowalski2020">[1]</a>.
-- *MCTSBattleAgent*: battles using a MCTS algorithm (experimental). Takes a `time` 
+- `PassBattleAgent`: always passes the turn. 
+- `RandomBattleAgent`: chooses any valid action at random (including passing the turn).
+- `RuleBasedBattleAgent`: battles like Baseline1 from the Strategy Card Game AI competition.
+- `MaxAttackBattleAgent`: battles like Baseline2 from the Strategy Card Game AI competition.
+- `GreedyBattleAgent`: battles like Greedy from Kowalski and Miernik's paper <a href="#kowalski2020">[1]</a>.
+- `MCTSBattleAgent`: battles using a MCTS algorithm (experimental). Takes a `time` 
 parameter that determines the amount of time, in milliseconds, that the agent is allowed
 to "think".
-- *NativeDraftAgent*: battles like an AI player developed for the original LOCM engine, 
+- `NativeDraftAgent`: battles like an AI player developed for the original LOCM engine, 
 whose execution command is passed in the constructor (e.g. `NativeBattleAgent('python3 player.py')`).
 
 If NativeDraftAgent and NativeBattleAgent are going to be used to represent the same player,
