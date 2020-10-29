@@ -33,7 +33,7 @@ def get_arg_parser():
     p = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    approach = ['immediate', 'lstm', 'history']
+    approach = ['immediate', 'lstm', 'history', 'curve']
     battle_agents = ['max-attack', 'greedy']
 
     p.add_argument("--approach", "-a", choices=approach, default="immediate")
@@ -122,13 +122,15 @@ if __name__ == "__main__":
 
     env_params = {
         'battle_agents': (battle_agent(), battle_agent()),
-        'use_draft_history': args.approach == 'history'
+        'use_draft_history': args.approach == 'history',
+        'use_mana_curve': args.approach == 'curve'
     }
 
     eval_env_params = {
         'draft_agent': MaxAttackDraftAgent(),
         'battle_agents': (battle_agent(), battle_agent()),
-        'use_draft_history': args.approach == 'history'
+        'use_draft_history': args.approach == 'history',
+        'use_mana_curve': args.approach == 'curve'
     }
 
     def wrapper(model_params: dict):
