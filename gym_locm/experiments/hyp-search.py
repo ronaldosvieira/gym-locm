@@ -138,6 +138,18 @@ if __name__ == "__main__":
 
         num_switches = model_params.pop('n_switches')
 
+        # ensure integer hyperparams
+        model_params['n_steps'] = int(model_params['n_steps'])
+        model_params['nminibatches'] = int(model_params['nminibatches'])
+        model_params['noptepochs'] = int(model_params['noptepochs'])
+
+        # ensure nminibatches <= n_steps
+        model_params['nminibatches'] = min(model_params['nminibatches'], model_params['n_steps'])
+
+        # ensure n_steps % nminibatches == 0
+        while model_params['n_steps'] % model_params['nminibatches'] != 0:
+            model_params['nminibatches'] -= 1
+
         _counter += 1
         trial_id = _counter
 
