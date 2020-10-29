@@ -160,7 +160,7 @@ if __name__ == "__main__":
                                      args.seed, args.processes)
         trainer.run()
 
-        best_win_rate = max(max(player_wr) for player_wr in trainer.win_rates)
+        best_win_rate = -max(max(player_wr) for player_wr in trainer.win_rates)
 
         return best_win_rate
 
