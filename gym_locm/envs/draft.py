@@ -14,8 +14,8 @@ class LOCMDraftEnv(LOCMEnv):
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=False, use_mana_curve=False,
                  sort_cards=False, evaluation_battles=1,
-                 seed=None, items=True):
-        super().__init__(seed=seed, items=items)
+                 seed=None, items=True, k=3, n=30):
+        super().__init__(seed=seed, items=items, k=k, n=n)
 
         # init bookkeeping structures
         self.results = []
@@ -32,7 +32,7 @@ class LOCMDraftEnv(LOCMEnv):
         self.use_draft_history = use_draft_history
         self.use_mana_curve = use_mana_curve
 
-        self.cards_in_state = 33 if use_draft_history else 3
+        self.cards_in_state = self.n + self.k if use_draft_history else self.k
         self.card_features = 16
 
         self.state_shape = self.cards_in_state * self.card_features
@@ -93,7 +93,7 @@ class LOCMDraftEnv(LOCMEnv):
         state = self.state
 
         # find appropriate value for the provided card index
-        if action.origin in (0, 1, 2):
+        if 0 <= action.origin < self.k:
             chosen_index = self.draft_ordering[action.origin]
         else:
             chosen_index = 0
@@ -168,9 +168,9 @@ class LOCMDraftEnv(LOCMEnv):
         chosen_cards = self.choices[self.state.current_player.id]
 
         if not self._draft_is_finished:
-            card_choices = self.state.current_player.hand[0:3]
+            card_choices = self.state.current_player.hand[0:self.k]
 
-            self.draft_ordering = list(range(3))
+            self.draft_ordering = list(range(self.k))
 
             if self.sort_cards:
                 sorted_cards = sorted(self.draft_ordering,
@@ -180,7 +180,7 @@ class LOCMDraftEnv(LOCMEnv):
 
             for i in range(len(card_choices)):
                 index = self.draft_ordering[i]
-                lo = -(3 - i) * self.card_features
+                lo = -(self.k - i) * self.card_features
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
@@ -191,7 +191,7 @@ class LOCMDraftEnv(LOCMEnv):
                 chosen_cards = sorted(chosen_cards, key=lambda c: c.id)
 
             for j, card in enumerate(chosen_cards):
-                lo = -(33 - j) * self.card_features
+                lo = -(self.n + self.k - j) * self.card_features
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 

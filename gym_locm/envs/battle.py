@@ -12,8 +12,8 @@ class LOCMBattleEnv(LOCMEnv):
 
     def __init__(self,
                  draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
-                 return_action_mask=False, seed=None, items=True):
-        super().__init__(seed=seed, items=items)
+                 return_action_mask=False, seed=None, items=True, k=3, n=30):
+        super().__init__(seed=seed, items=items, k=k, n=n)
 
         self.draft_agents = draft_agents
 

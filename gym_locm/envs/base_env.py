@@ -12,12 +12,13 @@ from gym_locm.exceptions import MalformedActionError
 class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
-    def __init__(self, seed=None, items=True):
+    def __init__(self, seed=None, items=True, k=3, n=30):
         self._seed = seed
         self.episodes = 0
         self.items = items
+        self.k, self.n = k, n
 
-        self.state = State(seed=seed, items=self.items)
+        self.state = State(seed=seed, items=items, k=k, n=n)
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
@@ -224,7 +225,8 @@ class LOCMEnv(gym.Env, ABC):
         for line in zip(*cards_ascii):
             print(" ".join(line))
 
-        print("  card 0  ", "  card 1  ", "  card 2  ")
+        for i in range(len(hand)):
+            print(f"  card {i}  ", end=" ")
 
     def _render_native(self):
         return str(self.state)
@@ -253,7 +255,7 @@ class LOCMEnv(gym.Env, ABC):
         MalformedActionError otherwise.
         """
 
-        if action_number not in (0, 1, 2):
+        if action_number < 0 or action_number >= state.k:
             raise MalformedActionError("Invalid action number")
 
         return Action(ActionType.PICK, action_number)

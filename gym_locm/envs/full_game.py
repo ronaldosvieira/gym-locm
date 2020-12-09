@@ -8,12 +8,12 @@ from gym_locm.exceptions import GameIsEndedError
 
 
 class LOCMFullGameEnv(LOCMEnv):
-    def __init__(self, seed=None):
-        super().__init__(seed=seed)
+    def __init__(self, seed=None, k=3, n=30):
+        super().__init__(seed=seed, k=k, n=n)
 
         self.choices = ([], [])
 
-        cards_in_draft_state = 3
+        cards_in_draft_state = self.k
         cards_in_battle_state = 8 + 6 + 6
 
         player_features = 4  # hp, mana, next_rune, next_draw
@@ -32,7 +32,7 @@ class LOCMFullGameEnv(LOCMEnv):
         }
 
         self.action_spaces = {
-            Phase.DRAFT: gym.spaces.Discrete(3),
+            Phase.DRAFT: gym.spaces.Discrete(self.k),
             Phase.BATTLE: gym.spaces.Discrete(163)
         }
 
@@ -85,7 +85,7 @@ class LOCMFullGameEnv(LOCMEnv):
 
         if state.phase == Phase.DRAFT:
             # find chosen card and keep track of it
-            chosen_index = 0 if action.origin in (0, 1, 2) else action.origin
+            chosen_index = action.origin if 0 <= action.origin < self.k else 0
             chosen_card = state.current_player.hand[chosen_index]
 
             self.choices[state.current_player.id].append(chosen_card)
@@ -147,10 +147,10 @@ class LOCMFullGameEnv(LOCMEnv):
         encoded_state = np.full(self.state_shapes[Phase.DRAFT],
                                 0, dtype=np.float32)
 
-        card_choices = self.state.current_player.hand[0:3]
+        card_choices = self.state.current_player.hand[0:self.k]
 
         for i in range(len(card_choices)):
-            encoded_state[-(3 - i)] = self.encode_card(card_choices[i])
+            encoded_state[-(self.k - i)] = self.encode_card(card_choices[i])
 
         return encoded_state
 

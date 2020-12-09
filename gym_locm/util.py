@@ -28,11 +28,11 @@ def encode_card(card):
 def encode_state_draft(state, use_history=False,
                        use_mana_curve=False, past_choices=None):
     card_features = 16
-    current_card_choices = 3
+    current_card_choices = state.k
     state_size = card_features * current_card_choices
 
     if use_history:
-        state_size += card_features * 30
+        state_size += card_features * state.n
         assert past_choices is not None, \
             "If encoding the draft history, past_choices should not be None."
 
@@ -45,10 +45,10 @@ def encode_state_draft(state, use_history=False,
 
     # if draft is not over, fill current choices
     if state.is_draft():
-        card_choices = state.current_player.hand[0:3]
+        card_choices = state.current_player.hand[0:state.k]
 
         for i in range(len(card_choices)):
-            lo = -(3 - i) * card_features
+            lo = -(state.k - i) * card_features
             hi = lo + card_features
             hi = hi if hi < 0 else None
 
@@ -57,7 +57,7 @@ def encode_state_draft(state, use_history=False,
     # if using history, fill past choices
     if use_history:
         for j, card in enumerate(past_choices):
-            lo = -(33 - j) * card_features
+            lo = -(state.n + state.k - j) * card_features
             hi = lo + card_features
             hi = hi if hi < 0 else None
 
