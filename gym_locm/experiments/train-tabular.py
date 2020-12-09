@@ -77,6 +77,10 @@ def q_learning(worker_id: int):
             alpha(current_iteration) \
             * (reward + gamma * best_q_new_state - q[(*state, action)])
 
+        if q[(*state, action)] != 0:
+            with test.get_lock():
+                test.value += 1
+
         state = new_state if not done else env.reset()
 
 
@@ -88,6 +92,8 @@ def run():
 
     processes.close()
     processes.join()
+
+    print(f"non-null updates: {test.value}")
 
     print("Saving execution info and policy...")
 
@@ -117,5 +123,6 @@ if __name__ == '__main__':
     manager = multiprocessing.Manager()
     q = manager.dict(_init_q_table())
     iteration = multiprocessing.Value('l', 0)
+    test = multiprocessing.Value('l', 0)
 
     run()
