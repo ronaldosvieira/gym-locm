@@ -1,7 +1,21 @@
 import numpy as np
 
 from gym_locm.agents import MaxAttackDraftAgent, MaxAttackBattleAgent
-from gym_locm.envs.draft import LOCMDraftSingleTabularEnv
+from gym_locm.envs.draft import LOCMDraftSingleTabularEnv, LOCMDraftEnv
+
+
+def _new_q_table(env: LOCMDraftEnv):
+    q = dict()
+
+    for c1 in range(160):
+        for c2 in range(c1 + 1, 160):
+            for c3 in range(c2 + 1, 160):
+                for action in range(env.k):
+                    q[c1, c2, c3, action] = 0
+
+    q[None] = 0
+
+    return q
 
 
 def run():
@@ -16,15 +30,7 @@ def run():
     alpha = lambda i: 0.5 / i if i > 0 else 0
     epsilon = lambda i: 1.0 - (i / n_episodes)
 
-    q = dict()
-
-    for c1 in range(160):
-        for c2 in range(c1 + 1, 160):
-            for c3 in range(c2 + 1, 160):
-                for action in range(3):
-                    q[c1, c2, c3, action] = 0
-
-    q[None] = 0
+    q = _new_q_table(env)
 
     for iteration in range(n_episodes * 30):
         if (iteration + 1) % 1000 == 0:
