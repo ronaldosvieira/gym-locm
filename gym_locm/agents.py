@@ -569,10 +569,10 @@ class NativeBattleAgent(NativeAgent):
         if not play_first:
             fake_state.act(Action(ActionType.PASS))
 
-        for turn in range(30):
+        for turn in range(state.n):
             chosen_card = deck[turn]
 
-            fake_state.current_player.hand = [chosen_card] * 3
+            fake_state.current_player.hand = [chosen_card] * state.k
 
             self._process.write(str(fake_state))
 
