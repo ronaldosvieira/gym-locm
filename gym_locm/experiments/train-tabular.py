@@ -1,4 +1,6 @@
 import multiprocessing
+import pickle
+
 import numpy as np
 
 from gym_locm.agents import MaxAttackDraftAgent, MaxAttackBattleAgent
@@ -86,6 +88,11 @@ def run():
 
     processes.close()
     processes.join()
+
+    print("Saving execution info and policy...")
+
+    with open('rstate.pkl', 'wb') as file:
+        pickle.dump({'iteration': iteration.value}, file)
 
     with open('policy.csv', 'w+') as policy:
         policy.write("c1;c2;c3;pi\n")
