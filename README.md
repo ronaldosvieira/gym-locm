@@ -195,6 +195,22 @@ possible permutation of three specific cards will result in a single state matri
 
 Usage: `env = gym.make('LOCM-draft-XXX-vX', sort_cards=True)`, default: `False`.
 
+#### Change draft length
+
+This option determines the amount of draft turns that will happen, and, therefore, the size 
+of the decks built in the draft phase. If `use_draft_history` is `True`, the state representation
+in the draft phase will change to accommodate the longer or shorter history of past picks.
+
+Usage: `env = gym.make('LOCM-XXX-vX', n=20)`, default: `30`
+
+#### Change amount of cards alternatives per draft turn
+
+This option determines the amount of random cards that will be presented to the players on 
+every draft turn. The state representation and the set of actions in the draft phase will 
+change to accommodate the amount of cards options per turn.
+
+Usage: `env = gym.make('LOCM-XXX-vX', k=5)`, default: `3`
+
 ## Other resources
 
 ### Runner
