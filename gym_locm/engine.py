@@ -304,19 +304,16 @@ _cards = load_cards()
 
 
 class State:
-    __available_actions_draft = (
-        Action(ActionType.PICK, 0),
-        Action(ActionType.PICK, 1),
-        Action(ActionType.PICK, 2)
-    )
+    def __init__(self, seed=None, items=True, k=3, n=30):
+        assert k <= len(_cards)
 
-    def __init__(self, seed=None, items=True):
         self.instance_counter = 0
         self.summon_counter = 0
 
         self.np_random = None
         self.seed(seed)
         self.items = items
+        self.k, self.n = k, n
 
         self.phase = Phase.DRAFT
         self.turn = 1
@@ -349,7 +346,8 @@ class State:
             return self.__available_actions
 
         if self.phase == Phase.DRAFT:
-            self.__available_actions = self.__available_actions_draft
+            self.__available_actions = tuple([Action(ActionType.PICK, i)
+                                              for i in range(self.k)])
         elif self.phase == Phase.ENDED:
             self.__available_actions = ()
         else:
@@ -427,7 +425,7 @@ class State:
             return self.__action_mask
 
         if self.phase == Phase.DRAFT:
-            return [1, 1, 1]
+            return [1] * self.k
         elif self.phase == Phase.ENDED:
             return [0] * (145 if self.items else 41)
 
@@ -555,10 +553,10 @@ class State:
         pool = cards[:60]
         draft = []
 
-        for _ in range(30):
+        for _ in range(self.n):
             self.np_random.shuffle(pool)
 
-            draft.append(pool[:3])
+            draft.append(pool[:self.k])
 
         return draft
 
@@ -596,7 +594,7 @@ class State:
             self._current_player = PlayerOrder.FIRST
             self.turn += 1
 
-            if self.turn > 30 and self.phase == Phase.DRAFT:
+            if self.turn > self.n and self.phase == Phase.DRAFT:
                 self.phase = Phase.BATTLE
                 self.turn = 1
 
@@ -934,6 +932,8 @@ class State:
         cloned_state.items = self.items
         cloned_state.phase = self.phase
         cloned_state.turn = self.turn
+        cloned_state.k = self.k
+        cloned_state.n = self.n
         cloned_state._current_player = self._current_player
         cloned_state.__available_actions = self.__available_actions
         cloned_state.winner = self.winner
