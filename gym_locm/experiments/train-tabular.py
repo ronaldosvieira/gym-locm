@@ -18,6 +18,10 @@ def _new_q_table(env: LOCMDraftEnv):
     return q
 
 
+def _get_policy_for_state(q: dict, state: tuple):
+    return np.argmax([q[(*state, 0)], q[(*state, 1)], q[(*state, 2)]])
+
+
 def run():
     env = LOCMDraftSingleTabularEnv(
         draft_agent=MaxAttackDraftAgent(),
@@ -40,7 +44,7 @@ def run():
         done = False
 
         while not done:
-            best_action = np.argmax([q[(*state, 0)], q[(*state, 1)], q[(*state, 2)]])
+            best_action = _get_policy_for_state(q, state)
 
             if np.random.random() <= epsilon(iteration):
                 action = env.action_space.sample()
@@ -50,7 +54,7 @@ def run():
             new_state, reward, done, info = env.step(action)
 
             if new_state is not None:
-                best_new_action = np.argmax([q[(*new_state, 0)], q[(*new_state, 1)], q[(*new_state, 2)]])
+                best_new_action = _get_policy_for_state(q, new_state)
             else:
                 best_new_action = 0
 
@@ -66,7 +70,7 @@ def run():
         for c1 in range(160):
             for c2 in range(c1 + 1, 160):
                 for c3 in range(c2 + 1, 160):
-                    policy.write(f"{c1};{c2};{c3};{np.argmax([q[c1, c2, c3, 0], q[c1, c2, c3, 1], q[c1, c2, c3, 2]])}")
+                    policy.write(f"{c1};{c2};{c3};{_get_policy_for_state(q, (c1, c2, c3))}")
                     policy.write("\n")
 
     print("✅")
