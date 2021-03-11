@@ -952,6 +952,31 @@ class RLDraftAgent(Agent):
         return action
 
 
+class TabularRLDraftAgent(Agent):
+
+    def __init__(self, policy_path='policy-3M.csv', has_header=True):
+        with open(policy_path, 'r') as policy_file:
+            lines = policy_file.readlines()
+
+        self.policy = {None: 0}
+
+        for line in lines[1 if has_header else 0:]:
+            c1, c2, c3, a = map(int, line.split(';'))
+
+            self.policy[(c1, c2, c3)] = a
+
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        pass
+
+    def act(self, state):
+        cards = tuple(sorted(map(lambda c_id: c_id - 1, map(attrgetter('id'), state.current_player.hand))))
+
+        return Action(ActionType.PICK, self.policy[cards])
+
+
 draft_agents = {
     "pass": PassDraftAgent,
     "random": RandomDraftAgent,
@@ -962,7 +987,8 @@ draft_agents = {
     "uji1": UJI1DraftAgent,
     "uji2": UJI2DraftAgent,
     "coac": CoacDraftAgent,
-    "rl": RLDraftAgent
+    "rl": RLDraftAgent,
+    'tabular-rl': TabularRLDraftAgent
 }
 
 battle_agents = {

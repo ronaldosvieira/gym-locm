@@ -1,5 +1,4 @@
 import multiprocessing
-import pickle
 
 import numpy as np
 
@@ -95,12 +94,9 @@ def run():
 
     print(f"non-null updates: {test.value}")
 
-    print("Saving execution info and policy...")
+    print("Saving policy...")
 
-    with open('rstate.pkl', 'wb') as file:
-        pickle.dump({'iteration': iteration.value}, file)
-
-    with open('policy.csv', 'w+') as policy:
+    with open('policy.csv', 'a') as policy:
         policy.write("c1;c2;c3;pi\n")
 
         for c1 in range(160):
@@ -115,7 +111,7 @@ if __name__ == '__main__':
     k = 3
     n = 30
 
-    n_episodes = 30_000_000
+    n_episodes = 1_000_000
     gamma = 1
     alpha = lambda i: 0.5 / i if i > 0 else 0
     epsilon = lambda i: 1.0 - (i / (n_episodes * n))
