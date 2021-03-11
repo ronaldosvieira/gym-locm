@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import time
 import warnings
@@ -205,7 +206,7 @@ class FixedAdversary(TrainingSession):
 
 class SelfPlay(TrainingSession):
     def __init__(self, model_builder, model_params, env_params, eval_env_params,
-                 train_episodes, eval_episodes, num_evals, num_switches, path,
+                 train_episodes, eval_episodes, num_evals, switch_frequency, path,
                  seed, num_envs=1):
         super(SelfPlay, self).__init__(model_params, path, seed)
 
@@ -269,9 +270,9 @@ class SelfPlay(TrainingSession):
         self.train_episodes = train_episodes
         self.eval_episodes = eval_episodes
         self.num_evals = num_evals
-        self.num_switches = num_switches
+        self.switch_frequency = switch_frequency
         self.eval_frequency = train_episodes / num_evals
-        self.switch_frequency = train_episodes / num_switches
+        self.num_switches = math.ceil(train_episodes / switch_frequency)
 
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
@@ -391,7 +392,7 @@ class SelfPlay(TrainingSession):
 class AsymmetricSelfPlay(TrainingSession):
     def __init__(self, model_builder, model_params, env_params, eval_env_params,
                  train_episodes, eval_episodes, num_evals,
-                 num_switches, path, seed, num_envs=1):
+                 switch_frequency, path, seed, num_envs=1):
         super(AsymmetricSelfPlay, self).__init__(model_params, path, seed)
 
         # log start time
@@ -464,9 +465,9 @@ class AsymmetricSelfPlay(TrainingSession):
         self.train_episodes = train_episodes
         self.eval_episodes = eval_episodes
         self.num_evals = num_evals
-        self.num_switches = num_switches
+        self.switch_frequency = switch_frequency
         self.eval_frequency = train_episodes / num_evals
-        self.switch_frequency = train_episodes / num_switches
+        self.num_switches = math.ceil(train_episodes / switch_frequency)
 
         # initialize control attributes
         self.model1.role_id, self.model2.role_id = 0, 1

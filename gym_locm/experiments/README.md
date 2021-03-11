@@ -30,7 +30,7 @@ in asymmetric self-play, simply execute the [training.py](training.py) script:
 
 ```
 python3 gym_locm/experiments/training.py --approach <approach> --battle-agent <battle_agent> \
-    --path training_results/ --n-switches <n_switches> --layers <layers> --neurons <neurons> \
+    --path training_results/ --switch-freq <switch_freq> --layers <layers> --neurons <neurons> \
     --act-fun <activation_function> --n-steps <batch_size> --nminibatches <n_minibatches> \
     --noptepochs <n_epochs> --cliprange <cliprange> --vf-coef <vf_coef> --ent-coef <ent_coef> \
     --learning-rate <learning_rate> --seed 32359627 --concurrency 4

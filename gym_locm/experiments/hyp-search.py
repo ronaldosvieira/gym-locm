@@ -11,7 +11,7 @@ from gym_locm.agents import MaxAttackBattleAgent, GreedyBattleAgent, MaxAttackDr
 from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, model_builder_lstm
 
 hyperparameter_space = {
-    'n_switches': hp.choice('n_switches', [10, 100, 1000]),
+    'switch_freq': hp.choice('switch_freq', [10, 100, 1000]),
     'layers': hp.uniformint('layers', 1, 3),
     'neurons': hp.uniformint('neurons', 24, 256),
     'activation': hp.choice('activation', ['tanh', 'relu', 'elu']),
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
         save_run(trials, random_state, args.path)
 
-        num_switches = model_params.pop('n_switches')
+        switch_freq = model_params.pop('switch_freq')
 
         # ensure integer hyperparams
         model_params['n_steps'] = int(model_params['n_steps'])
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         trainer = AsymmetricSelfPlay(model_builder, model_params, env_params,
                                      eval_env_params, args.train_episodes,
                                      args.eval_episodes, args.num_evals,
-                                     num_switches, args.path + f'/{trial_id}',
+                                     switch_freq, args.path + f'/{trial_id}',
                                      args.seed, args.processes)
         trainer.run()
 
