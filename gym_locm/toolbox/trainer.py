@@ -31,7 +31,7 @@ verbose = True
 REALLY_BIG_INT = 1_000_000_000
 
 if verbose:
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
 
 class TrainingSession:
