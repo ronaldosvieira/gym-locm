@@ -45,6 +45,7 @@ class TrainingSession:
         self.win_rates = []
         self.episode_lengths = []
         self.action_histograms = []
+        self.start_time, self.end_time = None, None
 
         # save parameters
         self.params = params
@@ -55,31 +56,34 @@ class TrainingSession:
     def _train(self):
         pass
 
+    def _save_results(self):
+        results_path = self.path + '/results.txt'
+
+        with open(results_path, 'w') as file:
+            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
+                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
+                        action_histograms=self.action_histograms,
+                        start_time=str(self.start_time), end_time=str(self.end_time))
+            info = json.dumps(info, indent=2)
+
+            file.write(info)
+
+        self.logger.debug(f"Results saved at {results_path}.")
+
     def run(self):
         # log start time
-        start_time = datetime.now()
+        self.start_time = datetime.now()
         self.logger.info("Training...")
 
         # do the training
         self._train()
 
         # log end time
-        end_time = datetime.now()
-        self.logger.info(f"End of training. Time elapsed: {end_time - start_time}.")
+        self.end_time = datetime.now()
+        self.logger.info(f"End of training. Time elapsed: {self.end_time - self.start_time}.")
 
         # save model info to results file
-        results_path = self.path + '/results.txt'
-
-        with open(results_path, 'a') as file:
-            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
-                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
-                        action_histograms=self.action_histograms,
-                        start_time=str(start_time), end_time=str(end_time))
-            info = json.dumps(info, indent=2)
-
-            file.write(info)
-
-        self.logger.debug(f"Results saved at {results_path}.")
+        self._save_results()
 
 
 class FixedAdversary(TrainingSession):
@@ -174,6 +178,9 @@ class FixedAdversary(TrainingSession):
             # update control attributes
             self.model.last_eval = episodes_so_far
             self.model.next_eval += self.eval_frequency
+
+            # write partial results to file
+            self._save_results()
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= self.train_episodes
@@ -341,6 +348,9 @@ class SelfPlay(TrainingSession):
             # update control attributes
             model.last_eval = episodes_so_far
             model.next_eval += self.eval_frequency
+
+            # write partial results to file
+            self._save_results()
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= model.next_switch
@@ -523,6 +533,9 @@ class AsymmetricSelfPlay(TrainingSession):
             # update control attributes
             model.last_eval = episodes_so_far
             model.next_eval += self.eval_frequency
+
+            # write partial results to file
+            self._save_results()
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= model.next_switch
