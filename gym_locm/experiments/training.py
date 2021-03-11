@@ -31,7 +31,7 @@ def get_arg_parser():
     p.add_argument("--num-evals", "-ne", type=int, default=12,
                    help="how many evaluations to perform throughout training")
 
-    p.add_argument("--switch-freq", type=int, choices=[10, 100, 1000], default=1000,
+    p.add_argument("--switch-freq", type=int, default=1000,
                    help="how many episodes to run before updating opponent networks")
     p.add_argument("--layers", type=int, default=1,
                    help="amount of layers in the network")
