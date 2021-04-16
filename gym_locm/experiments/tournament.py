@@ -62,7 +62,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
 
 def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
                 seed: int, concurrency: int) \
-        -> Tuple[Tuple[float, float], Tuple[list, list], Tuple[list, list]]:
+        -> Tuple[Tuple[float, float], Tuple[list, list], Tuple[list, list], Tuple[list, list]]:
     """
     Run the match-up between `drafter1` and `drafter2` using `battler` battler
     :param drafter1: drafter to play as first player
@@ -73,8 +73,10 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     :param concurrency: amount of matches executed at the same time
     :return: a tuple containing (i) a tuple containing the win rate of the
     first and second players, (ii) a tuple containing the average mana curves
-    of the first and second players, and (iii) a tuple containing the
-    `30 * games` individual draft choices of the first and second players.
+    of the first and second players, (iii) a tuple containing the
+    `30 * games` individual draft choices of the first and second players,
+    and (iv) a tuple containing the `games` decks built by the first and
+    second players.
     """
     # parse the battle agent
     battler = agents.parse_battle_agent(battler)
@@ -128,6 +130,8 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     drafter2.mana_curve = [0 for _ in range(13)]
     drafter1.choices = [[] for _ in range(env.num_envs)]
     drafter2.choices = [[] for _ in range(env.num_envs)]
+    drafter1.decks = [[[]] for _ in range(env.num_envs)]
+    drafter2.decks = [[[]] for _ in range(env.num_envs)]
 
     # run the episodes
     while True:
@@ -169,6 +173,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
             # increase amount of cards chosen with the chosen card's cost
             current_drafter.mana_curve[chosen_card.cost] += 1
 
+            # add chosen card to this episode's deck
+            current_drafter.decks[i][-1].append(chosen_card.id)
+
         # perform the action and get the outcome
         _, rewards, dones, _ = env.step(actions)
 
@@ -181,6 +188,8 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
 
             if dones[i]:
                 episode_rewards[i].append(0.0)
+                current_drafter.decks[i].append([])
+                other_drafter.decks[i].append([])
 
                 episodes_so_far += 1
 
@@ -204,17 +213,24 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     drafter1.choices = [c for choices in drafter1.choices for c in choices]
     drafter2.choices = [c for choices in drafter2.choices for c in choices]
 
+    # join all parallel decks
+    drafter1.decks = [deck for decks in drafter1.decks for deck in decks if deck]
+    drafter2.decks = [deck for decks in drafter2.decks for deck in decks if deck]
+
     # cap any unsolicited data from additional episodes
     all_rewards = all_rewards[:games]
     drafter1.choices = drafter1.choices[:30 * games]
     drafter2.choices = drafter2.choices[:30 * games]
+    drafter1.decks = drafter1.decks[:games]
+    drafter2.decks = drafter2.decks[:games]
 
     # convert the list of rewards to the first player's win rate
     win_rate = (mean(all_rewards) + 1) * 50
 
     return (win_rate, 100 - win_rate), \
            (drafter1.mana_curve, drafter2.mana_curve), \
-           (drafter1.choices, drafter2.choices)
+           (drafter1.choices, drafter2.choices), \
+           (drafter1.decks, drafter2.decks)
 
 
 def run():
@@ -243,6 +259,11 @@ def run():
     choices = pd.DataFrame(index=drafter_role_index,
                            columns=range(30 * args.games * len(args.seeds)))
 
+    episode_drafter_role_index = pd.MultiIndex.from_product(
+        [args.seeds, range(1, args.games + 1), args.drafters, ['1st', '2nd']],
+        names=['seed', 'episode', 'drafter', 'role'])
+    decks = pd.DataFrame(index=episode_drafter_role_index, columns=range(30))
+
     # for each combination of two drafters
     for drafter1 in args.drafters:
         for drafter2 in args.drafters:
@@ -258,14 +279,18 @@ def run():
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the statistics
-                wrs, mcs, chs = run_matchup(d1, d2, args.battler, args.games,
-                                            seed, args.concurrency)
+                wrs, mcs, chs, dks = run_matchup(
+                    d1, d2, args.battler, args.games, seed, args.concurrency)
 
                 mean_win_rate += wrs[0]
                 mean_mana_curves_1p.append(mcs[0])
                 mean_mana_curves_2p.append(mcs[1])
                 choices_1p.extend(chs[0])
                 choices_2p.extend(chs[1])
+
+                # save the decks built by the drafters
+                decks.loc[seed, :, drafter1, '1st'] = dks[0]
+                decks.loc[seed, :, drafter2, '2nd'] = dks[1]
 
                 # save individual result
                 ind_results.append([drafter1, drafter2, seed,
@@ -331,12 +356,14 @@ def run():
     agg_results.to_csv(args.path + '/aggregate_win_rates.csv', index_label="1p \\ 2p")
     ind_results.to_csv(args.path + '/individual_win_rates.csv')
     mana_curves.to_csv(args.path + '/mana_curves.csv')
+    decks.to_csv(args.path + '/decks.csv')
 
     # and also pickle files for easy reading
     agg_results.to_pickle(args.path + '/aggregate_win_rates.pkl')
     ind_results.to_pickle(args.path + '/individual_win_rates.pkl')
     mana_curves.to_pickle(args.path + '/mana_curves.pkl')
     choices.to_pickle(args.path + '/choices.pkl')
+    decks.to_pickle(args.path + '/decks.pkl')
 
     # transpose choices data frame
     choices_t = choices.T
