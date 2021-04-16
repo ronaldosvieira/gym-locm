@@ -22,6 +22,7 @@ class LOCMEnv(gym.Env, ABC):
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
+        self._seed = seed
         self.state.seed(seed)
 
     def reset(self):
