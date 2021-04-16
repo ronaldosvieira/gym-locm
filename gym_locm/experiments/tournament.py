@@ -80,18 +80,21 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     battler = agents.parse_battle_agent(battler)
 
     # initialize envs
-    env = []
+    env = [lambda: LOCMDraftEnv(battle_agents=(battler(), battler())) for _ in range(concurrency)]
+
+    # wrap envs in a vectorized env
+    env = DummyVecEnv(env)
+
     for i in range(concurrency):
         # no overlap between episodes at each process
         current_seed = seed + (games // concurrency) * i
         current_seed -= 1  # resetting the env increases the seed by 1
 
-        # create the env
-        env.append(lambda: LOCMDraftEnv(seed=current_seed,
-                                        battle_agents=(battler(), battler())))
+        # set seed to env
+        env.env_method('seed', current_seed, indices=[i])
 
-    # wrap envs in a vectorized env
-    env = DummyVecEnv(env)
+    # reset all envs
+    env.env_method('reset')
 
     # initialize first player
     if drafter1.endswith('zip'):
