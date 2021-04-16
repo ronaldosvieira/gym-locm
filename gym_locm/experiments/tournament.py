@@ -335,8 +335,8 @@ def run():
     # and also pickle files for easy reading
     agg_results.to_pickle(args.path + '/aggregate_win_rates.pkl')
     ind_results.to_pickle(args.path + '/individual_win_rates.pkl')
-    mana_curves.to_csv(args.path + '/mana_curves.pkl')
-    choices.to_csv(args.path + '/choices.pkl')
+    mana_curves.to_pickle(args.path + '/mana_curves.pkl')
+    choices.to_pickle(args.path + '/choices.pkl')
 
     # transpose choices data frame
     choices_t = choices.T
