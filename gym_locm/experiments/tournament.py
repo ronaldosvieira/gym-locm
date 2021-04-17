@@ -357,6 +357,7 @@ def run():
     ind_results.to_csv(args.path + '/individual_win_rates.csv')
     mana_curves.to_csv(args.path + '/mana_curves.csv')
     decks.to_csv(args.path + '/decks.csv')
+    choices.T.to_csv(args.path + '/choices.csv')
 
     # and also pickle files for easy reading
     agg_results.to_pickle(args.path + '/aggregate_win_rates.pkl')
@@ -364,28 +365,6 @@ def run():
     mana_curves.to_pickle(args.path + '/mana_curves.pkl')
     choices.to_pickle(args.path + '/choices.pkl')
     decks.to_pickle(args.path + '/decks.pkl')
-
-    # transpose choices data frame
-    choices_t = choices.T
-
-    indexes = choices_t.columns
-
-    # remove random choices, if present
-    if 'random' in args.drafters:
-        indexes = indexes.difference([('random', '1st'), ('random', '2nd')])
-
-    # calculate entropy of drafters' choices
-    choices_t['entropy'] = [entropy_of_column(choices[column][indexes])
-                            for column in choices.columns]
-
-    # save choices and entropy to a csv file
-    choices_t.to_csv(args.path + '/choices.csv')
-
-
-def entropy_of_column(column, base=None):
-    vc = pd.Series(column).value_counts(normalize=True, sort=False)
-    base = np.e if base is None else base
-    return -(vc * np.log(vc)/np.log(base)).sum()
 
 
 if __name__ == '__main__':
