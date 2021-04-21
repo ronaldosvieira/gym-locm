@@ -95,8 +95,8 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
         # set seed to env
         env.env_method('seed', current_seed, indices=[i])
 
-    # reset all envs
-    env.env_method('reset')
+    # reset the env
+    env.reset()
 
     # initialize first player
     if drafter1.endswith('zip'):
@@ -119,9 +119,6 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     other_drafter.seed(seed)
     other_drafter.name = drafter2
     drafter2 = other_drafter
-
-    # reset the env
-    env.reset()
 
     # initialize metrics
     episodes_so_far = 0
