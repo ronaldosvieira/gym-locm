@@ -64,7 +64,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
 
 def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
                 seed: int, concurrency: int) \
-        -> Tuple[Tuple[float, float], Tuple[list, list], Tuple[list, list], List[List[Tuple]], Tuple[list, list]]:
+        -> Tuple[Tuple[float, float], Tuple[list, list], Tuple[list, list], List[List[Tuple]], Tuple[list, list], List[float]]:
     """
     Run the match-up between `drafter1` and `drafter2` using `battler` battler
     :param drafter1: drafter to play as first player
@@ -240,7 +240,8 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
         (drafter1.mana_curve, drafter2.mana_curve), \
         (drafter1.choices, drafter2.choices), \
         alternatives, \
-        (drafter1.decks, drafter2.decks)
+        (drafter1.decks, drafter2.decks), \
+        all_rewards
 
 
 def run():
@@ -295,7 +296,7 @@ def run():
                 d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
 
                 # run the match-up and get the statistics
-                wrs, mcs, chs, alts, dks = run_matchup(
+                wrs, mcs, chs, alts, dks, rwds = run_matchup(
                     d1, d2, args.battler, args.games, seed, args.concurrency)
 
                 mean_win_rate += wrs[0]
