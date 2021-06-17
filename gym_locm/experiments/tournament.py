@@ -276,10 +276,14 @@ def run():
     alternatives = pd.DataFrame(index=alternatives_index,
                                 columns=['card 1', 'card 2', 'card 3'])
 
-    episode_drafter_role_index = pd.MultiIndex.from_product(
-        [args.seeds, range(1, args.games + 1), args.drafters, ['1st', '2nd']],
-        names=['seed', 'episode', 'drafter', 'role'])
-    decks = pd.DataFrame(index=episode_drafter_role_index, columns=range(30))
+    episodes_index = pd.MultiIndex.from_product(
+        [args.seeds, range(1, args.games + 1), args.drafters, args.drafters],
+        names=['seed', 'episode', '1st_player', '2nd_player']
+    )
+    episodes = pd.DataFrame(
+        index=episodes_index,
+        columns=['timestamp', 'reward'] + list(range(30)) + list(range(30))
+    )
 
     # for each combination of two drafters
     for drafter1 in args.drafters:
@@ -308,9 +312,9 @@ def run():
                 # save the card alternatives
                 alternatives.loc[seed, :, :] = alts
 
-                # save the decks built by the drafters
-                decks.loc[seed, :, drafter1, '1st'] = dks[0]
-                decks.loc[seed, :, drafter2, '2nd'] = dks[1]
+                # save the episodes info
+                episodes.loc[seed, :, drafter1, drafter2] = \
+                    [[datetime.now(), rwds[i]] + dks[0][i] + dks[1][i] for i in range(len(rwds))]
 
                 # save individual result
                 ind_results.append([drafter1, drafter2, seed,
@@ -376,7 +380,7 @@ def run():
     agg_results.to_csv(args.path + '/aggregate_win_rates.csv', index_label="1p \\ 2p")
     ind_results.to_csv(args.path + '/individual_win_rates.csv')
     mana_curves.to_csv(args.path + '/mana_curves.csv')
-    decks.to_csv(args.path + '/decks.csv')
+    episodes.to_csv(args.path + '/episodes.csv')
     alternatives.to_csv(args.path + '/alternatives.csv')
     choices.T.to_csv(args.path + '/choices.csv')
 
@@ -386,7 +390,7 @@ def run():
     mana_curves.to_pickle(args.path + '/mana_curves.pkl')
     alternatives.to_pickle(args.path + '/alternatives.pkl')
     choices.to_pickle(args.path + '/choices.pkl')
-    decks.to_pickle(args.path + '/decks.pkl')
+    episodes.to_pickle(args.path + '/episodes.pkl')
 
 
 if __name__ == '__main__':
