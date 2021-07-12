@@ -123,7 +123,7 @@ def run():
         profiler.enable()
 
         for i in range(args.games):
-            evaluate((i, player_1, player_2, args.seed))
+            evaluate((i, player_1, player_2, args.seed, args.silent))
 
         profiler.disable()
 
