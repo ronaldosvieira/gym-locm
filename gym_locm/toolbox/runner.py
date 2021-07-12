@@ -70,7 +70,7 @@ def evaluate(params):
         if game.phase == engine.Phase.DRAFT:
             bot = draft_bots[game.current_player.id]
         else:
-            if log_battles:
+            if log_battles and not game.was_last_action_invalid:
                 battle_states[game.current_player.id].append(str(game))
 
             bot = battle_bots[game.current_player.id]
