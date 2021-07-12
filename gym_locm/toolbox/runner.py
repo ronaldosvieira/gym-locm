@@ -47,12 +47,14 @@ def get_arg_parser():
                    help="whether to print partial results")
     p.add_argument("--profile", action="store_true",
                    help="whether to profile the runs (runs in a single process)")
+    p.add_argument("--log-battles", action="store_true",
+                   help="whether to save a dataset of the battles run")
 
     return p
 
 
 def evaluate(params):
-    game_id, player_1, player_2, seed, silent = params
+    game_id, player_1, player_2, seed, silent, log_battles = params
 
     draft_bots = (player_1[0], player_2[0])
     battle_bots = (player_1[1], player_2[1])
@@ -62,10 +64,15 @@ def evaluate(params):
     for bot in draft_bots + battle_bots:
         bot.reset()
 
+    battle_states = [], []
+
     while game.winner is None:
         if game.phase == engine.Phase.DRAFT:
             bot = draft_bots[game.current_player.id]
         else:
+            if log_battles:
+                battle_states[game.current_player.id].append(str(game))
+
             bot = battle_bots[game.current_player.id]
 
         action = bot.act(game)
@@ -77,6 +84,12 @@ def evaluate(params):
         wins_by_p0[1] += 1
 
         wins, games = wins_by_p0
+
+        if log_battles:
+            for player in list(engine.PlayerOrder):
+                for battle_state in battle_states[player]:
+                    print(1 if game.winner == player else 0)
+                    print(battle_state)
 
     ratio = 100 * wins / games
 
@@ -123,7 +136,7 @@ def run():
         profiler.enable()
 
         for i in range(args.games):
-            evaluate((i, player_1, player_2, args.seed, args.silent))
+            evaluate((i, player_1, player_2, args.seed, args.silent, args.log_battles))
 
         profiler.disable()
 
@@ -134,7 +147,7 @@ def run():
 
         print(result.getvalue())
     else:
-        params = ((j, player_1, player_2, args.seed, args.silent)
+        params = ((j, player_1, player_2, args.seed, args.silent, args.log_battles)
                   for j in range(args.games))
 
         with Pool(args.processes) as pool:
