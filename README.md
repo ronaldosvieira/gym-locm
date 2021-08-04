@@ -258,21 +258,6 @@ package.
 
 The use of these draft agents with the Runner script is not implemented yet.
 
-## Citing
-
-If you use gym-locm in your work, please consider citing it with:
-
-```
-@misc{gym-locm,
-    author = {Vieira, Ronaldo and Chaimowicz, Luiz and Tavares, Anderson Rocha},
-    title = {OpenAI Gym Environments for Legends of Code and Magic},
-    year = {2019},
-    publisher = {GitHub},
-    journal = {GitHub repository},
-    howpublished = {\url{https://github.com/ronaldosvieira/gym-locm}}
-}
-```
-
 ## References
 1. <span id="kowalski2020">Kowalski, J., Miernik, R. (2020). Evolutionary 
 Approach to Collectible Card Game Arena Deckbuilding using Active Genes. arXiv preprint arXiv:2001.01326.</span>

@@ -1,0 +1,23 @@
+# YAML 1.2
+---
+authors:
+  -
+    affiliation: "Universidade Federal de Minas Gerais"
+    family-names: Vieira
+    given-names: Ronaldo
+  -
+    affiliation: "Universidade Federal do Rio Grande do Sul"
+    family-names: "Rocha Tavares"
+    given-names: Anderson
+  -
+    affiliation: "Universidade Federal de Minas Gerais"
+    family-names: Chaimowicz
+    given-names: Luiz
+cff-version: "1.1.0"
+date-released: 2020-10-01
+license: MIT
+message: "If you use this software, please cite it as below."
+repository-code: "https://github.com/ronaldosvieira/gym-locm"
+title: "OpenAI Gym Environments for Legends of Code and Magic"
+version: "1.0.0"
+...
