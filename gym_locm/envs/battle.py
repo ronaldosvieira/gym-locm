@@ -18,6 +18,7 @@ class LOCMBattleEnv(LOCMEnv):
         self.draft_agents = draft_agents
 
         for draft_agent in self.draft_agents:
+            draft_agent.reset()
             draft_agent.seed(seed)
 
         self.return_action_mask = return_action_mask
@@ -186,6 +187,9 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         # also init the battle agent and the new parameter
         self.battle_agent = battle_agent
         self.play_first = play_first
+
+        # reset the battle agent
+        self.battle_agent.reset()
 
     def reset(self) -> np.array:
         """
