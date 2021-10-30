@@ -84,10 +84,10 @@ class LOCMBattleEnv(LOCMEnv):
         winner = state.winner
 
         reward = 0
-        done = state.winner is not None
+        done = winner is not None
         info = {'phase': state.phase,
                 'turn': state.turn,
-                'winner': state.winner,
+                'winner': winner,
                 'invalid': state.was_last_action_invalid}
 
         if self.return_action_mask:
