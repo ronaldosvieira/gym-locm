@@ -425,14 +425,14 @@ class State:
             return self.__action_mask
 
         if self.phase == Phase.DRAFT:
-            return [1] * self.k
+            return [True] * self.k
         elif self.phase == Phase.ENDED:
-            return [0] * (145 if self.items else 41)
+            return [False] * (145 if self.items else 41)
 
-        action_mask = [0] * 145
+        action_mask = [False] * 145
 
         # pass is always allowed
-        action_mask[0] = 1
+        action_mask[0] = True
 
         # shortcuts
         cp, op = self.current_player, self.opposing_player
@@ -442,29 +442,29 @@ class State:
 
         def validate_creature(index):
             if left_lane_not_full:
-                action_mask[1 + index * 2] = 1
+                action_mask[1 + index * 2] = True
 
             if right_lane_not_full:
-                action_mask[1 + index * 2 + 1] = 1
+                action_mask[1 + index * 2 + 1] = True
 
         def validate_green_item(index):
             for i in range(len(cp.lanes[0])):
-                action_mask[17 + index * 13 + 1 + i] = 1
+                action_mask[17 + index * 13 + 1 + i] = True
 
             for i in range(len(cp.lanes[1])):
-                action_mask[17 + index * 13 + 4 + i] = 1
+                action_mask[17 + index * 13 + 4 + i] = True
 
         def validate_red_item(index):
             for i in range(len(op.lanes[0])):
-                action_mask[17 + index * 13 + 7 + i] = 1
+                action_mask[17 + index * 13 + 7 + i] = True
 
             for i in range(len(op.lanes[1])):
-                action_mask[17 + index * 13 + 10 + i] = 1
+                action_mask[17 + index * 13 + 10 + i] = True
 
         def validate_blue_item(index):
             validate_red_item(index)
 
-            action_mask[17 + index * 13] = 1
+            action_mask[17 + index * 13] = True
 
         check_playability = {
             Creature: validate_creature,
@@ -492,12 +492,12 @@ class State:
 
                     if guards:
                         for j in guards:
-                            action_mask[121 + i * 4 + 1 + j] = 1
+                            action_mask[121 + i * 4 + 1 + j] = True
                     else:
-                        action_mask[121 + i * 4] = 1
+                        action_mask[121 + i * 4] = True
 
                         for j in range(len(op.lanes[lane_id])):
-                            action_mask[121 + i * 4 + 1 + j] = 1
+                            action_mask[121 + i * 4 + 1 + j] = True
 
         if not self.items:
             action_mask = action_mask[:17] + action_mask[-24:]
