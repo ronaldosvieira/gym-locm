@@ -264,7 +264,7 @@ class LOCMEnv(gym.Env, ABC):
     @staticmethod
     def decode_battle_action(state, action_number):
         """
-        Decodes an action number (0-145) from battle phase into
+        Decodes an action number (0-144) from battle phase into
         the corresponding action object, if possible. Raises
         MalformedActionError otherwise.
         """

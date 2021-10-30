@@ -52,39 +52,45 @@ The battle phase is played. A default (configurable) policy is used in the draft
 
 **State**: a vector with 3 x 20 + 8 values (16 features from each of the 20 possible cards plus 4 features from each player).
 
-**Actions**: 0-96 (pass, summon, use and attack with all possible origins and targets).
+**Actions**: 0-144 (pass, summon, use and attack with all possible origins and targets).
 <details>
   <summary>Click to see all actions</summary>
     
-     0: PASS
-     1: SUMMON (card at index 0 of player's hand) 0
-     2: SUMMON (card at index 0 of player's hand) 1
-     3: SUMMON (card at index 1 of player's hand) 0
-     4: SUMMON (card at index 1 of player's hand) 1
-     5: SUMMON (card at index 2 of player's hand) 0
+      0: PASS
+      1: SUMMON (card at index 0 of player's hand) 0
+      2: SUMMON (card at index 0 of player's hand) 1
+      3: SUMMON (card at index 1 of player's hand) 0
+      4: SUMMON (card at index 1 of player's hand) 1
+      5: SUMMON (card at index 2 of player's hand) 0
                           ⋮
-    16: SUMMON (card at index 7 of player's hand) 1
-    17: USE (card at index 0 of player's hand) -1
-    18: USE (card at index 0 of player's hand) (1st creature at lane 0)
-    19: USE (card at index 0 of player's hand) (2nd creature at lane 0)
-    20: USE (card at index 0 of player's hand) (3rd creature at lane 0)
-    21: USE (card at index 0 of player's hand) (1st creature at lane 1)
-    22: USE (card at index 0 of player's hand) (2nd creature at lane 1)
-    23: USE (card at index 0 of player's hand) (3rd creature at lane 1)
-    24: USE (card at index 1 of player's hand) -1
-    25: USE (card at index 1 of player's hand) (1st creature at lane 0)
+     16: SUMMON (card at index 7 of player's hand) 1
+     17: USE (card at index 0 of player's hand) -1
+     18: USE (card at index 0 of player's hand) (1st creature at player's lane 0)
+     19: USE (card at index 0 of player's hand) (2nd creature at player's lane 0)
+     20: USE (card at index 0 of player's hand) (3rd creature at player's lane 0)
+     21: USE (card at index 0 of player's hand) (1st creature at player's lane 1)
+     22: USE (card at index 0 of player's hand) (2nd creature at player's lane 1)
+     23: USE (card at index 0 of player's hand) (3rd creature at player's lane 1)
+     24: USE (card at index 0 of player's hand) (1st creature at opponent's lane 0)
+     25: USE (card at index 0 of player's hand) (2nd creature at opponent's lane 0)
+     26: USE (card at index 0 of player's hand) (3rd creature at opponent's lane 0)
+     27: USE (card at index 0 of player's hand) (1st creature at opponent's lane 1)
+     28: USE (card at index 0 of player's hand) (2nd creature at opponent's lane 1)
+     29: USE (card at index 0 of player's hand) (3rd creature at opponent's lane 1)
+     30: USE (card at index 1 of player's hand) -1
+     31: USE (card at index 1 of player's hand) (1st creature at player's lane 0)
                           ⋮
-    72: USE (card at index 7 of player's hand) (3rd creature at lane 1)
-    73: ATTACK (1st creature at player's lane 0) -1
-    74: ATTACK (1st creature at player's lane 0) (1st creature at opponent's lane 0)
-    75: ATTACK (1st creature at player's lane 0) (2nd creature at opponent's lane 0)
-    76: ATTACK (1st creature at player's lane 0) (3rd creature at opponent's lane 0)
-    77: ATTACK (2nd creature at player's lane 0) -1
-    78: ATTACK (2nd creature at player's lane 0) (1st creature at opponent's lane 0)
+    120: USE (card at index 7 of player's hand) (3rd creature at opponent's lane 1)
+    121: ATTACK (1st creature at player's lane 0) -1
+    122: ATTACK (1st creature at player's lane 0) (1st creature at opponent's lane 0)
+    123: ATTACK (1st creature at player's lane 0) (2nd creature at opponent's lane 0)
+    124: ATTACK (1st creature at player's lane 0) (3rd creature at opponent's lane 0)
+    125: ATTACK (2nd creature at player's lane 0) -1
+    126: ATTACK (2nd creature at player's lane 0) (1st creature at opponent's lane 0)
                           ⋮
-    85: ATTACK (1st creature at player's lane 1) -1
+    133: ATTACK (1st creature at player's lane 1) -1
                           ⋮
-    96: ATTACK (3rd creature at player's lane 1) (3rd creature at opponent's lane 0)
+    144: ATTACK (3rd creature at player's lane 1) (3rd creature at opponent's lane 0)
     
 </details>
 
