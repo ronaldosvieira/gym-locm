@@ -397,6 +397,10 @@ class LOCMEnv(gym.Env, ABC):
         return self.state.action_mask
 
     @property
+    def action_masks(self):
+        return self.state.action_mask
+
+    @property
     def available_actions(self):
         return self.state.available_actions
 
