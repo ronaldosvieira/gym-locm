@@ -397,6 +397,10 @@ class LOCMEnv(gym.Env, ABC):
         return self.state.action_mask
 
     def action_masks(self):
+        '''
+        Method implemented especially for SB3-Contrib's MaskablePPO support.
+        More at https://sb3-contrib.readthedocs.io
+        '''
         return self.state.action_mask
 
     @property
