@@ -4,7 +4,7 @@ import sys
 
 from gym_locm import agents
 from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, \
-    model_builder_lstm, model_builder_mlp_masked
+    model_builder_lstm, model_builder_mlp_masked, SelfPlay, FixedAdversary
 
 _counter = 0
 
@@ -16,9 +16,11 @@ def get_arg_parser():
     tasks = ['draft', 'battle']
     approach = ['immediate', 'lstm', 'history']
     battle_agents = ['max-attack', 'greedy']
+    adversary = ['fixed', 'self-play', 'asymmetric-self-play']
 
     p.add_argument("--task", "-t", choices=tasks, default="draft")
-    p.add_argument("--approach", "-a", choices=approach, default="immediate")
+    p.add_argument("--approach", "-ap", choices=approach, default="immediate")
+    p.add_argument("--adversary", "-ad", choices=adversary, default="asymmetric-self-play")
     p.add_argument("--draft-agent", "-d", choices=list(agents.draft_agents.keys()),
                    default="max-attack")
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
@@ -120,11 +122,26 @@ def run():
                     'vf_coef': args.vf_coef, 'ent_coef': args.ent_coef,
                     'activation': args.act_fun, 'learning_rate': args.learning_rate}
 
-    trainer = AsymmetricSelfPlay(args.task, model_builder, model_params, env_params,
-                                 eval_env_params, args.train_episodes,
-                                 args.eval_episodes, args.num_evals,
-                                 args.switch_freq, args.path, args.seed,
-                                 args.concurrency)
+    if args.adversary == 'asymmetric-self-play':
+        trainer = AsymmetricSelfPlay(
+            args.task, model_builder, model_params, env_params, eval_env_params,
+            args.train_episodes, args.eval_episodes, args.num_evals,
+            args.switch_freq, args.path, args.seed, args.concurrency
+        )
+    elif args.adversary == 'self-play':
+        trainer = SelfPlay(
+            args.task, model_builder, model_params, env_params, eval_env_params,
+            args.train_episodes, args.eval_episodes, args.num_evals,
+            args.switch_freq, args.path, args.seed, args.concurrency
+        )
+    elif args.adversary == 'fixed':
+        trainer = FixedAdversary(
+            args.task, model_builder, model_params, env_params, eval_env_params,
+            args.train_episodes, args.eval_episodes, args.num_evals,
+            True, args.path, args.seed, args.concurrency
+        )
+    else:
+        raise Exception("Invalid adversary")
 
     trainer.run()
 
