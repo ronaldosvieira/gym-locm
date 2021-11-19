@@ -10,10 +10,6 @@ from datetime import datetime
 from statistics import mean
 
 # suppress tensorflow deprecated warnings
-from sb3_contrib import MaskablePPO
-
-from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
-
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=Warning)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
@@ -27,10 +23,12 @@ tf.get_logger().setLevel(logging.ERROR)
 from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
+from sb3_contrib import MaskablePPO
 
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent
 from gym_locm.envs import LOCMDraftSingleEnv, LOCMBattleSingleEnv
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
+from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
 
 verbose = True
 REALLY_BIG_INT = 1_000_000_000
