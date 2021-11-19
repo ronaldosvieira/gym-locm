@@ -2,11 +2,9 @@ import argparse
 import os
 import sys
 
-from gym_locm.agents import MaxAttackBattleAgent, GreedyBattleAgent, \
-    MaxAttackDraftAgent
+from gym_locm import agents
 from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, \
-    model_builder_lstm
-
+    model_builder_lstm, model_builder_mlp_masked
 
 _counter = 0
 
@@ -15,10 +13,14 @@ def get_arg_parser():
     p = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
+    tasks = ['draft', 'battle']
     approach = ['immediate', 'lstm', 'history']
     battle_agents = ['max-attack', 'greedy']
 
+    p.add_argument("--task", "-t", choices=tasks, default="draft")
     p.add_argument("--approach", "-a", choices=approach, default="immediate")
+    p.add_argument("--draft-agent", "-d", choices=list(agents.draft_agents.keys()),
+                   default="max-attack")
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
                    default="max-attack")
     p.add_argument("--path", "-p", help="path to save models and results",
@@ -72,26 +74,45 @@ def run():
 
     os.makedirs(args.path, exist_ok=True)
 
-    if args.approach == 'lstm':
-        model_builder = model_builder_lstm
+    if args.task == 'draft':
+
+        if args.approach == 'lstm':
+            model_builder = model_builder_lstm
+        else:
+            model_builder = model_builder_mlp
+
+        if args.battle_agent == 'greedy':
+            battle_agent = agents.GreedyBattleAgent
+        else:
+            battle_agent = agents.MaxAttackBattleAgent
+
+        env_params = {
+            'battle_agents': (battle_agent(), battle_agent()),
+            'use_draft_history': args.approach == 'history'
+        }
+
+        eval_env_params = {
+            'draft_agent': agents.MaxAttackDraftAgent(),
+            'battle_agents': (battle_agent(), battle_agent()),
+            'use_draft_history': args.approach == 'history'
+        }
+
+    elif args.task == 'battle':
+
+        model_builder = model_builder_mlp_masked
+        draft_agent = agents.parse_draft_agent(args.draft_agent)
+
+        env_params = {
+            'draft_agents': (draft_agent(), draft_agent())
+        }
+
+        eval_env_params = {
+            'draft_agents': (draft_agent(), draft_agent()),
+            'battle_agent': agents.MaxAttackBattleAgent()
+        }
+
     else:
-        model_builder = model_builder_mlp
-
-    if args.battle_agent == 'greedy':
-        battle_agent = GreedyBattleAgent
-    else:
-        battle_agent = MaxAttackBattleAgent
-
-    env_params = {
-        'battle_agents': (battle_agent(), battle_agent()),
-        'use_draft_history': args.approach == 'history'
-    }
-
-    eval_env_params = {
-        'draft_agent': MaxAttackDraftAgent(),
-        'battle_agents': (battle_agent(), battle_agent()),
-        'use_draft_history': args.approach == 'history'
-    }
+        raise Exception("Invalid task")
 
     model_params = {'layers': args.layers, 'neurons': args.neurons,
                     'n_steps': args.n_steps, 'nminibatches': args.nminibatches,
@@ -99,7 +120,7 @@ def run():
                     'vf_coef': args.vf_coef, 'ent_coef': args.ent_coef,
                     'activation': args.act_fun, 'learning_rate': args.learning_rate}
 
-    trainer = AsymmetricSelfPlay(model_builder, model_params, env_params,
+    trainer = AsymmetricSelfPlay(args.task, model_builder, model_params, env_params,
                                  eval_env_params, args.train_episodes,
                                  args.eval_episodes, args.num_evals,
                                  args.switch_freq, args.path, args.seed,

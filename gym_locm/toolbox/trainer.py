@@ -10,11 +10,16 @@ from datetime import datetime
 from statistics import mean
 
 # suppress tensorflow deprecated warnings
+from sb3_contrib import MaskablePPO
+
+from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
+
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=Warning)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 
 import tensorflow as tf
+import torch as th
 
 tf.get_logger().setLevel('INFO')
 tf.get_logger().setLevel(logging.ERROR)
@@ -24,7 +29,7 @@ from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
 
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent
-from gym_locm.envs import LOCMDraftSingleEnv
+from gym_locm.envs import LOCMDraftSingleEnv, LOCMBattleSingleEnv
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
 
 verbose = True
@@ -35,7 +40,7 @@ if verbose:
 
 
 class TrainingSession:
-    def __init__(self, params, path, seed):
+    def __init__(self, task, params, path, seed):
         # initialize logger
         self.logger = logging.getLogger('{0}.{1}'.format(__name__,
                                                          type(self).__name__))
@@ -48,6 +53,7 @@ class TrainingSession:
         self.start_time, self.end_time = None, None
 
         # save parameters
+        self.task = task
         self.params = params
         self.path = os.path.dirname(__file__) + "/../../" + path
         self.seed = seed
@@ -60,7 +66,7 @@ class TrainingSession:
         results_path = self.path + '/results.txt'
 
         with open(results_path, 'w') as file:
-            info = dict(**self.params, seed=self.seed, checkpoints=self.checkpoints,
+            info = dict(task=self.task, **self.params, seed=self.seed, checkpoints=self.checkpoints,
                         win_rates=self.win_rates, ep_lengths=self.episode_lengths,
                         action_histograms=self.action_histograms,
                         start_time=str(self.start_time), end_time=str(self.end_time))
@@ -73,7 +79,7 @@ class TrainingSession:
     def run(self):
         # log start time
         self.start_time = datetime.now()
-        self.logger.info("Training...")
+        self.logger.info(f"Training a {self.task} agent...")
 
         # do the training
         self._train()
@@ -87,10 +93,10 @@ class TrainingSession:
 
 
 class FixedAdversary(TrainingSession):
-    def __init__(self, model_builder, model_params, env_params, eval_env_params,
-                 train_episodes, eval_episodes, num_evals, play_first, path,
-                 seed, num_envs=1):
-        super(FixedAdversary, self).__init__(model_params, path, seed)
+    def __init__(self, task, model_builder, model_params, env_params,
+                 eval_env_params, train_episodes, eval_episodes, num_evals,
+                 play_first, path, seed, num_envs=1):
+        super(FixedAdversary, self).__init__(task, model_params, path, seed)
 
         # log start time
         start_time = time.perf_counter()
@@ -98,6 +104,11 @@ class FixedAdversary(TrainingSession):
         # initialize parallel environments
         self.logger.debug("Initializing training env...")
         env = []
+
+        if task == 'battle':
+            env_class = LOCMBattleSingleEnv
+        else:
+            env_class = LOCMDraftSingleEnv
 
         for i in range(num_envs):
             # no overlap between episodes at each concurrent env
@@ -107,8 +118,7 @@ class FixedAdversary(TrainingSession):
                 current_seed = None
 
             # create the env
-            env.append(lambda: LOCMDraftSingleEnv(seed=current_seed,
-                                                  play_first=play_first, **env_params))
+            env.append(lambda: env_class(seed=current_seed, play_first=play_first, **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv = DummyVecEnv(env)
@@ -116,7 +126,7 @@ class FixedAdversary(TrainingSession):
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
         eval_seed = seed + train_episodes if seed is not None else None
-        self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes,
+        self.evaluator: Evaluator = Evaluator(task, eval_env_params, eval_episodes,
                                               eval_seed, num_envs)
 
         # build the model
@@ -146,7 +156,7 @@ class FixedAdversary(TrainingSession):
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
     def _training_callback(self, _locals=None, _globals=None):
-        episodes_so_far = self.model.num_timesteps // 30
+        episodes_so_far = sum(self.env.get_attr('episodes'))
 
         # if it is time to evaluate, do so
         if episodes_so_far >= self.model.next_eval:
@@ -212,10 +222,10 @@ class FixedAdversary(TrainingSession):
 
 
 class SelfPlay(TrainingSession):
-    def __init__(self, model_builder, model_params, env_params, eval_env_params,
-                 train_episodes, eval_episodes, num_evals, switch_frequency, path,
-                 seed, num_envs=1):
-        super(SelfPlay, self).__init__(model_params, path, seed)
+    def __init__(self, task, model_builder, model_params, env_params,
+                 eval_env_params, train_episodes, eval_episodes, num_evals,
+                 switch_frequency, path, seed, num_envs=1):
+        super(SelfPlay, self).__init__(task, model_params, path, seed)
 
         # log start time
         start_time = time.perf_counter()
@@ -223,6 +233,11 @@ class SelfPlay(TrainingSession):
         # initialize parallel training environments
         self.logger.debug("Initializing training envs...")
         env = []
+
+        if task == 'battle':
+            env_class = LOCMBattleSelfPlayEnv
+        else:
+            env_class = LOCMDraftSelfPlayEnv
 
         for i in range(num_envs):
             # no overlap between episodes at each process
@@ -232,8 +247,7 @@ class SelfPlay(TrainingSession):
                 current_seed = None
 
             # create one env per process
-            env.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
-                                                    play_first=True, **env_params))
+            env.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
 
         # wrap envs in a vectorized env
         self.env = DummyVecEnv(env)
@@ -241,7 +255,7 @@ class SelfPlay(TrainingSession):
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
         eval_seed = seed + train_episodes if seed is not None else None
-        self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes // 2,
+        self.evaluator: Evaluator = Evaluator(task, eval_env_params, eval_episodes // 2,
                                               eval_seed, num_envs)
 
         # build the models
@@ -299,7 +313,7 @@ class SelfPlay(TrainingSession):
 
     def _training_callback(self, _locals=None, _globals=None):
         model = _locals['self']
-        episodes_so_far = model.num_timesteps // 30
+        episodes_so_far = sum(self.env.get_attr('episodes'))
 
         turns = model.env.get_attr('turn')
         playing_first = model.env.get_attr('play_first')
@@ -375,7 +389,7 @@ class SelfPlay(TrainingSession):
                                  reset_num_timesteps=False,
                                  callback=self._training_callback)
                 self.logger.debug(f"Model trained for "
-                                  f"{self.model.num_timesteps // 30} episodes. ")
+                                  f"{sum(self.env.get_attr('episodes'))} episodes. ")
 
                 # update parameters of adversary models
                 self.model.adversary.load_parameters(self.model.get_parameters(),
@@ -384,7 +398,7 @@ class SelfPlay(TrainingSession):
         except KeyboardInterrupt:
             pass
 
-        self.logger.debug(f"Training ended at {self.model.num_timesteps // 30} "
+        self.logger.debug(f"Training ended at {sum(self.env.get_attr('episodes'))} "
                           f"episodes")
 
         # save and evaluate final models, if not done yet
@@ -400,10 +414,10 @@ class SelfPlay(TrainingSession):
 
 
 class AsymmetricSelfPlay(TrainingSession):
-    def __init__(self, model_builder, model_params, env_params, eval_env_params,
-                 train_episodes, eval_episodes, num_evals,
+    def __init__(self, task, model_builder, model_params, env_params,
+                 eval_env_params, train_episodes, eval_episodes, num_evals,
                  switch_frequency, path, seed, num_envs=1):
-        super(AsymmetricSelfPlay, self).__init__(model_params, path, seed)
+        super(AsymmetricSelfPlay, self).__init__(task, model_params, path, seed)
 
         # log start time
         start_time = time.perf_counter()
@@ -411,6 +425,11 @@ class AsymmetricSelfPlay(TrainingSession):
         # initialize parallel training environments
         self.logger.debug("Initializing training envs...")
         env1, env2 = [], []
+
+        if task == 'battle':
+            env_class = LOCMBattleSelfPlayEnv
+        else:
+            env_class = LOCMDraftSelfPlayEnv
 
         for i in range(num_envs):
             # no overlap between episodes at each process
@@ -420,10 +439,8 @@ class AsymmetricSelfPlay(TrainingSession):
                 current_seed = None
 
             # create one env per process
-            env1.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
-                                                     play_first=True, **env_params))
-            env2.append(lambda: LOCMDraftSelfPlayEnv(seed=current_seed,
-                                                     play_first=False, **env_params))
+            env1.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
+            env2.append(lambda: env_class(seed=current_seed, play_first=False, **env_params))
 
         # wrap envs in a vectorized env
         self.env1 = DummyVecEnv(env1)
@@ -432,7 +449,7 @@ class AsymmetricSelfPlay(TrainingSession):
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
         eval_seed = seed + train_episodes if seed is not None else None
-        self.evaluator: Evaluator = Evaluator(eval_env_params, eval_episodes,
+        self.evaluator: Evaluator = Evaluator(task, eval_env_params, eval_episodes,
                                               eval_seed, num_envs)
 
         # build the models
@@ -500,7 +517,7 @@ class AsymmetricSelfPlay(TrainingSession):
 
     def _training_callback(self, _locals=None, _globals=None):
         model = _locals['self']
-        episodes_so_far = model.num_timesteps // 30
+        episodes_so_far = sum(model.env.get_attr('episodes'))
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
@@ -561,7 +578,7 @@ class AsymmetricSelfPlay(TrainingSession):
                                   reset_num_timesteps=False,
                                   callback=self._training_callback)
                 self.logger.debug(f"Model {self.model1.role_id} trained for "
-                                  f"{self.model1.num_timesteps // 30} episodes. "
+                                  f"{sum(self.env1.get_attr('episodes'))} episodes. "
                                   f"Switching to model {self.model2.role_id}.")
 
                 # train the second player model
@@ -569,7 +586,7 @@ class AsymmetricSelfPlay(TrainingSession):
                                   reset_num_timesteps=False,
                                   callback=self._training_callback)
                 self.logger.debug(f"Model {self.model2.role_id} trained for "
-                                  f"{self.model2.num_timesteps // 30} episodes. "
+                                  f"{sum(self.env2.get_attr('episodes'))} episodes. "
                                   f"Switching to model {self.model1.role_id}.")
 
                 # update parameters of adversary models
@@ -581,7 +598,7 @@ class AsymmetricSelfPlay(TrainingSession):
         except KeyboardInterrupt:
             pass
 
-        self.logger.debug(f"Training ended at {self.model1.num_timesteps // 30} "
+        self.logger.debug(f"Training ended at {sum(self.env1.get_attr('episodes'))} "
                           f"episodes")
 
         # save and evaluate final models, if not done yet
@@ -597,7 +614,7 @@ class AsymmetricSelfPlay(TrainingSession):
 
 
 class Evaluator:
-    def __init__(self, env_params, episodes, seed, num_envs):
+    def __init__(self, task, env_params, episodes, seed, num_envs):
         # log start time
         start_time = time.perf_counter()
 
@@ -606,8 +623,13 @@ class Evaluator:
 
         # initialize parallel environments
         self.logger.debug("Initializing envs...")
-        self.env = [lambda: LOCMDraftSingleEnv(**env_params)
-                    for _ in range(num_envs)]
+
+        if task == 'battle':
+            env_class = LOCMBattleSingleEnv
+        else:
+            env_class = LOCMDraftSingleEnv
+
+        self.env = [lambda: env_class(**env_params) for _ in range(num_envs)]
         self.env: VecEnv = DummyVecEnv(self.env)
 
         # save parameters
@@ -740,6 +762,19 @@ def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibat
                 noptepochs=noptepochs, cliprange=cliprange,
                 vf_coef=vf_coef, ent_coef=ent_coef,
                 learning_rate=learning_rate, n_cpu_tf_sess=env.num_envs)
+
+
+def model_builder_mlp_masked(env, seed, neurons, layers, activation, n_steps,
+                             nminibatches, noptepochs, cliprange, vf_coef, ent_coef,
+                             learning_rate):
+    net_arch = [neurons] * layers
+    activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
+
+    return MaskablePPO("MlpPolicy", env, learning_rate=learning_rate, n_steps=n_steps,
+                       batch_size=nminibatches, n_epochs=noptepochs, gamma=1,
+                       clip_range=cliprange, ent_coef=ent_coef, vf_coef=vf_coef,
+                       verbose=0, seed=seed,
+                       policy_kwargs=dict(net_arch=net_arch, activation_fn=activation))
 
 
 if __name__ == '__main__':
