@@ -62,7 +62,7 @@ class TrainingSession:
         pass
 
     def _save_results(self):
-        results_path = self.path + '/results.txt'
+        results_path = self.path + '/results.json'
 
         with open(results_path, 'w') as file:
             info = dict(task=self.task, **self.params, seed=self.seed, checkpoints=self.checkpoints,
