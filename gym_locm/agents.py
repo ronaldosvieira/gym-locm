@@ -1124,6 +1124,29 @@ class RLDraftAgent(Agent):
         return action
 
 
+class RLBattleAgent(Agent):
+    def __init__(self, model):
+        self.model = model
+
+        self.hidden_states = None
+        self.dones = None
+
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        self.hidden_states = None
+        self.dones = None
+
+    def act(self, state, action_masks):
+        action, self.hidden_states = \
+            self.model.predict(state, state=self.hidden_states,
+                               mask=self.dones, deterministic=True,
+                               action_masks=action_masks)
+
+        return action
+
+
 class TabularRLDraftAgent(Agent):
 
     def __init__(self, policy_path='policy-3M.csv', has_header=True):
