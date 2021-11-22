@@ -746,18 +746,7 @@ class Evaluator:
 
 
 def save_model_as_json(model, act_fun, path):
-    with open(path + '.json', 'w') as json_file:
-        params = {}
-
-        # create a parameter dictionary
-        for label, weights in model.get_parameters().items():
-            params[label] = weights.tolist()
-
-        # add activation function to it
-        params['act_fun'] = act_fun
-
-        # and save into the new file
-        json.dump(params, json_file)
+    pass  # todo: reimplement this supporting stable-baselines 2 and 3
 
 
 def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatches,
