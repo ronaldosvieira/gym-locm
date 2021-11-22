@@ -23,6 +23,7 @@ tf.get_logger().setLevel(logging.ERROR)
 from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import VecEnv as VecEnv3, DummyVecEnv as DummyVecEnv3
 from sb3_contrib import MaskablePPO
 
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent
@@ -119,7 +120,10 @@ class FixedAdversary(TrainingSession):
             env.append(lambda: env_class(seed=current_seed, play_first=play_first, **env_params))
 
         # wrap envs in a vectorized env
-        self.env: VecEnv = DummyVecEnv(env)
+        if task == 'battle':
+            self.env: VecEnv3 = DummyVecEnv3(env)
+        else:
+            self.env: VecEnv = DummyVecEnv(env)
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
@@ -248,7 +252,10 @@ class SelfPlay(TrainingSession):
             env.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
 
         # wrap envs in a vectorized env
-        self.env = DummyVecEnv(env)
+        if task == 'battle':
+            self.env: VecEnv3 = DummyVecEnv3(env)
+        else:
+            self.env: VecEnv = DummyVecEnv(env)
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
@@ -441,8 +448,12 @@ class AsymmetricSelfPlay(TrainingSession):
             env2.append(lambda: env_class(seed=current_seed, play_first=False, **env_params))
 
         # wrap envs in a vectorized env
-        self.env1 = DummyVecEnv(env1)
-        self.env2 = DummyVecEnv(env2)
+        if task == 'battle':
+            self.env1: VecEnv3 = DummyVecEnv3(env1)
+            self.env2: VecEnv3 = DummyVecEnv3(env2)
+        else:
+            self.env1: VecEnv = DummyVecEnv(env1)
+            self.env2: VecEnv = DummyVecEnv(env2)
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
@@ -628,7 +639,11 @@ class Evaluator:
             env_class = LOCMDraftSingleEnv
 
         self.env = [lambda: env_class(**env_params) for _ in range(num_envs)]
-        self.env: VecEnv = DummyVecEnv(self.env)
+
+        if task == 'battle':
+            self.env: VecEnv3 = DummyVecEnv3(self.env)
+        else:
+            self.env: VecEnv = DummyVecEnv(self.env)
 
         # save parameters
         self.episodes = episodes
