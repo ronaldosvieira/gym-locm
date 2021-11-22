@@ -51,6 +51,8 @@ class LOCMDraftEnv(LOCMEnv):
         # three actions possible - choose each of the three cards
         self.action_space = gym.spaces.Discrete(3)
 
+        self.reward_range = (-1, 1)
+
     def reset(self) -> np.array:
         """
         Resets the environment.

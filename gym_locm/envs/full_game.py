@@ -36,6 +36,8 @@ class LOCMFullGameEnv(LOCMEnv):
             Phase.BATTLE: gym.spaces.Discrete(163)
         }
 
+        self.reward_range = (-1, 1)
+
     @property
     def observation_space(self):
         return self.observation_spaces[self.state.phase]
