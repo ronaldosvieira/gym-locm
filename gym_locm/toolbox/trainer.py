@@ -26,7 +26,7 @@ from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
 from stable_baselines3.common.vec_env import VecEnv as VecEnv3, DummyVecEnv as DummyVecEnv3
 from sb3_contrib import MaskablePPO
 
-from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent
+from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent, RLBattleAgent
 from gym_locm.envs import LOCMDraftSingleEnv, LOCMBattleSingleEnv
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
@@ -172,9 +172,15 @@ class FixedAdversary(TrainingSession):
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
             start_time = time.perf_counter()
 
+            if self.task == 'battle':
+                agent_class = RLBattleAgent
+            else:
+                agent_class = RLDraftAgent
+
+            agent = agent_class(self.model)
+
             mean_reward, ep_length, act_hist = \
-                self.evaluator.run(RLDraftAgent(self.model),
-                                   play_first=self.model.role_id == 0)
+                self.evaluator.run(agent, play_first=self.model.role_id == 0)
 
             end_time = time.perf_counter()
             self.logger.info(f"Finished evaluating "
@@ -690,6 +696,9 @@ class Evaluator:
             # todo: do this in a more elegant way
             if isinstance(agent, RLDraftAgent):
                 actions = agent.act(observations)
+            elif isinstance(agent, RLBattleAgent):
+                action_masks = self.env.env_method('action_masks')
+                actions = agent.act(observations, action_masks)
             else:
                 observations = self.env.get_attr('state')
                 actions = [agent.act(observation) for observation in observations]
