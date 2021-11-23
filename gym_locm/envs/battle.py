@@ -239,20 +239,13 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
-    def __init__(self, play_first=True, **kwargs):
+    def __init__(self, play_first=True, adversary_policy=None, **kwargs):
         # init the env
         super().__init__(**kwargs)
 
         # also init the new parameters
         self.play_first = play_first
-        self.model = None
-
-    def set_model(self, model_builder, env_builder):
-        self.model = model_builder(env_builder(self))
-
-    def update_parameters(self, parameters):
-        """Update the current parameters in the model with new ones."""
-        self.model.load_parameters(parameters, exact_match=True)
+        self.adversary_policy = adversary_policy
 
     def step(self, action):
         """Makes an action in the game."""
@@ -266,7 +259,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
             state = self.encode_state()
-            action = self.model.predict(state)[0]
+            action = self.adversary_policy(state)
 
             state, reward, done, info = super().step(action)
 
