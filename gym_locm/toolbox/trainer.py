@@ -302,6 +302,7 @@ class SelfPlay(TrainingSession):
         self.model.tensorflow_log = self.path
 
         # save parameters
+        self.task = task
         self.train_episodes = train_episodes
         self.eval_episodes = eval_episodes
         self.num_evals = num_evals
@@ -348,15 +349,22 @@ class SelfPlay(TrainingSession):
             self.logger.info(f"Evaluating model ({episodes_so_far} episodes)...")
             start_time = time.perf_counter()
 
+            if self.task == 'battle':
+                agent_class = RLBattleAgent
+            else:
+                agent_class = RLDraftAgent
+
             if self.evaluator.seed is not None:
                 self.evaluator.seed = self.seed + self.train_episodes
+
             mean_reward, ep_length, act_hist = \
-                self.evaluator.run(RLDraftAgent(model), play_first=True)
+                self.evaluator.run(agent_class(model), play_first=True)
 
             if self.evaluator.seed is not None:
                 self.evaluator.seed += self.eval_episodes
+
             mean_reward2, ep_length2, act_hist2 = \
-                self.evaluator.run(RLDraftAgent(model), play_first=False)
+                self.evaluator.run(agent_class(model), play_first=False)
 
             mean_reward = (mean_reward + mean_reward2) / 2
             ep_length = (ep_length + ep_length2) / 2
@@ -557,9 +565,13 @@ class AsymmetricSelfPlay(TrainingSession):
                              f"({episodes_so_far} episodes)...")
             start_time = time.perf_counter()
 
+            if self.task == 'battle':
+                agent_class = RLBattleAgent
+            else:
+                agent_class = RLDraftAgent
+
             mean_reward, ep_length, act_hist = \
-                self.evaluator.run(RLDraftAgent(model),
-                                   play_first=model.role_id == 0)
+                self.evaluator.run(agent_class(model), play_first=model.role_id == 0)
 
             end_time = time.perf_counter()
             self.logger.info(f"Finished evaluating "
