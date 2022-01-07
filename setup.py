@@ -6,7 +6,7 @@ setup(name='gym_locm',
       extras_require={
             'experiments': ['numpy', 'scipy', 'stable_baselines', 'hyperopt',
                             'mplcursors', 'pandas', 'matplotlib', 'scikit-learn',
-                            'stable_baselines3', 'sb3-contrib'],
+                            'stable_baselines3', 'sb3-contrib', 'wandb'],
       },
       entry_points={
             'console_scripts': [

@@ -24,7 +24,9 @@ from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
 from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
 from stable_baselines3.common.vec_env import VecEnv as VecEnv3, DummyVecEnv as DummyVecEnv3
+from stable_baselines3.common.callbacks import BaseCallback
 from sb3_contrib import MaskablePPO
+from wandb.integration.sb3 import WandbCallback
 
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent, RLBattleAgent
 from gym_locm.envs import LOCMDraftSingleEnv, LOCMBattleSingleEnv
@@ -39,7 +41,7 @@ if verbose:
 
 
 class TrainingSession:
-    def __init__(self, task, params, path, seed):
+    def __init__(self, task, params, path, seed, wandb_run=None):
         # initialize logger
         self.logger = logging.getLogger('{0}.{1}'.format(__name__,
                                                          type(self).__name__))
@@ -50,6 +52,7 @@ class TrainingSession:
         self.episode_lengths = []
         self.action_histograms = []
         self.start_time, self.end_time = None, None
+        self.wandb_run = wandb_run
 
         # save parameters
         self.task = task
@@ -94,8 +97,9 @@ class TrainingSession:
 class FixedAdversary(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 play_first, path, seed, num_envs=1):
-        super(FixedAdversary, self).__init__(task, model_params, path, seed)
+                 play_first, path, seed, num_envs=1, wandb_run=None):
+        super(FixedAdversary, self).__init__(
+            task, model_params, path, seed, wandb_run=wandb_run)
 
         # log start time
         start_time = time.perf_counter()
@@ -189,7 +193,8 @@ class FixedAdversary(TrainingSession):
 
             # save the results
             self.checkpoints.append(episodes_so_far)
-            self.win_rates.append((mean_reward + 1) / 2)
+            win_rate = (mean_reward + 1) / 2
+            self.win_rates.append(win_rate)
             self.episode_lengths.append(ep_length)
             self.action_histograms.append(act_hist)
 
@@ -199,6 +204,12 @@ class FixedAdversary(TrainingSession):
 
             # write partial results to file
             self._save_results()
+
+            # upload stats to wandb, if enabled
+            if self.wandb_run:
+                info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
+                            win_rate=win_rate, mean_ep_length=ep_length)
+                self.wandb_run.log(info)
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= self.train_episodes
@@ -212,11 +223,19 @@ class FixedAdversary(TrainingSession):
         # save and evaluate starting model
         self._training_callback()
 
+        if self.task == 'battle':
+            from stable_baselines3.common.callbacks import CallbackList
+        else:
+            from stable_baselines.common.callbacks import CallbackList
+
         try:
             # train the model
             # note: dynamic learning or clip rates will require accurate # of timesteps
             self.model.learn(total_timesteps=REALLY_BIG_INT,  # we'll stop manually
-                             callback=self._training_callback)
+                             callback=CallbackList([
+                                 TrainingCallback(self._training_callback),
+                                 WandbCallback(gradient_save_freq=100, verbose=0)
+                             ]))
         except KeyboardInterrupt:
             pass
 
@@ -232,8 +251,9 @@ class FixedAdversary(TrainingSession):
 class SelfPlay(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 switch_frequency, path, seed, num_envs=1):
-        super(SelfPlay, self).__init__(task, model_params, path, seed)
+                 switch_frequency, path, seed, num_envs=1, wandb_run=None):
+        super(SelfPlay, self).__init__(
+            task, model_params, path, seed, wandb_run=wandb_run)
 
         # log start time
         start_time = time.perf_counter()
@@ -341,7 +361,12 @@ class SelfPlay(TrainingSession):
         if episodes_so_far >= model.next_eval:
             # save model
             model_path = self.path + f'/{episodes_so_far}'
-            model.save(model_path)
+
+            if self.task == 'battle':
+                model.save(model_path, exclude=['adversary'])
+            else:
+                model.save(model_path)
+
             save_model_as_json(model, self.params['activation'], model_path)
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
@@ -368,7 +393,7 @@ class SelfPlay(TrainingSession):
 
             mean_reward = (mean_reward + mean_reward2) / 2
             ep_length = (ep_length + ep_length2) / 2
-            act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(3)]
+            act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(model.env.get_attr('action_space', indices=[0])[0].n)]
 
             end_time = time.perf_counter()
             self.logger.info(f"Finished evaluating "
@@ -377,7 +402,8 @@ class SelfPlay(TrainingSession):
 
             # save the results
             self.checkpoints.append(episodes_so_far)
-            self.win_rates.append((mean_reward + 1) / 2)
+            win_rate = (mean_reward + 1) / 2
+            self.win_rates.append(win_rate)
             self.episode_lengths.append(ep_length)
             self.action_histograms.append(act_hist)
 
@@ -387,6 +413,12 @@ class SelfPlay(TrainingSession):
 
             # write partial results to file
             self._save_results()
+
+            # upload stats to wandb, if enabled
+            if self.wandb_run:
+                info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
+                            win_rate=win_rate, mean_ep_length=ep_length)
+                self.wandb_run.log(info)
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= model.next_switch
@@ -401,6 +433,11 @@ class SelfPlay(TrainingSession):
         # save and evaluate starting models
         self._training_callback({'self': self.model})
 
+        if self.task == 'battle':
+            from stable_baselines3.common.callbacks import CallbackList
+        else:
+            from stable_baselines.common.callbacks import CallbackList
+
         try:
             self.logger.debug(f"Training will switch models every "
                               f"{self.switch_frequency} episodes")
@@ -409,7 +446,10 @@ class SelfPlay(TrainingSession):
                 # train the model
                 self.model.learn(total_timesteps=REALLY_BIG_INT,
                                  reset_num_timesteps=False,
-                                 callback=self._training_callback)
+                                 callback=CallbackList([
+                                     TrainingCallback(lambda: self._training_callback({'self': self.model})),
+                                     WandbCallback(gradient_save_freq=0, verbose=0)
+                                 ]))
                 self.logger.debug(f"Model trained for "
                                   f"{sum(self.env.get_attr('episodes'))} episodes. ")
 
@@ -441,8 +481,9 @@ class SelfPlay(TrainingSession):
 class AsymmetricSelfPlay(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 switch_frequency, path, seed, num_envs=1):
-        super(AsymmetricSelfPlay, self).__init__(task, model_params, path, seed)
+                 switch_frequency, path, seed, num_envs=1, wandb_run=None):
+        super(AsymmetricSelfPlay, self).__init__(
+            task, model_params, path, seed, wandb_run=wandb_run)
 
         # log start time
         start_time = time.perf_counter()
@@ -556,7 +597,12 @@ class AsymmetricSelfPlay(TrainingSession):
         if episodes_so_far >= model.next_eval:
             # save model
             model_path = f'{self.path}/role{model.role_id}/{episodes_so_far}'
-            model.save(model_path)
+
+            if self.task == 'battle':
+                model.save(model_path, exclude=['adversary'])
+            else:
+                model.save(model_path)
+
             save_model_as_json(model, self.params['activation'], model_path)
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
@@ -580,7 +626,8 @@ class AsymmetricSelfPlay(TrainingSession):
 
             # save the results
             self.checkpoints[model.role_id].append(episodes_so_far)
-            self.win_rates[model.role_id].append((mean_reward + 1) / 2)
+            win_rate = (mean_reward + 1) / 2
+            self.win_rates[model.role_id].append(win_rate)
             self.episode_lengths[model.role_id].append(ep_length)
             self.action_histograms[model.role_id].append(act_hist)
 
@@ -590,6 +637,16 @@ class AsymmetricSelfPlay(TrainingSession):
 
             # write partial results to file
             self._save_results()
+
+            # upload stats to wandb, if enabled
+            if self.wandb_run:
+                info = {
+                    'checkpoint_' + model.role_id: episodes_so_far,
+                    'mean_reward_' + model.role_id: mean_reward,
+                    'win_rate_' + model.role_id: win_rate,
+                    'mean_ep_length_' + model.role_id: ep_length
+                }
+                self.wandb_run.log(info)
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= model.next_switch
@@ -605,6 +662,11 @@ class AsymmetricSelfPlay(TrainingSession):
         self._training_callback({'self': self.model1})
         self._training_callback({'self': self.model2})
 
+        if self.task == 'battle':
+            from stable_baselines3.common.callbacks import CallbackList
+        else:
+            from stable_baselines.common.callbacks import CallbackList
+
         try:
             self.logger.debug(f"Training will switch models every "
                               f"{self.switch_frequency} episodes")
@@ -613,7 +675,10 @@ class AsymmetricSelfPlay(TrainingSession):
                 # train the first player model
                 self.model1.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
-                                  callback=self._training_callback)
+                                  callback=CallbackList([
+                                      TrainingCallback(lambda: self._training_callback({'self': self.model1})),
+                                      WandbCallback(gradient_save_freq=100, verbose=0)
+                                  ]))
                 self.logger.debug(f"Model {self.model1.role_id} trained for "
                                   f"{sum(self.env1.get_attr('episodes'))} episodes. "
                                   f"Switching to model {self.model2.role_id}.")
@@ -621,7 +686,10 @@ class AsymmetricSelfPlay(TrainingSession):
                 # train the second player model
                 self.model2.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
-                                  callback=self._training_callback)
+                                  callback=CallbackList([
+                                      TrainingCallback(lambda: self._training_callback({'self': self.model2})),
+                                      WandbCallback(gradient_save_freq=100, verbose=0)
+                                  ]))
                 self.logger.debug(f"Model {self.model2.role_id} trained for "
                                   f"{sum(self.env2.get_attr('episodes'))} episodes. "
                                   f"Switching to model {self.model1.role_id}.")
@@ -770,12 +838,23 @@ class Evaluator:
         self.env.close()
 
 
+class TrainingCallback(BaseCallback):
+    def __init__(self, callback_func, verbose=0):
+        super(TrainingCallback, self).__init__(verbose)
+
+        self.callback_func = callback_func
+
+    def _on_step(self):
+        return self.callback_func()
+
+
 def save_model_as_json(model, act_fun, path):
     pass  # todo: reimplement this supporting stable-baselines 2 and 3
 
 
 def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatches,
-                noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
+                      noptepochs, cliprange, vf_coef, ent_coef, learning_rate,
+                      tensorboard_log=None):
     net_arch = [neurons] * layers
     activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
 
@@ -784,11 +863,12 @@ def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatc
                 n_steps=n_steps, nminibatches=nminibatches,
                 noptepochs=noptepochs, cliprange=cliprange,
                 vf_coef=vf_coef, ent_coef=ent_coef, learning_rate=learning_rate,
-                n_cpu_tf_sess=env.num_envs)
+                n_cpu_tf_sess=env.num_envs, tensorboard_log=tensorboard_log)
 
 
 def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibatches,
-                       noptepochs, cliprange, vf_coef, ent_coef, learning_rate):
+                       noptepochs, cliprange, vf_coef, ent_coef, learning_rate,
+                       tensorboard_log=None):
     net_arch = ['lstm'] + [neurons] * (layers - 1)
     activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
 
@@ -797,12 +877,13 @@ def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibat
                 n_steps=n_steps, nminibatches=nminibatches,
                 noptepochs=noptepochs, cliprange=cliprange,
                 vf_coef=vf_coef, ent_coef=ent_coef,
-                learning_rate=learning_rate, n_cpu_tf_sess=env.num_envs)
+                learning_rate=learning_rate, n_cpu_tf_sess=env.num_envs,
+                tensorboard_log=tensorboard_log)
 
 
 def model_builder_mlp_masked(env, seed, neurons, layers, activation, n_steps,
                              nminibatches, noptepochs, cliprange, vf_coef, ent_coef,
-                             learning_rate):
+                             learning_rate, tensorboard_log=None):
     net_arch = [neurons] * layers
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
@@ -810,7 +891,8 @@ def model_builder_mlp_masked(env, seed, neurons, layers, activation, n_steps,
                        batch_size=nminibatches, n_epochs=noptepochs, gamma=1,
                        clip_range=cliprange, ent_coef=ent_coef, vf_coef=vf_coef,
                        verbose=0, seed=seed,
-                       policy_kwargs=dict(net_arch=net_arch, activation_fn=activation))
+                       policy_kwargs=dict(net_arch=net_arch, activation_fn=activation),
+                       tensorboard_log=tensorboard_log)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,8 @@ import argparse
 import os
 import sys
 
+import wandb
+
 from gym_locm import agents
 from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, \
     model_builder_lstm, model_builder_mlp_masked, SelfPlay, FixedAdversary
@@ -124,30 +126,43 @@ def run():
                     'n_steps': args.n_steps, 'nminibatches': args.nminibatches,
                     'noptepochs': args.noptepochs, 'cliprange': args.cliprange,
                     'vf_coef': args.vf_coef, 'ent_coef': args.ent_coef,
-                    'activation': args.act_fun, 'learning_rate': args.learning_rate}
+                    'activation': args.act_fun, 'learning_rate': args.learning_rate,
+                    'tensorboard_log': args.path + '/tf_logs'}
+
+    run = wandb.init(
+        project='gym-locm',
+        entity='ronaldosvieira',
+        sync_tensorboard=True,
+        config=vars(args)
+    )
 
     if args.adversary == 'asymmetric-self-play':
         trainer = AsymmetricSelfPlay(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            args.switch_freq, args.path, args.seed, args.concurrency
+            args.switch_freq, args.path, args.seed, args.concurrency,
+            wandb_run=run
         )
     elif args.adversary == 'self-play':
         trainer = SelfPlay(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            args.switch_freq, args.path, args.seed, args.concurrency
+            args.switch_freq, args.path, args.seed, args.concurrency,
+            wandb_run=run
         )
     elif args.adversary == 'fixed':
         trainer = FixedAdversary(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            True, args.path, args.seed, args.concurrency
+            True, args.path, args.seed, args.concurrency, wandb_run=run
         )
     else:
         raise Exception("Invalid adversary")
 
-    trainer.run()
+    try:
+        trainer.run()
+    finally:
+        run.finish()
 
 
 if __name__ == "__main__":
