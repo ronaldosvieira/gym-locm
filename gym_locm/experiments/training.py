@@ -103,10 +103,14 @@ def run():
 
         model_builder = model_builder_mlp_masked
         draft_agent = agents.parse_draft_agent(args.draft_agent)
+        battle_agent = agents.parse_battle_agent(args.battle_agent)
 
         env_params = {
             'draft_agents': (draft_agent(), draft_agent())
         }
+
+        if args.adversary == 'fixed':
+            env_params['battle_agent'] = battle_agent()
 
         eval_env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
