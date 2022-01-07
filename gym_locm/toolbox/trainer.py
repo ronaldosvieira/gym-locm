@@ -275,7 +275,10 @@ class SelfPlay(TrainingSession):
         self.model.adversary = model_builder(self.env, seed, **model_params)
 
         # initialize parameters of adversary models accordingly
-        self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
+        try:
+            self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
+        except AttributeError:
+            self.model.adversary.set_parameters(self.model.get_parameters(), exact_match=True)
 
         # set adversary models as adversary policies of the self-play envs
         def make_adversary_policy(model, env):
@@ -403,8 +406,11 @@ class SelfPlay(TrainingSession):
                                   f"{sum(self.env.get_attr('episodes'))} episodes. ")
 
                 # update parameters of adversary models
-                self.model.adversary.load_parameters(self.model.get_parameters(),
-                                                     exact_match=True)
+                try:
+                    self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
+                except AttributeError:
+                    self.model.adversary.set_parameters(self.model.get_parameters(), exact_match=True)
+
                 self.logger.debug("Parameters of adversary network updated.")
         except KeyboardInterrupt:
             pass
@@ -475,8 +481,12 @@ class AsymmetricSelfPlay(TrainingSession):
         self.model2.adversary = model_builder(self.env1, seed, **model_params)
 
         # initialize parameters of adversary models accordingly
-        self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
-        self.model2.adversary.load_parameters(self.model1.get_parameters(), exact_match=True)
+        try:
+            self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
+            self.model2.adversary.load_parameters(self.model1.get_parameters(), exact_match=True)
+        except AttributeError:
+            self.model1.adversary.set_parameters(self.model2.get_parameters(), exact_match=True)
+            self.model2.adversary.set_parameters(self.model1.get_parameters(), exact_match=True)
 
         # set adversary models as adversary policies of the self-play envs
         def make_adversary_policy(model, env):
@@ -605,10 +615,13 @@ class AsymmetricSelfPlay(TrainingSession):
                                   f"Switching to model {self.model1.role_id}.")
 
                 # update parameters of adversary models
-                self.model1.adversary.load_parameters(self.model2.get_parameters(),
-                                                      exact_match=True)
-                self.model2.adversary.load_parameters(self.model1.get_parameters(),
-                                                      exact_match=True)
+                try:
+                    self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
+                    self.model2.adversary.load_parameters(self.model1.get_parameters(), exact_match=True)
+                except AttributeError:
+                    self.model1.adversary.set_parameters(self.model2.get_parameters(), exact_match=True)
+                    self.model2.adversary.set_parameters(self.model1.get_parameters(), exact_match=True)
+
                 self.logger.debug("Parameters of adversary networks updated.")
         except KeyboardInterrupt:
             pass
