@@ -50,6 +50,9 @@ def get_arg_parser():
                    help="batch size (in timesteps, 30 timesteps = 1 episode)")
     p.add_argument("--nminibatches", type=int, default=135,
                    help="amount of minibatches created from the batch")
+    p.add_argument("--nminibatches-divider", type=str, choices=["1", "2", "4", "8", "n"],
+                   help="amount of minibatches created from the batch"
+                        " -- by dividing the n-steps parameter")
     p.add_argument("--noptepochs", type=int, default=20,
                    help="amount of epochs to train with all minibatches")
     p.add_argument("--cliprange", type=float, default=0.1,
@@ -124,6 +127,11 @@ def run():
 
     else:
         raise Exception("Invalid task")
+
+    if args.nminibatches_divider == "n":
+        args.nminibatches = args.n_steps
+    elif args.nminibatches_divider is not None:
+        args.nminibatches = args.n_steps // int(args.nminibatches_divider)
 
     model_params = {'layers': args.layers, 'neurons': args.neurons,
                     'n_steps': args.n_steps, 'nminibatches': args.nminibatches,
