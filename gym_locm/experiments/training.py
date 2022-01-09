@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from datetime import datetime
 
 import wandb
 
@@ -75,6 +76,8 @@ def run():
 
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
+
+    args.path += "/" + args.task + "-" + str(args.seed) + "-" + datetime.now().strftime("%y%m%d%H%M")
 
     os.makedirs(args.path, exist_ok=True)
 
