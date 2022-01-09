@@ -147,6 +147,9 @@ def run():
         config=vars(args)
     )
 
+    # enable the use of wandb sweeps
+    args = wandb.config
+
     if args.adversary == 'asymmetric-self-play':
         trainer = AsymmetricSelfPlay(
             args.task, model_builder, model_params, env_params, eval_env_params,
