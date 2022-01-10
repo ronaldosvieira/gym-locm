@@ -228,14 +228,16 @@ class FixedAdversary(TrainingSession):
         else:
             from stable_baselines.common.callbacks import CallbackList
 
+        callbacks = [TrainingCallback(self._training_callback)]
+
+        if self.wandb_run:
+            callbacks.append(WandbCallback(gradient_save_freq=100, verbose=0))
+
         try:
             # train the model
             # note: dynamic learning or clip rates will require accurate # of timesteps
             self.model.learn(total_timesteps=REALLY_BIG_INT,  # we'll stop manually
-                             callback=CallbackList([
-                                 TrainingCallback(self._training_callback),
-                                 WandbCallback(gradient_save_freq=100, verbose=0)
-                             ]))
+                             callback=CallbackList(callbacks))
         except KeyboardInterrupt:
             pass
 
@@ -347,7 +349,7 @@ class SelfPlay(TrainingSession):
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
     def _training_callback(self, _locals=None, _globals=None):
-        model = _locals['self']
+        model = self.model
         episodes_so_far = sum(self.env.get_attr('episodes'))
 
         turns = model.env.get_attr('turn')
@@ -438,6 +440,11 @@ class SelfPlay(TrainingSession):
         else:
             from stable_baselines.common.callbacks import CallbackList
 
+        callbacks = [TrainingCallback(self._training_callback)]
+
+        if self.wandb_run:
+            callbacks.append(WandbCallback(gradient_save_freq=100, verbose=0))
+
         try:
             self.logger.debug(f"Training will switch models every "
                               f"{self.switch_frequency} episodes")
@@ -446,10 +453,7 @@ class SelfPlay(TrainingSession):
                 # train the model
                 self.model.learn(total_timesteps=REALLY_BIG_INT,
                                  reset_num_timesteps=False,
-                                 callback=CallbackList([
-                                     TrainingCallback(lambda: self._training_callback({'self': self.model})),
-                                     WandbCallback(gradient_save_freq=0, verbose=0)
-                                 ]))
+                                 callback=CallbackList(callbacks))
                 self.logger.debug(f"Model trained for "
                                   f"{sum(self.env.get_attr('episodes'))} episodes. ")
 
@@ -671,14 +675,18 @@ class AsymmetricSelfPlay(TrainingSession):
             self.logger.debug(f"Training will switch models every "
                               f"{self.switch_frequency} episodes")
 
+            callbacks1 = [TrainingCallback(lambda: self._training_callback({'self': self.model1}))]
+            callbacks2 = [TrainingCallback(lambda: self._training_callback({'self': self.model2}))]
+
+            if self.wandb_run:
+                callbacks1.append(WandbCallback(gradient_save_freq=100, verbose=0))
+                callbacks2.append(WandbCallback(gradient_save_freq=100, verbose=0))
+
             for _ in range(self.num_switches):
                 # train the first player model
                 self.model1.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
-                                  callback=CallbackList([
-                                      TrainingCallback(lambda: self._training_callback({'self': self.model1})),
-                                      WandbCallback(gradient_save_freq=100, verbose=0)
-                                  ]))
+                                  callback=CallbackList(callbacks1))
                 self.logger.debug(f"Model {self.model1.role_id} trained for "
                                   f"{sum(self.env1.get_attr('episodes'))} episodes. "
                                   f"Switching to model {self.model2.role_id}.")
@@ -686,10 +694,7 @@ class AsymmetricSelfPlay(TrainingSession):
                 # train the second player model
                 self.model2.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
-                                  callback=CallbackList([
-                                      TrainingCallback(lambda: self._training_callback({'self': self.model2})),
-                                      WandbCallback(gradient_save_freq=100, verbose=0)
-                                  ]))
+                                  callback=CallbackList(callbacks2))
                 self.logger.debug(f"Model {self.model2.role_id} trained for "
                                   f"{sum(self.env2.get_attr('episodes'))} episodes. "
                                   f"Switching to model {self.model1.role_id}.")
