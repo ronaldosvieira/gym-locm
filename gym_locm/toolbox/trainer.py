@@ -423,7 +423,7 @@ class SelfPlay(TrainingSession):
                 self.wandb_run.log(info)
 
         # if training should end, return False to end training
-        training_is_finished = episodes_so_far >= model.next_switch
+        training_is_finished = episodes_so_far >= model.next_switch or episodes_so_far >= self.train_episodes
 
         if training_is_finished:
             model.last_switch = episodes_so_far
@@ -653,7 +653,7 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.wandb_run.log(info)
 
         # if training should end, return False to end training
-        training_is_finished = episodes_so_far >= model.next_switch
+        training_is_finished = episodes_so_far >= model.next_switch or episodes_so_far >= self.train_episodes
 
         if training_is_finished:
             model.last_switch = episodes_so_far
