@@ -15,6 +15,8 @@ class LOCMBattleEnv(LOCMEnv):
                  return_action_mask=False, seed=None, items=True, k=3, n=30):
         super().__init__(seed=seed, items=items, k=k, n=n)
 
+        self.rewards = [0.0]
+
         self.draft_agents = draft_agents
 
         for draft_agent in self.draft_agents:
@@ -101,6 +103,8 @@ class LOCMBattleEnv(LOCMEnv):
 
             del info['turn']
 
+            self.rewards[-1] += reward
+
         return self.encode_state(), reward, done, info
 
     def reset(self) -> np.array:
@@ -120,6 +124,8 @@ class LOCMBattleEnv(LOCMEnv):
         while self.state.phase == Phase.DRAFT:
             for agent in self.draft_agents:
                 self.state.act(agent.act(self.state))
+
+        self.rewards.append(0.0)
 
         return self.encode_state()
 
@@ -178,6 +184,9 @@ class LOCMBattleEnv(LOCMEnv):
         encoded_state[8:] = np.array(all_cards).flatten()
 
         return encoded_state
+
+    def get_episode_rewards(self):
+        return self.rewards
 
 
 class LOCMBattleSingleEnv(LOCMBattleEnv):
