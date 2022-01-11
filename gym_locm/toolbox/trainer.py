@@ -468,8 +468,18 @@ class SelfPlay(TrainingSession):
                 self.model.learn(total_timesteps=REALLY_BIG_INT,
                                  reset_num_timesteps=False,
                                  callback=CallbackList(callbacks))
+
+                # log training win rate at the time of the switch
+                train_mean_reward = np.mean([np.mean(rewards) for rewards in self.env.env_method('get_episode_rewards')])
+                self.wandb_run.log({'train_mean_reward': train_mean_reward})
+
+                # reset training env rewards
+                for i in range(self.env.num_envs):
+                    self.env.set_attr('rewards', [0.0], indices=[i])
+
                 self.logger.debug(f"Model trained for "
-                                  f"{sum(self.env.get_attr('episodes'))} episodes. ")
+                                  f"{sum(self.env.get_attr('episodes'))} episodes. "
+                                  f"Train reward: {train_mean_reward}")
 
                 # update parameters of adversary models
                 try:
@@ -708,16 +718,36 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.model1.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
                                   callback=CallbackList(callbacks1))
+
+                # log training win rate at the time of the switch
+                train_mean_reward1 = np.mean([np.mean(rewards) for rewards in self.env1.env_method('get_episode_rewards')])
+                self.wandb_run.log({'train_mean_reward_0': train_mean_reward1})
+
+                # reset training env rewards
+                for i in range(self.env1.num_envs):
+                    self.env1.set_attr('rewards', [0.0], indices=[i])
+
                 self.logger.debug(f"Model {self.model1.role_id} trained for "
                                   f"{sum(self.env1.get_attr('episodes'))} episodes. "
+                                  f"Train reward: {train_mean_reward1}. "
                                   f"Switching to model {self.model2.role_id}.")
 
                 # train the second player model
                 self.model2.learn(total_timesteps=REALLY_BIG_INT,
                                   reset_num_timesteps=False,
                                   callback=CallbackList(callbacks2))
+
+                # log training win rate at the time of the switch
+                train_mean_reward2 = np.mean([np.mean(rewards) for rewards in self.env2.env_method('get_episode_rewards')])
+                self.wandb_run.log({'train_mean_reward_1': train_mean_reward2})
+
+                # reset training env rewards
+                for i in range(self.env2.num_envs):
+                    self.env2.set_attr('rewards', [0.0], indices=[i])
+
                 self.logger.debug(f"Model {self.model2.role_id} trained for "
                                   f"{sum(self.env2.get_attr('episodes'))} episodes. "
+                                  f"Train reward: {train_mean_reward2}. "
                                   f"Switching to model {self.model1.role_id}.")
 
                 # update parameters of adversary models
