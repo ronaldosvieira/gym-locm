@@ -209,6 +209,13 @@ class FixedAdversary(TrainingSession):
             if self.wandb_run:
                 info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
                             win_rate=win_rate, mean_ep_length=ep_length)
+
+                if self.task == 'battle':
+                    info['pass_actions'] = act_hist[0]
+                    info['summon_actions'] = sum(act_hist[1:17])
+                    info['use_actions'] = sum(act_hist[17:121])
+                    info['attack_actions'] = sum(act_hist[121:])
+
                 self.wandb_run.log(info)
 
         # if training should end, return False to end training
@@ -420,6 +427,13 @@ class SelfPlay(TrainingSession):
             if self.wandb_run:
                 info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
                             win_rate=win_rate, mean_ep_length=ep_length)
+
+                if self.task == 'battle':
+                    info['pass_actions'] = act_hist[0]
+                    info['summon_actions'] = sum(act_hist[1:17])
+                    info['use_actions'] = sum(act_hist[17:121])
+                    info['attack_actions'] = sum(act_hist[121:])
+
                 self.wandb_run.log(info)
 
         # if training should end, return False to end training
@@ -650,6 +664,13 @@ class AsymmetricSelfPlay(TrainingSession):
                     'win_rate_' + model.role_id: win_rate,
                     'mean_ep_length_' + model.role_id: ep_length
                 }
+
+                if self.task == 'battle':
+                    info['pass_actions_' + model.role_id] = act_hist[0]
+                    info['summon_actions_' + model.role_id] = sum(act_hist[1:17])
+                    info['use_actions_' + model.role_id] = sum(act_hist[17:121])
+                    info['attack_actions_' + model.role_id] = sum(act_hist[121:])
+
                 self.wandb_run.log(info)
 
         # if training should end, return False to end training
