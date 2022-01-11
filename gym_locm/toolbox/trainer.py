@@ -238,7 +238,7 @@ class FixedAdversary(TrainingSession):
         callbacks = [TrainingCallback(self._training_callback)]
 
         if self.wandb_run:
-            callbacks.append(WandbCallback(gradient_save_freq=100, verbose=0))
+            callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
         try:
             # train the model
@@ -457,7 +457,7 @@ class SelfPlay(TrainingSession):
         callbacks = [TrainingCallback(self._training_callback)]
 
         if self.wandb_run:
-            callbacks.append(WandbCallback(gradient_save_freq=100, verbose=0))
+            callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
         try:
             self.logger.debug(f"Training will switch models every "
@@ -700,8 +700,8 @@ class AsymmetricSelfPlay(TrainingSession):
             callbacks2 = [TrainingCallback(lambda: self._training_callback({'self': self.model2}))]
 
             if self.wandb_run:
-                callbacks1.append(WandbCallback(gradient_save_freq=100, verbose=0))
-                callbacks2.append(WandbCallback(gradient_save_freq=100, verbose=0))
+                callbacks1.append(WandbCallback(gradient_save_freq=0, verbose=0))
+                callbacks2.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
             for _ in range(self.num_switches):
                 # train the first player model
