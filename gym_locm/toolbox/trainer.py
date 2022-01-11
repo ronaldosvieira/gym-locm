@@ -310,16 +310,26 @@ class SelfPlay(TrainingSession):
             self.model.adversary.set_parameters(self.model.get_parameters(), exact_match=True)
 
         # set adversary models as adversary policies of the self-play envs
-        def make_adversary_policy(model, env):
-            def adversary_policy(obs):
-                zero_completed_obs = np.zeros((num_envs,) + env.observation_space.shape)
-                zero_completed_obs[0, :] = obs
+        if self.task == 'battle':
+            def make_adversary_policy(model, env):
+                def adversary_policy(obs):
+                    actions, _ = model.adversary.predict(
+                        obs, deterministic=True, action_masks=env.env_method('action_masks')[0])
 
-                actions, _ = model.adversary.predict(zero_completed_obs)
+                    return actions
 
-                return actions[0]
+                return adversary_policy
+        else:
+            def make_adversary_policy(model, env):
+                def adversary_policy(obs):
+                    zero_completed_obs = np.zeros((num_envs,) + env.observation_space.shape)
+                    zero_completed_obs[0, :] = obs
 
-            return adversary_policy
+                    actions, _ = model.adversary.predict(zero_completed_obs)
+
+                    return actions[0]
+
+                return adversary_policy
 
         self.env.set_attr('adversary_policy',
                            make_adversary_policy(self.model, self.env))
