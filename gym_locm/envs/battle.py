@@ -256,6 +256,31 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         self.play_first = play_first
         self.adversary_policy = adversary_policy
 
+    def reset(self) -> np.array:
+        """
+        Resets the environment.
+        The game is put into its initial state and all agents are reset.
+        """
+        # reset what is needed
+        encoded_state = super().reset()
+
+        # also reset the battle agent
+        self.play_first = not self.play_first
+
+        # if playing second, have first player play
+        if not self.play_first:
+            while self.state.current_player.id != PlayerOrder.SECOND:
+                state = self.encode_state()
+                action = self.adversary_policy(state)
+
+                state, reward, done, info = super().step(action)
+
+                if info['invalid'] and not done:
+                    state, reward, done, info = super().step(0)
+                    break
+
+        return encoded_state
+
     def step(self, action):
         """Makes an action in the game."""
         player = self.state.current_player.id
