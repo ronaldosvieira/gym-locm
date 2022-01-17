@@ -142,7 +142,7 @@ def run():
 
     run = wandb.init(
         project='gym-locm',
-        entity='ronaldosvieira',
+        entity='j-ufmg',
         sync_tensorboard=True,
         config=vars(args)
     )
