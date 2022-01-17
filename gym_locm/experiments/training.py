@@ -122,7 +122,7 @@ def run():
 
         eval_env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
-            'battle_agent': agents.MaxAttackBattleAgent()
+            'battle_agent': battle_agent()
         }
 
     else:
