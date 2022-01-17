@@ -454,12 +454,33 @@ class SelfPlay(TrainingSession):
 
                 self.wandb_run.log(info)
 
-        # if training should end, return False to end training
-        training_is_finished = episodes_so_far >= model.next_switch or episodes_so_far >= self.train_episodes
-
-        if training_is_finished:
+        # if it is time to update the adversary model, do so
+        if episodes_so_far >= model.next_switch:
             model.last_switch = episodes_so_far
             model.next_switch += self.switch_frequency
+
+            # log training win rate at the time of the switch
+            train_mean_reward = np.mean([np.mean(rewards) for rewards in model.env.env_method('get_episode_rewards')])
+            self.wandb_run.log({'train_mean_reward': train_mean_reward})
+
+            self.logger.debug(f"Model trained for "
+                              f"{sum(model.env.get_attr('episodes'))} episodes. "
+                              f"Train reward: {train_mean_reward}")
+
+            # reset training env rewards
+            for i in range(model.env.num_envs):
+                model.env.set_attr('rewards', [0.0], indices=[i])
+
+            # update parameters of adversary models
+            try:
+                model.adversary.load_parameters(model.get_parameters(), exact_match=True)
+            except AttributeError:
+                model.adversary.set_parameters(model.get_parameters(), exact_match=True)
+
+            self.logger.debug("Parameters of adversary network updated.")
+
+        # if training should end, return False to end training
+        training_is_finished = episodes_so_far >= self.train_episodes
 
         return not training_is_finished
 
@@ -481,31 +502,11 @@ class SelfPlay(TrainingSession):
             self.logger.debug(f"Training will switch models every "
                               f"{self.switch_frequency} episodes")
 
-            for _ in range(self.num_switches):
-                # train the model
-                self.model.learn(total_timesteps=REALLY_BIG_INT,
-                                 reset_num_timesteps=False,
-                                 callback=CallbackList(callbacks))
+            # train the model
+            self.model.learn(total_timesteps=REALLY_BIG_INT,
+                             reset_num_timesteps=False,
+                             callback=CallbackList(callbacks))
 
-                # log training win rate at the time of the switch
-                train_mean_reward = np.mean([np.mean(rewards) for rewards in self.env.env_method('get_episode_rewards')])
-                self.wandb_run.log({'train_mean_reward': train_mean_reward})
-
-                # reset training env rewards
-                for i in range(self.env.num_envs):
-                    self.env.set_attr('rewards', [0.0], indices=[i])
-
-                self.logger.debug(f"Model trained for "
-                                  f"{sum(self.env.get_attr('episodes'))} episodes. "
-                                  f"Train reward: {train_mean_reward}")
-
-                # update parameters of adversary models
-                try:
-                    self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
-                except AttributeError:
-                    self.model.adversary.set_parameters(self.model.get_parameters(), exact_match=True)
-
-                self.logger.debug("Parameters of adversary network updated.")
         except KeyboardInterrupt:
             pass
 
