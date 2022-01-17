@@ -213,8 +213,12 @@ class FixedAdversary(TrainingSession):
                 if self.task == 'battle':
                     info['pass_actions'] = act_hist[0]
                     info['summon_actions'] = sum(act_hist[1:17])
-                    info['use_actions'] = sum(act_hist[17:121])
-                    info['attack_actions'] = sum(act_hist[121:])
+
+                    if self.env.get_attr('items', indices=[0])[0]:
+                        info['use_actions'] = sum(act_hist[17:121])
+                        info['attack_actions'] = sum(act_hist[121:])
+                    else:
+                        info['attack_actions'] = sum(act_hist[17:])
 
                 self.wandb_run.log(info)
 
@@ -441,8 +445,12 @@ class SelfPlay(TrainingSession):
                 if self.task == 'battle':
                     info['pass_actions'] = act_hist[0]
                     info['summon_actions'] = sum(act_hist[1:17])
+
+                if self.env.get_attr('items', indices=[0])[0]:
                     info['use_actions'] = sum(act_hist[17:121])
                     info['attack_actions'] = sum(act_hist[121:])
+                else:
+                    info['attack_actions'] = sum(act_hist[17:])
 
                 self.wandb_run.log(info)
 
@@ -698,8 +706,12 @@ class AsymmetricSelfPlay(TrainingSession):
                 if self.task == 'battle':
                     info['pass_actions_' + model.role_id] = act_hist[0]
                     info['summon_actions_' + model.role_id] = sum(act_hist[1:17])
-                    info['use_actions_' + model.role_id] = sum(act_hist[17:121])
-                    info['attack_actions_' + model.role_id] = sum(act_hist[121:])
+
+                    if model.env.get_attr('items', indices=[0])[0]:
+                        info['use_actions'] = sum(act_hist[17:121])
+                        info['attack_actions'] = sum(act_hist[121:])
+                    else:
+                        info['attack_actions'] = sum(act_hist[17:])
 
                 self.wandb_run.log(info)
 
