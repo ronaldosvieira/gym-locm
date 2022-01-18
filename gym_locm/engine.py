@@ -19,8 +19,9 @@ def eprint(*args, **kwargs):
 
 class Phase(IntEnum):
     DRAFT = 0
-    BATTLE = 1
-    ENDED = 2
+    CONSTRUCTED = 1
+    BATTLE = 2
+    ENDED = 3
 
 
 class PlayerOrder(IntEnum):
@@ -304,8 +305,9 @@ _cards = load_cards()
 
 
 class State:
-    def __init__(self, seed=None, items=True, k=3, n=30):
+    def __init__(self, seed=None, items=True, k=3, n=30, mode='draft'):
         assert k <= len(_cards)
+        assert mode in ('draft', 'constructed')
 
         self.instance_counter = 0
         self.summon_counter = 0
@@ -314,8 +316,8 @@ class State:
         self.seed(seed)
         self.items = items
         self.k, self.n = k, n
+        self.mode = mode
 
-        self.phase = Phase.DRAFT
         self.turn = 1
         self.was_last_action_invalid = False
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
@@ -323,14 +325,27 @@ class State:
         self.__available_actions = None
         self.__action_mask = None
 
+        self._draft_cards = None
+        self._constructed_cards = None
+        self._picked = None
+
         self.winner = None
 
-        self._draft_cards = self._new_draft()
+        if mode == 'draft':
+            self.phase = Phase.DRAFT
 
-        current_draft_choices = self._draft_cards[self.turn - 1]
+            self._draft_cards = self._new_draft()
 
-        for player in self.players:
-            player.hand = current_draft_choices
+            current_draft_choices = self._draft_cards[self.turn - 1]
+
+            for player in self.players:
+                player.hand = current_draft_choices
+
+        elif mode == 'constructed':
+            self.phase = Phase.CONSTRUCTED
+
+            self._constructed_cards = self._new_constructed()
+            self._picked = [False] * 60, [False] * 60
 
     @property
     def current_player(self) -> Player:
@@ -348,6 +363,10 @@ class State:
         if self.phase == Phase.DRAFT:
             self.__available_actions = tuple([Action(ActionType.PICK, i)
                                               for i in range(self.k)])
+        if self.phase == Phase.CONSTRUCTED:
+            self.__available_actions = tuple([Action(ActionType.PICK, i)
+                                              for i, picked in enumerate(self._picked[self.current_player.id])
+                                              if not picked])
         elif self.phase == Phase.ENDED:
             self.__available_actions = ()
         else:
@@ -426,6 +445,8 @@ class State:
 
         if self.phase == Phase.DRAFT:
             return [True] * self.k
+        elif self.phase == Phase.CONSTRUCTED:
+            return [not is_picked for is_picked in self._picked[self.current_player.id]]
         elif self.phase == Phase.ENDED:
             return [False] * (145 if self.items else 41)
 
@@ -526,6 +547,18 @@ class State:
 
                 self._new_battle_turn()
 
+        elif self.phase == Phase.CONSTRUCTED:
+            self._act_on_constructed(action)
+
+            self._next_turn()
+
+            if self.phase == Phase.CONSTRUCTED:
+                self._new_constructed_turn()
+            elif self.phase == Phase.BATTLE:
+                self._prepare_for_battle()
+
+                self._new_battle_turn()
+
         elif self.phase == Phase.BATTLE:
             self._act_on_battle(action)
 
@@ -559,6 +592,18 @@ class State:
             draft.append(pool[:self.k])
 
         return draft
+
+    def _new_constructed(self) -> List[Card]:
+        cards = list(_cards)
+
+        if not self.items:
+            cards = list(filter(is_it(Creature), cards))
+
+        self.np_random.shuffle(cards)
+
+        pool = cards[:60]
+
+        return pool
 
     def _prepare_for_battle(self):
         """Prepare all game components for a battle phase"""
@@ -594,7 +639,7 @@ class State:
             self._current_player = PlayerOrder.FIRST
             self.turn += 1
 
-            if self.turn > self.n and self.phase == Phase.DRAFT:
+            if self.turn > self.n and self.is_deck_building():
                 self.phase = Phase.BATTLE
                 self.turn = 1
 
@@ -606,6 +651,10 @@ class State:
 
         for player in self.players:
             player.hand = current_draft_choices
+
+    def _new_constructed_turn(self):
+        """Initialize a constructed turn"""
+        pass  # nothing to be done
 
     def _new_battle_turn(self):
         """Initialize a battle turn"""
@@ -670,6 +719,22 @@ class State:
         card = self.current_player.hand[chosen_index]
 
         self.current_player.deck.append(card)
+
+    def _act_on_constructed(self, action: Action):
+        """Execute the action intended by the player in this constructed turn"""
+        if action.origin is None:
+            raise MalformedActionError("Invalid pick origin")
+
+        cp = self.current_player
+        chosen_index = action.origin
+
+        if self._picked[cp.id][chosen_index]:
+            raise MalformedActionError("Invalid action: card already picked")
+
+        card = self._constructed_cards[chosen_index]
+
+        cp.deck.append(card)
+        self._picked[cp.id][chosen_index] = True
 
     def _act_on_battle(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
@@ -934,11 +999,14 @@ class State:
         cloned_state.turn = self.turn
         cloned_state.k = self.k
         cloned_state.n = self.n
+        cloned_state.mode = self.mode
         cloned_state._current_player = self._current_player
         cloned_state.__available_actions = self.__available_actions
         cloned_state.winner = self.winner
         cloned_state._draft_cards = self._draft_cards
         cloned_state.players = tuple([player.clone() for player in self.players])
+        cloned_state._constructed_cards = self._constructed_cards
+        cloned_state._picked = self._picked
 
         return cloned_state
 
@@ -1034,6 +1102,12 @@ class State:
 
     def is_draft(self):
         return self.phase == Phase.DRAFT
+
+    def is_constructed(self):
+        return self.phase == Phase.CONSTRUCTED
+
+    def is_deck_building(self):
+        return self.phase in [Phase.DRAFT, Phase.CONSTRUCTED]
 
     def is_battle(self):
         return self.phase == Phase.BATTLE
