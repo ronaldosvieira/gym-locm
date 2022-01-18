@@ -12,13 +12,14 @@ from gym_locm.exceptions import MalformedActionError
 class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
-    def __init__(self, seed=None, items=True, k=3, n=30):
+    def __init__(self, seed=None, items=True, k=3, n=30, mode='draft'):
         self._seed = seed
         self.episodes = 0
         self.items = items
         self.k, self.n = k, n
+        self.mode = mode
 
-        self.state = State(seed=seed, items=items, k=k, n=n)
+        self.state = State(seed=seed, items=items, k=k, n=n, mode=mode)
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
@@ -35,7 +36,7 @@ class LOCMEnv(gym.Env, ABC):
             random_state = self.state.np_random
 
             # start a brand new game
-            self.state = State(items=self.items)
+            self.state = State(items=self.items, k=self.k, n=self.n, mode=self.mode)
 
             # apply random state
             self.state.np_random = random_state
@@ -43,7 +44,7 @@ class LOCMEnv(gym.Env, ABC):
             # start a brand new game with next seed
             self._seed += 1
 
-            self.state = State(seed=self._seed, items=self.items)
+            self.state = State(seed=self._seed, k=self.k, n=self.n, items=self.items, mode=self.mode)
 
         self.episodes += 1
 
@@ -53,6 +54,8 @@ class LOCMEnv(gym.Env, ABC):
         if mode == 'text':
             if self.state.phase == Phase.DRAFT:
                 self._render_text_draft()
+            elif self.state.phase == Phase.CONSTRUCTED:
+                pass  # todo: implement
             elif self.state.phase == Phase.BATTLE:
                 self._render_text_battle()
             elif self.state.phase == Phase.ENDED:
@@ -61,6 +64,8 @@ class LOCMEnv(gym.Env, ABC):
         if mode == 'ascii':
             if self.state.phase == Phase.DRAFT:
                 self._render_ascii_draft()
+            elif self.state.phase == Phase.CONSTRUCTED:
+                pass  # todo: implement
             elif self.state.phase == Phase.BATTLE:
                 pass  # todo: implement
             elif self.state.phase == Phase.ENDED:
@@ -241,6 +246,8 @@ class LOCMEnv(gym.Env, ABC):
         try:
             if self.state.phase == Phase.DRAFT:
                 return self.decode_draft_action(self.state, action_number)
+            elif self.state.phase == Phase.CONSTRUCTED:
+                return self.decode_constructed_action(self.state, action_number)
             elif self.state.phase == Phase.BATTLE:
                 return self.decode_battle_action(self.state, action_number)
             else:
@@ -257,6 +264,19 @@ class LOCMEnv(gym.Env, ABC):
         """
 
         if action_number < 0 or action_number >= state.k:
+            raise MalformedActionError("Invalid action number")
+
+        return Action(ActionType.PICK, action_number)
+
+    @staticmethod
+    def decode_constructed_action(state, action_number):
+        """
+        Decodes an action number (0-60) from constructed phase into the
+        corresponding action object, if possible. Raises
+        MalformedActionError otherwise.
+        """
+
+        if action_number < 0 or action_number >= 60:
             raise MalformedActionError("Invalid action number")
 
         return Action(ActionType.PICK, action_number)
@@ -375,11 +395,18 @@ class LOCMEnv(gym.Env, ABC):
         """ Encodes a state object into a numerical matrix. """
         if self.state.phase == Phase.DRAFT:
             return self._encode_state_draft()
+        elif self.state.phase == Phase.CONSTRUCTED:
+            return self._encode_state_constructed()
         elif self.state.phase == Phase.BATTLE:
             return self._encode_state_battle()
 
     @abstractmethod
     def _encode_state_draft(self):
+        """ Encodes a state object in the draft phase. """
+        pass
+
+    @abstractmethod
+    def _encode_state_constructed(self):
         """ Encodes a state object in the draft phase. """
         pass
 
@@ -410,6 +437,14 @@ class LOCMEnv(gym.Env, ABC):
     @property
     def _draft_is_finished(self):
         return self.state.phase > Phase.DRAFT
+
+    @property
+    def _constructed_is_finished(self):
+        return self.state.phase > Phase.CONSTRUCTED
+
+    @property
+    def _deck_building_is_finished(self):
+        return self.state.phase > Phase.CONSTRUCTED
 
     @property
     def _battle_is_finished(self):

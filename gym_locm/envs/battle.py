@@ -132,6 +132,9 @@ class LOCMBattleEnv(LOCMEnv):
     def _encode_state_draft(self):
         pass
 
+    def _encode_state_constructed(self):
+        pass
+
     def _encode_state_battle(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
