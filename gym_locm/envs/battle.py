@@ -101,8 +101,6 @@ class LOCMBattleEnv(LOCMEnv):
         if winner is not None:
             reward = 1 if winner == PlayerOrder.FIRST else -1
 
-            del info['turn']
-
             self.rewards[-1] += reward
 
         return self.encode_state(), reward, done, info
