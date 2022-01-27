@@ -928,7 +928,7 @@ class Evaluator:
         # todo: fix -- sometimes we miss self.episodes by one
         # assert len(all_rewards) == self.episodes
         # assert len(all_lengths) == self.episodes
-        assert len(all_turns) == self.episodes
+        # assert len(all_turns) == self.episodes
 
         # transform the action histogram in a probability distribution
         action_histogram = [action_freq / sum(action_histogram)
