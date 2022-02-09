@@ -366,10 +366,14 @@ class LOCMEnv(gym.Env, ABC):
 
     @staticmethod
     def encode_players(current, opposing):
-        return current.health, current.mana, current.next_rune, \
-               1 + current.bonus_draw, opposing.health, \
-               opposing.base_mana + opposing.bonus_mana, \
-               opposing.next_rune, 1 + opposing.bonus_draw
+        return current.health / 30, \
+               current.mana / 13, \
+               current.next_rune / 30, \
+               (1 + current.bonus_draw) / 6, \
+               opposing.health / 30, \
+               (opposing.base_mana + opposing.bonus_mana) / 13, \
+               opposing.next_rune / 30, \
+               (1 + opposing.bonus_draw) / 6
 
     def encode_state(self):
         """ Encodes a state object into a numerical matrix. """
