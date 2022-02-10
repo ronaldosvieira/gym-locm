@@ -91,9 +91,13 @@ class GreedyBattleAgent(Agent):
         return score
 
     def act(self, state):
-        best_action, best_score = None, float("-inf")
+        best_action, best_score = Action(ActionType.PASS), float("-inf")
 
         for action in state.available_actions:
+
+            if action.type == ActionType.PASS:
+                continue
+
             state_copy = state.clone()
             state_copy.act(action)
 

@@ -50,6 +50,7 @@ class TrainingSession:
         self.checkpoints = []
         self.win_rates = []
         self.episode_lengths = []
+        self.battle_lengths = []
         self.action_histograms = []
         self.start_time, self.end_time = None, None
         self.wandb_run = wandb_run
@@ -70,6 +71,7 @@ class TrainingSession:
         with open(results_path, 'w') as file:
             info = dict(task=self.task, **self.params, seed=self.seed, checkpoints=self.checkpoints,
                         win_rates=self.win_rates, ep_lengths=self.episode_lengths,
+                        battle_lengths=self.battle_lengths,
                         action_histograms=self.action_histograms,
                         start_time=str(self.start_time), end_time=str(self.end_time))
             info = json.dumps(info, indent=2)
@@ -183,7 +185,7 @@ class FixedAdversary(TrainingSession):
 
             agent = agent_class(self.model)
 
-            mean_reward, ep_length, act_hist = \
+            mean_reward, ep_length, battle_length, act_hist = \
                 self.evaluator.run(agent, play_first=self.model.role_id == 0)
 
             end_time = time.perf_counter()
@@ -196,6 +198,7 @@ class FixedAdversary(TrainingSession):
             win_rate = (mean_reward + 1) / 2
             self.win_rates.append(win_rate)
             self.episode_lengths.append(ep_length)
+            self.battle_lengths.append(battle_length)
             self.action_histograms.append(act_hist)
 
             # update control attributes
@@ -208,7 +211,8 @@ class FixedAdversary(TrainingSession):
             # upload stats to wandb, if enabled
             if self.wandb_run:
                 info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
-                            win_rate=win_rate, mean_ep_length=ep_length)
+                            win_rate=win_rate, mean_ep_length=ep_length,
+                            mean_battle_length=battle_length)
 
                 if self.task == 'battle':
                     info['pass_actions'] = act_hist[0]
@@ -373,12 +377,13 @@ class SelfPlay(TrainingSession):
         model = self.model
         episodes_so_far = sum(self.env.get_attr('episodes'))
 
-        turns = model.env.get_attr('turn')
-        playing_first = model.env.get_attr('play_first')
-
-        for i in range(model.env.num_envs):
-            if turns[i] in range(0, model.env.num_envs):
-                model.env.set_attr('play_first', not playing_first[i], indices=[i])
+        # note: wtf was this code about, ronaldo???
+        # turns = model.env.get_attr('turn')
+        # playing_first = model.env.get_attr('play_first')
+        #
+        # for i in range(model.env.num_envs):
+        #     if turns[i] in range(0, model.env.num_envs):
+        #         model.env.set_attr('play_first', not playing_first[i], indices=[i])
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
@@ -405,17 +410,18 @@ class SelfPlay(TrainingSession):
             if self.evaluator.seed is not None:
                 self.evaluator.seed = self.seed + self.train_episodes
 
-            mean_reward, ep_length, act_hist = \
+            mean_reward, ep_length, battle_length, act_hist = \
                 self.evaluator.run(agent_class(model), play_first=True)
 
             if self.evaluator.seed is not None:
                 self.evaluator.seed += self.eval_episodes
 
-            mean_reward2, ep_length2, act_hist2 = \
+            mean_reward2, ep_length2, battle_length2, act_hist2 = \
                 self.evaluator.run(agent_class(model), play_first=False)
 
             mean_reward = (mean_reward + mean_reward2) / 2
             ep_length = (ep_length + ep_length2) / 2
+            battle_length = (battle_length + battle_length2) / 2
             act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(model.env.get_attr('action_space', indices=[0])[0].n)]
 
             end_time = time.perf_counter()
@@ -428,6 +434,7 @@ class SelfPlay(TrainingSession):
             win_rate = (mean_reward + 1) / 2
             self.win_rates.append(win_rate)
             self.episode_lengths.append(ep_length)
+            self.battle_lengths.append(battle_length)
             self.action_histograms.append(act_hist)
 
             # update control attributes
@@ -440,7 +447,8 @@ class SelfPlay(TrainingSession):
             # upload stats to wandb, if enabled
             if self.wandb_run:
                 info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
-                            win_rate=win_rate, mean_ep_length=ep_length)
+                            win_rate=win_rate, mean_ep_length=ep_length,
+                            mean_battle_length=battle_length)
 
                 if self.task == 'battle':
                     info['pass_actions'] = act_hist[0]
@@ -454,12 +462,33 @@ class SelfPlay(TrainingSession):
 
                 self.wandb_run.log(info)
 
-        # if training should end, return False to end training
-        training_is_finished = episodes_so_far >= model.next_switch or episodes_so_far >= self.train_episodes
-
-        if training_is_finished:
+        # if it is time to update the adversary model, do so
+        if episodes_so_far >= model.next_switch:
             model.last_switch = episodes_so_far
             model.next_switch += self.switch_frequency
+
+            # log training win rate at the time of the switch
+            train_mean_reward = np.mean([np.mean(rewards) for rewards in model.env.env_method('get_episode_rewards')])
+            self.wandb_run.log({'train_mean_reward': train_mean_reward})
+
+            self.logger.debug(f"Model trained for "
+                              f"{sum(model.env.get_attr('episodes'))} episodes. "
+                              f"Train reward: {train_mean_reward}")
+
+            # reset training env rewards
+            for i in range(model.env.num_envs):
+                model.env.set_attr('rewards', [0.0], indices=[i])
+
+            # update parameters of adversary models
+            try:
+                model.adversary.load_parameters(model.get_parameters(), exact_match=True)
+            except AttributeError:
+                model.adversary.set_parameters(model.get_parameters(), exact_match=True)
+
+            self.logger.debug("Parameters of adversary network updated.")
+
+        # if training should end, return False to end training
+        training_is_finished = episodes_so_far >= self.train_episodes
 
         return not training_is_finished
 
@@ -481,31 +510,11 @@ class SelfPlay(TrainingSession):
             self.logger.debug(f"Training will switch models every "
                               f"{self.switch_frequency} episodes")
 
-            for _ in range(self.num_switches):
-                # train the model
-                self.model.learn(total_timesteps=REALLY_BIG_INT,
-                                 reset_num_timesteps=False,
-                                 callback=CallbackList(callbacks))
+            # train the model
+            self.model.learn(total_timesteps=REALLY_BIG_INT,
+                             reset_num_timesteps=False,
+                             callback=CallbackList(callbacks))
 
-                # log training win rate at the time of the switch
-                train_mean_reward = np.mean([np.mean(rewards) for rewards in self.env.env_method('get_episode_rewards')])
-                self.wandb_run.log({'train_mean_reward': train_mean_reward})
-
-                # reset training env rewards
-                for i in range(self.env.num_envs):
-                    self.env.set_attr('rewards', [0.0], indices=[i])
-
-                self.logger.debug(f"Model trained for "
-                                  f"{sum(self.env.get_attr('episodes'))} episodes. "
-                                  f"Train reward: {train_mean_reward}")
-
-                # update parameters of adversary models
-                try:
-                    self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
-                except AttributeError:
-                    self.model.adversary.set_parameters(self.model.get_parameters(), exact_match=True)
-
-                self.logger.debug("Parameters of adversary network updated.")
         except KeyboardInterrupt:
             pass
 
@@ -672,7 +681,7 @@ class AsymmetricSelfPlay(TrainingSession):
             else:
                 agent_class = RLDraftAgent
 
-            mean_reward, ep_length, act_hist = \
+            mean_reward, ep_length, battle_length, act_hist = \
                 self.evaluator.run(agent_class(model), play_first=model.role_id == 0)
 
             end_time = time.perf_counter()
@@ -685,6 +694,7 @@ class AsymmetricSelfPlay(TrainingSession):
             win_rate = (mean_reward + 1) / 2
             self.win_rates[model.role_id].append(win_rate)
             self.episode_lengths[model.role_id].append(ep_length)
+            self.battle_lengths[model.role_id].append(battle_length)
             self.action_histograms[model.role_id].append(act_hist)
 
             # update control attributes
@@ -700,7 +710,8 @@ class AsymmetricSelfPlay(TrainingSession):
                     'checkpoint_' + model.role_id: episodes_so_far,
                     'mean_reward_' + model.role_id: mean_reward,
                     'win_rate_' + model.role_id: win_rate,
-                    'mean_ep_length_' + model.role_id: ep_length
+                    'mean_ep_length_' + model.role_id: ep_length,
+                    'mean_battle_length_' + model.role_id: battle_length
                 }
 
                 if self.task == 'battle':
@@ -869,6 +880,7 @@ class Evaluator:
         episodes_so_far = 0
         episode_rewards = [[0.0] for _ in range(self.env.num_envs)]
         episode_lengths = [[0] for _ in range(self.env.num_envs)]
+        episode_turns = [[] for _ in range(self.env.num_envs)]
         action_histogram = [0] * self.env.action_space.n
 
         # run the episodes
@@ -889,7 +901,7 @@ class Evaluator:
                 action_histogram[action] += 1
 
             # perform the action and get the outcome
-            observations, rewards, dones, _ = self.env.step(actions)
+            observations, rewards, dones, infos = self.env.step(actions)
 
             # update metrics
             for i in range(self.env.num_envs):
@@ -899,6 +911,7 @@ class Evaluator:
                 if dones[i]:
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
+                    episode_turns[i].append(infos[i]['turn'])
 
                     episodes_so_far += 1
 
@@ -911,6 +924,12 @@ class Evaluator:
                        for reward in rewards[:-1]]
         all_lengths = [length for lengths in episode_lengths
                        for length in lengths[:-1]]
+        all_turns = [turn for turns in episode_turns for turn in turns]
+
+        # todo: fix -- sometimes we miss self.episodes by one
+        # assert len(all_rewards) == self.episodes
+        # assert len(all_lengths) == self.episodes
+        # assert len(all_turns) == self.episodes
 
         # transform the action histogram in a probability distribution
         action_histogram = [action_freq / sum(action_histogram)
@@ -919,8 +938,9 @@ class Evaluator:
         # cap any unsolicited additional episodes
         all_rewards = all_rewards[:self.episodes]
         all_lengths = all_lengths[:self.episodes]
+        all_turns = all_turns[:self.episodes]
 
-        return mean(all_rewards), mean(all_lengths), action_histogram
+        return mean(all_rewards), mean(all_lengths), mean(all_turns), action_histogram
 
     def close(self):
         self.env.close()

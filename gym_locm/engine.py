@@ -410,10 +410,7 @@ class State:
 
                         attack.append(Action(ActionType.ATTACK, origin, valid_target))
 
-            available_actions = summon + attack + use
-
-            if not available_actions:
-                available_actions = [Action(ActionType.PASS)]
+            available_actions = [Action(ActionType.PASS)] + summon + use + attack
 
             self.__available_actions = tuple(available_actions)
 
