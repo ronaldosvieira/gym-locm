@@ -14,7 +14,7 @@ authors:
     family-names: Chaimowicz
     given-names: Luiz
 cff-version: "1.1.0"
-date-released: 2022-02-16
+date-released: 2020-10-01
 license: MIT
 message: "If you use this software, please cite it as below."
 repository-code: "https://github.com/ronaldosvieira/gym-locm"
