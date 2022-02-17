@@ -14,10 +14,10 @@ authors:
     family-names: Chaimowicz
     given-names: Luiz
 cff-version: "1.1.0"
-date-released: 2020-10-01
+date-released: 2022-02-16
 license: MIT
 message: "If you use this software, please cite it as below."
 repository-code: "https://github.com/ronaldosvieira/gym-locm"
 title: "OpenAI Gym Environments for Legends of Code and Magic"
-version: "1.0.0"
+version: "1.1.0"
 ...
