@@ -8,11 +8,17 @@ from gym_locm.exceptions import GameIsEndedError, MalformedActionError
 
 
 class LOCMBattleEnv(LOCMEnv):
-    metadata = {'render.modes': ['text', 'native']}
+    metadata = {"render.modes": ["text", "native"]}
 
-    def __init__(self,
-                 draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
-                 return_action_mask=False, seed=None, items=True, k=3, n=30):
+    def __init__(
+        self,
+        draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
+        return_action_mask=False,
+        seed=None,
+        items=True,
+        k=3,
+        n=30,
+    ):
         super().__init__(seed=seed, items=items, k=k, n=n)
 
         self.rewards = [0.0]
@@ -34,10 +40,12 @@ class LOCMBattleEnv(LOCMEnv):
         enemy_board_card_features = 8
 
         # 238 features if using items else 206 features
-        self.state_shape = player_features * 2 \
-            + cards_in_hand * card_features \
-            + friendly_cards_on_board * friendly_board_card_features \
+        self.state_shape = (
+            player_features * 2
+            + cards_in_hand * card_features
+            + friendly_cards_on_board * friendly_board_card_features
             + enemy_cards_on_board * enemy_board_card_features
+        )
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
@@ -69,8 +77,10 @@ class LOCMBattleEnv(LOCMEnv):
             try:
                 action = int(action)
             except ValueError:
-                error = f"Action should be an action object " \
+                error = (
+                    f"Action should be an action object "
                     f"or an integer, not {type(action)}"
+                )
 
                 raise MalformedActionError(error)
 
@@ -90,13 +100,15 @@ class LOCMBattleEnv(LOCMEnv):
 
         reward = 0
         done = winner is not None
-        info = {'phase': state.phase,
-                'turn': state.turn,
-                'winner': winner,
-                'invalid': state.was_last_action_invalid}
+        info = {
+            "phase": state.phase,
+            "turn": state.turn,
+            "winner": winner,
+            "invalid": state.was_last_action_invalid,
+        }
 
         if self.return_action_mask:
-            info['action_mask'] = self.state.action_mask
+            info["action_mask"] = self.state.action_mask
 
         if winner is not None:
             reward = 1 if winner == PlayerOrder.FIRST else -1
@@ -188,8 +200,7 @@ class LOCMBattleEnv(LOCMEnv):
 
 
 class LOCMBattleSingleEnv(LOCMBattleEnv):
-    def __init__(self, battle_agent=RandomBattleAgent(),
-                 play_first=True, **kwargs):
+    def __init__(self, battle_agent=RandomBattleAgent(), play_first=True, **kwargs):
         # init the env
         super().__init__(**kwargs)
 
@@ -225,7 +236,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         # do the action
         state, reward, done, info = super().step(action)
 
-        was_invalid = info['invalid']
+        was_invalid = info["invalid"]
 
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
@@ -233,11 +244,11 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
             state, reward, done, info = super().step(action)
 
-            if info['invalid'] and not done:
+            if info["invalid"] and not done:
                 state, reward, done, info = super().step(0)
                 break
 
-        info['invalid'] = was_invalid
+        info["invalid"] = was_invalid
 
         if not self.play_first:
             reward = -reward
@@ -273,7 +284,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
                 state, reward, done, info = super().step(action)
 
-                if info['invalid'] and not done:
+                if info["invalid"] and not done:
                     state, reward, done, info = super().step(0)
                     break
 
@@ -286,7 +297,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         # do the action
         state, reward, done, info = super().step(action)
 
-        was_invalid = info['invalid']
+        was_invalid = info["invalid"]
 
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
@@ -295,11 +306,11 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
             state, reward, done, info = super().step(action)
 
-            if info['invalid'] and not done:
+            if info["invalid"] and not done:
                 state, reward, done, info = super().step(0)
                 break
 
-        info['invalid'] = was_invalid
+        info["invalid"] = was_invalid
 
         if not self.play_first:
             reward = -reward

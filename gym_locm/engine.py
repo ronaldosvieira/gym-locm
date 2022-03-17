@@ -106,13 +106,11 @@ class Player:
         cloned_player.next_rune = self.next_rune
         cloned_player.bonus_draw = self.bonus_draw
 
-        cloned_player.deck = [card.make_copy(card.instance_id)
-                              for card in self.deck]
-        cloned_player.hand = [card.make_copy(card.instance_id)
-                              for card in self.hand]
-        cloned_player.lanes = tuple([[card.make_copy(card.instance_id)
-                                      for card in lane]
-                                     for lane in self.lanes])
+        cloned_player.deck = [card.make_copy(card.instance_id) for card in self.deck]
+        cloned_player.hand = [card.make_copy(card.instance_id) for card in self.hand]
+        cloned_player.lanes = tuple(
+            [[card.make_copy(card.instance_id) for card in lane] for lane in self.lanes]
+        )
 
         cloned_player.actions = list(self.actions)
 
@@ -131,8 +129,21 @@ class Player:
 
 
 class Card:
-    def __init__(self, card_id, name, card_type, cost, attack, defense, keywords,
-                 player_hp, enemy_hp, card_draw, text, instance_id=None):
+    def __init__(
+        self,
+        card_id,
+        name,
+        card_type,
+        cost,
+        attack,
+        defense,
+        keywords,
+        player_hp,
+        enemy_hp,
+        card_draw,
+        text,
+        instance_id=None,
+    ):
         self.id = card_id
         self.instance_id = instance_id
         self.name = name
@@ -149,7 +160,7 @@ class Card:
     def has_ability(self, keyword: str) -> bool:
         return keyword in self.keywords
 
-    def make_copy(self, instance_id=None) -> 'Card':
+    def make_copy(self, instance_id=None) -> "Card":
         cloned_card = Card.empty_copy(self)
 
         cloned_card.id = self.id
@@ -172,10 +183,12 @@ class Card:
         return cloned_card
 
     def __eq__(self, other):
-        return other is not None \
-               and self.instance_id is not None \
-               and other.instance_id is not None \
-               and self.instance_id == other.instance_id
+        return (
+            other is not None
+            and self.instance_id is not None
+            and other.instance_id is not None
+            and self.instance_id == other.instance_id
+        )
 
     def __repr__(self):
         if self.name:
@@ -214,15 +227,16 @@ class Creature(Card):
         self.keywords.add(ability)
 
     def able_to_attack(self) -> bool:
-        return not self.has_attacked_this_turn and \
-               (self.can_attack or self.has_ability('C'))
+        return not self.has_attacked_this_turn and (
+            self.can_attack or self.has_ability("C")
+        )
 
     def damage(self, amount: int = 1, lethal: bool = False) -> int:
         if amount <= 0:
             return 0
 
-        if self.has_ability('W'):
-            self.remove_ability('W')
+        if self.has_ability("W"):
+            self.remove_ability("W")
 
             raise WardShieldError()
 
@@ -233,7 +247,7 @@ class Creature(Card):
 
         return amount
 
-    def make_copy(self, instance_id=None) -> 'Card':
+    def make_copy(self, instance_id=None) -> "Card":
         cloned_card = super().make_copy(instance_id)
 
         cloned_card.is_dead = self.is_dead
@@ -266,34 +280,61 @@ class Action:
         self.target = target
 
     def __eq__(self, other):
-        return other is not None and \
-               self.type == other.type and \
-               self.origin == other.origin and \
-               self.target == other.target
+        return (
+            other is not None
+            and self.type == other.type
+            and self.origin == other.origin
+            and self.target == other.target
+        )
 
     def __repr__(self):
         return f"{self.type} {self.origin} {self.target}"
 
 
-def load_cards() -> List['Card']:
+def load_cards() -> List["Card"]:
     cards = []
 
-    with open(os.path.dirname(__file__) + '/cardlist.txt', 'r') as card_list:
+    with open(os.path.dirname(__file__) + "/cardlist.txt", "r") as card_list:
         raw_cards = card_list.readlines()
-        type_mapping = {'creature': (Creature, 0), 'itemGreen': (GreenItem, 1),
-                        'itemRed': (RedItem, 2), 'itemBlue': (BlueItem, 3)}
+        type_mapping = {
+            "creature": (Creature, 0),
+            "itemGreen": (GreenItem, 1),
+            "itemRed": (RedItem, 2),
+            "itemBlue": (BlueItem, 3),
+        }
 
         for card in raw_cards:
-            card_id, name, card_type, cost, attack, defense, \
-                keywords, player_hp, enemy_hp, card_draw, text = \
-                map(str.strip, card.split(';'))
+            (
+                card_id,
+                name,
+                card_type,
+                cost,
+                attack,
+                defense,
+                keywords,
+                player_hp,
+                enemy_hp,
+                card_draw,
+                text,
+            ) = map(str.strip, card.split(";"))
 
             card_class, type_id = type_mapping[card_type]
 
-            cards.append(card_class(int(card_id), name, type_id, int(cost),
-                                    int(attack), int(defense), keywords,
-                                    int(player_hp), int(enemy_hp),
-                                    int(card_draw), text))
+            cards.append(
+                card_class(
+                    int(card_id),
+                    name,
+                    type_id,
+                    int(cost),
+                    int(attack),
+                    int(defense),
+                    keywords,
+                    int(player_hp),
+                    int(enemy_hp),
+                    int(card_draw),
+                    text,
+                )
+            )
 
     assert len(cards) == 160
 
@@ -346,8 +387,9 @@ class State:
             return self.__available_actions
 
         if self.phase == Phase.DRAFT:
-            self.__available_actions = tuple([Action(ActionType.PICK, i)
-                                              for i in range(self.k)])
+            self.__available_actions = tuple(
+                [Action(ActionType.PICK, i) for i in range(self.k)]
+            )
         elif self.phase == Phase.ENDED:
             self.__available_actions = ()
         else:
@@ -392,7 +434,7 @@ class State:
                 guard_creatures = []
 
                 for enemy_creature in o_lanes[lane]:
-                    if enemy_creature.has_ability('G'):
+                    if enemy_creature.has_ability("G"):
                         guard_creatures.append(enemy_creature)
 
                 if not guard_creatures:
@@ -400,8 +442,7 @@ class State:
                 else:
                     valid_targets = guard_creatures
 
-                for friendly_creature in filter(Creature.able_to_attack,
-                                                c_lanes[lane]):
+                for friendly_creature in filter(Creature.able_to_attack, c_lanes[lane]):
                     origin = friendly_creature.instance_id
 
                     for valid_target in valid_targets:
@@ -467,7 +508,7 @@ class State:
             Creature: validate_creature,
             GreenItem: validate_green_item,
             RedItem: validate_red_item,
-            BlueItem: validate_blue_item
+            BlueItem: validate_blue_item,
         }
 
         # for each card in hand, check valid actions
@@ -484,7 +525,7 @@ class State:
                     guards = []
 
                     for j, enemy_creature in enumerate(op.lanes[lane_id]):
-                        if enemy_creature.has_ability('G'):
+                        if enemy_creature.has_ability("G"):
                             guards.append(j)
 
                     if guards:
@@ -553,7 +594,7 @@ class State:
         for _ in range(self.n):
             self.np_random.shuffle(pool)
 
-            draft.append(pool[:self.k])
+            draft.append(pool[: self.k])
 
         return draft
 
@@ -622,8 +663,7 @@ class State:
         if current_player.base_mana < 12:
             current_player.base_mana += 1
 
-        current_player.mana = current_player.base_mana \
-            + current_player.bonus_mana
+        current_player.mana = current_player.base_mana + current_player.bonus_mana
 
         amount_to_draw = 1 + current_player.bonus_draw
 
@@ -651,7 +691,7 @@ class State:
             Location.PLAYER_LEFT_LANE: c.lanes[0],
             Location.PLAYER_RIGHT_LANE: c.lanes[1],
             Location.ENEMY_LEFT_LANE: o.lanes[0],
-            Location.ENEMY_RIGHT_LANE: o.lanes[1]
+            Location.ENEMY_RIGHT_LANE: o.lanes[1],
         }
 
         for location, cards in location_mapping.items():
@@ -700,8 +740,12 @@ class State:
             action.resolved_target = target
 
             self.current_player.actions.append(action)
-        except (NotEnoughManaError, MalformedActionError,
-                FullLaneError, InvalidCardError):
+        except (
+            NotEnoughManaError,
+            MalformedActionError,
+            FullLaneError,
+            InvalidCardError,
+        ):
             self.was_last_action_invalid = True
 
         for player in self.players:
@@ -725,8 +769,7 @@ class State:
             raise NotEnoughManaError()
 
         if not isinstance(origin, Creature):
-            raise MalformedActionError("Card being summoned is not a "
-                                       "creature")
+            raise MalformedActionError("Card being summoned is not a " "creature")
 
         if not isinstance(target, Lane):
             raise MalformedActionError("Target is not a lane")
@@ -757,21 +800,19 @@ class State:
         opposing_player = self.opposing_player
 
         if not isinstance(origin, Creature):
-            raise MalformedActionError("Attacking card is not a "
-                                       "creature")
+            raise MalformedActionError("Attacking card is not a " "creature")
 
         if origin in current_player.lanes[Lane.LEFT]:
             origin_lane = Lane.LEFT
         elif origin in current_player.lanes[Lane.RIGHT]:
             origin_lane = Lane.RIGHT
         else:
-            raise MalformedActionError("Attacking creature is not "
-                                       "owned by player")
+            raise MalformedActionError("Attacking creature is not " "owned by player")
 
         guard_creatures = []
 
         for creature in opposing_player.lanes[origin_lane]:
-            if creature.has_ability('G'):
+            if creature.has_ability("G"):
                 guard_creatures.append(creature)
 
         if len(guard_creatures) > 0:
@@ -783,8 +824,7 @@ class State:
             raise MalformedActionError("Invalid target")
 
         if not origin.able_to_attack():
-            raise MalformedActionError("Attacking creature cannot "
-                                       "attack")
+            raise MalformedActionError("Attacking creature cannot " "attack")
 
         if target is None:
             damage_dealt = opposing_player.damage(origin.attack)
@@ -794,27 +834,24 @@ class State:
 
             try:
                 damage_dealt = target.damage(
-                    origin.attack,
-                    lethal=origin.has_ability('L'))
+                    origin.attack, lethal=origin.has_ability("L")
+                )
             except WardShieldError:
                 damage_dealt = 0
 
             try:
-                origin.damage(
-                    target.attack,
-                    lethal=target.has_ability('L'))
+                origin.damage(target.attack, lethal=target.has_ability("L"))
             except WardShieldError:
                 pass
 
             excess_damage = damage_dealt - target_defense
 
-            if 'B' in origin.keywords and excess_damage > 0:
+            if "B" in origin.keywords and excess_damage > 0:
                 opposing_player.damage(excess_damage)
         else:
-            raise MalformedActionError("Target is not a creature or "
-                                       "a player")
+            raise MalformedActionError("Target is not a creature or " "a player")
 
-        if 'D' in origin.keywords:
+        if "D" in origin.keywords:
             current_player.health += damage_dealt
 
         origin.has_attacked_this_turn = True
@@ -826,8 +863,7 @@ class State:
         if origin.cost > current_player.mana:
             raise NotEnoughManaError()
 
-        if target is not None and \
-                not isinstance(target, Creature):
+        if target is not None and not isinstance(target, Creature):
             error = "Target is not a creature or a player"
             raise MalformedActionError(error)
 
@@ -835,13 +871,13 @@ class State:
             raise MalformedActionError("Card is not in player's hand")
 
         if isinstance(origin, GreenItem):
-            is_own_creature = \
-                target in current_player.lanes[Lane.LEFT] or \
-                target in current_player.lanes[Lane.RIGHT]
+            is_own_creature = (
+                target in current_player.lanes[Lane.LEFT]
+                or target in current_player.lanes[Lane.RIGHT]
+            )
 
             if target is None or not is_own_creature:
-                error = "Green items should be used on friendly " \
-                        "creatures"
+                error = "Green items should be used on friendly " "creatures"
                 raise MalformedActionError(error)
 
             target.attack = max(0, target.attack + origin.attack)
@@ -856,13 +892,13 @@ class State:
             opposing_player.damage(-origin.enemy_hp)
 
         elif isinstance(origin, RedItem):
-            is_opp_creature = \
-                target in opposing_player.lanes[Lane.LEFT] or \
-                target in opposing_player.lanes[Lane.RIGHT]
+            is_opp_creature = (
+                target in opposing_player.lanes[Lane.LEFT]
+                or target in opposing_player.lanes[Lane.RIGHT]
+            )
 
             if target is None or not is_opp_creature:
-                error = "Red items should be used on enemy " \
-                        "creatures"
+                error = "Red items should be used on enemy " "creatures"
                 raise MalformedActionError(error)
 
             target.attack = max(0, target.attack + origin.attack)
@@ -881,13 +917,15 @@ class State:
             opposing_player.damage(-origin.enemy_hp)
 
         elif isinstance(origin, BlueItem):
-            is_opp_creature = \
-                target in opposing_player.lanes[Lane.LEFT] or \
-                target in opposing_player.lanes[Lane.RIGHT]
+            is_opp_creature = (
+                target in opposing_player.lanes[Lane.LEFT]
+                or target in opposing_player.lanes[Lane.RIGHT]
+            )
 
             if target is not None and not is_opp_creature:
-                error = "Blue items should be used on enemy " \
-                        "creatures or enemy player"
+                error = (
+                    "Blue items should be used on enemy " "creatures or enemy player"
+                )
                 raise MalformedActionError(error)
 
             if isinstance(target, Creature):
@@ -918,7 +956,7 @@ class State:
         current_player.hand.remove(origin)
         current_player.mana -= origin.cost
 
-    def clone(self) -> 'State':
+    def clone(self) -> "State":
         cloned_state = State.empty_copy()
 
         cloned_state.np_random = np.random.RandomState()
@@ -949,8 +987,10 @@ class State:
         for cp in p, o:
             draw = cp.last_drawn if cp == self.current_player else 1 + cp.bonus_draw
 
-            encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} " \
+            encoding += (
+                f"{cp.health} {cp.base_mana + cp.bonus_mana} "
                 f"{len(cp.deck)} {cp.next_rune} {draw}\n"
+            )
 
         op_hand = len(o.hand) if self.phase != Phase.DRAFT else 0
         last_actions = []
@@ -966,12 +1006,15 @@ class State:
         for a in reversed(last_actions):
             target_id = -1 if a.target is None else a.target
 
-            encoding += f"{a.resolved_origin.id} {a.type.name} " \
-                f"{a.origin} {target_id}\n"
+            encoding += (
+                f"{a.resolved_origin.id} {a.type.name} " f"{a.origin} {target_id}\n"
+            )
 
-        cards = p.hand + \
-            sorted(p.lanes[0] + p.lanes[1], key=attrgetter('summon_counter')) + \
-            sorted(o.lanes[0] + o.lanes[1], key=attrgetter('summon_counter'))
+        cards = (
+            p.hand
+            + sorted(p.lanes[0] + p.lanes[1], key=attrgetter("summon_counter"))
+            + sorted(o.lanes[0] + o.lanes[1], key=attrgetter("summon_counter"))
+        )
 
         encoding += f"{len(cards)}\n"
 
@@ -988,18 +1031,18 @@ class State:
 
             if isinstance(c.type, int):
                 c.cardType = c.type
-            elif c.type == 'creature':
+            elif c.type == "creature":
                 c.cardType = 0
-            elif c.type == 'itemGreen':
+            elif c.type == "itemGreen":
                 c.cardType = 1
-            elif c.type == 'itemRed':
+            elif c.type == "itemRed":
                 c.cardType = 2
-            elif c.type == 'itemBlue':
+            elif c.type == "itemBlue":
                 c.cardType = 3
 
-            abilities = list('------')
+            abilities = list("------")
 
-            for i, a in enumerate(list('BCDGLW')):
+            for i, a in enumerate(list("BCDGLW")):
                 if c.has_ability(a):
                     abilities[i] = a
 
@@ -1008,9 +1051,11 @@ class State:
             c.instance_id = -1 if c.instance_id is None else c.instance_id
 
         for i, c in enumerate(cards):
-            encoding += f"{c.id} {c.instance_id} {c.location} {c.cardType} " \
-                f"{c.cost} {c.attack} {c.defense} {c.abilities} " \
+            encoding += (
+                f"{c.id} {c.instance_id} {c.location} {c.cardType} "
+                f"{c.cost} {c.attack} {c.defense} {c.abilities} "
                 f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane} \n"
+            )
 
         return encoding
 
@@ -1080,9 +1125,20 @@ class State:
         card_count = int(next(game_input))
 
         for _ in range(card_count):
-            card_id, instance_id, location, card_type, \
-            cost, attack, defense, keywords, player_hp, \
-            opp_hp, card_draw, lane = next(game_input).split()
+            (
+                card_id,
+                instance_id,
+                location,
+                card_type,
+                cost,
+                attack,
+                defense,
+                keywords,
+                player_hp,
+                opp_hp,
+                card_draw,
+                lane,
+            ) = next(game_input).split()
 
             card_type = int(card_type)
 
@@ -1090,10 +1146,20 @@ class State:
 
             card_class = types_dict[card_type]
 
-            card = card_class(int(card_id), "", card_type, int(cost),
-                              int(attack), int(defense), keywords,
-                              int(player_hp), int(opp_hp), int(card_draw),
-                              "", instance_id=int(instance_id))
+            card = card_class(
+                int(card_id),
+                "",
+                card_type,
+                int(cost),
+                int(attack),
+                int(defense),
+                keywords,
+                int(player_hp),
+                int(opp_hp),
+                int(card_draw),
+                "",
+                instance_id=int(instance_id),
+            )
 
             location = int(location)
             lane = int(lane)
