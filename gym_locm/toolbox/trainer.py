@@ -882,12 +882,17 @@ class AsymmetricSelfPlay(TrainingSession):
                 f"{self.switch_frequency} episodes"
             )
 
+            start_time = time.perf_counter()
+
             for _ in range(self.num_switches):
                 # train the first player model
                 self.model1.learn(
                     total_timesteps=REALLY_BIG_INT,
                     reset_num_timesteps=False,
                     callback=callback1,
+                )
+                training_rate = sum(self.env1.get_attr("episodes")) / (
+                    time.perf_counter() - start_time
                 )
 
                 # log training win rate at the time of the switch
@@ -907,6 +912,7 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.logger.debug(
                     f"Model {self.model1.role_id} trained for "
                     f"{sum(self.env1.get_attr('episodes'))} episodes. "
+                    f"Average {training_rate:0.3f} episodes/s. "
                     f"Train reward: {train_mean_reward1}. "
                     f"Switching to model {self.model2.role_id}."
                 )
@@ -916,6 +922,9 @@ class AsymmetricSelfPlay(TrainingSession):
                     total_timesteps=REALLY_BIG_INT,
                     reset_num_timesteps=False,
                     callback=callback2,
+                )
+                training_rate = sum(self.env1.get_attr("episodes")) / (
+                    time.perf_counter() - start_time
                 )
 
                 # log training win rate at the time of the switch
@@ -935,6 +944,7 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.logger.debug(
                     f"Model {self.model2.role_id} trained for "
                     f"{sum(self.env2.get_attr('episodes'))} episodes. "
+                    f"Average {training_rate:0.3f} episodes/s. "
                     f"Train reward: {train_mean_reward2}. "
                     f"Switching to model {self.model1.role_id}."
                 )
