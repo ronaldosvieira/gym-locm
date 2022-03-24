@@ -1053,6 +1053,9 @@ class State:
     def from_native_input(game_input):
         state = State()
 
+        if isinstance(game_input, str):
+            game_input = game_input.split('\n')
+
         game_input = iter(game_input)
 
         for i, player in enumerate(state.players):
