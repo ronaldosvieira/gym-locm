@@ -789,6 +789,9 @@ class State:
 
         _cards = get_locm12_card_list()
 
+        if isinstance(game_input, str):
+            game_input = game_input.split('\n')
+
         game_input = iter(game_input)
 
         deck_sizes = [-1, -1]
