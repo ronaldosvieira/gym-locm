@@ -1056,7 +1056,7 @@ class State:
         return new_copy
 
     @staticmethod
-    def from_native_input(game_input):
+    def from_native_input(game_input, deck_orders=((), ())):
         state = State()
 
         if isinstance(game_input, str):
@@ -1064,9 +1064,12 @@ class State:
 
         game_input = iter(game_input)
 
+        deck_sizes = [-1, -1]
+
         for i, player in enumerate(state.players):
             health, mana, deck, rune, draw = map(int, next(game_input).split())
 
+            # set player's attributes
             player.health = health
             player.mana = mana
             player.base_mana = mana
@@ -1075,13 +1078,22 @@ class State:
             player.last_drawn = draw if i == 0 else 1
 
             player.hand = []
-            player.deck = [Card.mockup_card() for _ in range(deck)]
+
+            deck_sizes[i] = deck
 
         state.phase = Phase.DRAFT if mana == 0 else Phase.BATTLE
 
         opp_hand, opp_actions = map(int, next(game_input).split())
 
-        state.opposing_player.hand = [Card.mockup_card() for _ in range(opp_hand)]
+        # add known cards to opponent's hand
+        state.opposing_player.hand = [_cards[card_id - 1].make_copy(instance_id=card_instance_id)
+                                      for card_id, card_instance_id in deck_orders[1][:opp_hand]]
+
+        # fill the rest of the opponent's hand with mockup cards
+        state.opposing_player.hand += [Card.mockup_card() for _ in range(opp_hand - len(state.opposing_player.hand))]
+
+        # ensure we respect the current amount of cards in the opponent's hand
+        state.opposing_player.hand = state.opposing_player.hand[:opp_hand]
 
         for _ in range(opp_actions):
             next(game_input)
@@ -1113,6 +1125,27 @@ class State:
                 state.players[0].lanes[lane].append(card)
             elif location == -1:
                 state.players[1].lanes[lane].append(card)
+
+        for i, player in enumerate(state.players):
+            # add known cards in the deck
+            player.deck = [_cards[card_id - 1].make_copy(instance_id=card_instance_id)
+                           for card_id, card_instance_id in deck_orders[i]]
+
+            # remove from the players' deck cards that are already in their hands
+            for card in player.hand:
+                try:
+                    player.deck.remove(card)
+                except ValueError:
+                    pass
+
+            # fill the rest of the deck with mockup cards
+            player.deck += [Card.mockup_card() for _ in range(deck_sizes[i] - len(player.deck))]
+
+            # ensure we respect the correct amount of cards in the player's deck
+            player.deck = player.deck[:deck_sizes[i]]
+
+            # since we draw with player.deck.pop(), reverse the deck list
+            player.deck = list(reversed(player.deck))
 
         return state
 
