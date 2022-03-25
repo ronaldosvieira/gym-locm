@@ -969,6 +969,9 @@ class State:
         for a in reversed(last_actions):
             target_id = -1 if a.target is None else a.target
 
+            if isinstance(target_id, Card):
+                target_id = target_id.instance_id
+
             encoding += f"{a.resolved_origin.id} {a.type.name} " \
                 f"{a.origin} {target_id}\n"
 
