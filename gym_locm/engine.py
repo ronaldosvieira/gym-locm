@@ -272,7 +272,10 @@ class Action:
                self.target == other.target
 
     def __repr__(self):
-        return f"{self.type} {self.origin} {self.target}"
+        if self.type == ActionType.PASS:
+            return f"PASS"
+        else:
+            return f"{self.type.name} {self.origin} {-1 if self.target is None else self.target}"
 
 
 def load_cards() -> List['Card']:
