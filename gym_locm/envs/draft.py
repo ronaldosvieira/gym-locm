@@ -14,8 +14,10 @@ class LOCMDraftEnv(LOCMEnv):
                  battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
                  use_draft_history=False, use_mana_curve=False,
                  sort_cards=False, evaluation_battles=1,
-                 seed=None, items=True, k=3, n=30):
-        super().__init__(seed=seed, items=items, k=k, n=n)
+                 seed=None, items=True, k=3, n=30,
+                 reward_functions=('win-loss',), reward_weights=(1.0,)):
+        super().__init__(seed=seed, items=items, k=k, n=n,
+                         reward_functions=reward_functions, reward_weights=reward_weights)
 
         # init bookkeeping structures
         self.results = []
@@ -93,6 +95,10 @@ class LOCMDraftEnv(LOCMEnv):
 
         # less property accesses
         state = self.state
+        current_player_id = state.current_player.id
+
+        reward_before = [weight * function.calculate(state, for_player=current_player_id)
+                         for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # find appropriate value for the provided card index
         if 0 <= action.origin < self.k:
@@ -107,8 +113,10 @@ class LOCMDraftEnv(LOCMEnv):
         # execute the action
         state.act(action)
 
+        reward_after = [weight * function.calculate(state, for_player=current_player_id)
+                        for function, weight in zip(self.reward_functions, self.reward_weights)]
+
         # init return info
-        reward = 0
         done = False
         info = {'phase': state.phase,
                 'turn': state.turn,
@@ -134,10 +142,19 @@ class LOCMDraftEnv(LOCMEnv):
                     self.results.append(1 if winner == PlayerOrder.FIRST else -1)
                     info['winner'].append(winner)
 
-            reward = np.mean(self.results)
+            try:
+                win_loss_reward_index = self.reward_functions.index("win-loss")
+                reward_after[win_loss_reward_index] = np.mean(self.results)
+            except ValueError:
+                pass
+
             done = True
 
             del info['turn']
+
+        raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+        info['raw_rewards'] = raw_rewards
+        reward = sum(raw_rewards)
 
         return self.encode_state(), reward, done, info
 
