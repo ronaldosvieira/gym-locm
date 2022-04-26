@@ -6,17 +6,26 @@ import gym
 from prettytable import PrettyTable
 
 from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, State, Phase, ActionType, Action, Lane
+from gym_locm.envs.rewards import parse_reward
 from gym_locm.exceptions import MalformedActionError
 
 
 class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
-    def __init__(self, seed=None, items=True, k=3, n=30):
+    def __init__(self, seed=None, items=True, k=3, n=30, reward_functions=('win-loss',), reward_weights=(1.0,)):
         self._seed = seed
         self.episodes = 0
         self.items = items
         self.k, self.n = k, n
+
+        assert len(reward_functions) == len(reward_weights), \
+            "The length of reward_functions and reward_weights must be the same"
+
+        self.reward_functions = tuple([parse_reward(function_name)() for function_name in reward_functions])
+        self.reward_weights = reward_weights
+
+        self.reward_range = (-max(reward_weights), max(reward_weights))
 
         self.state = State(seed=seed, items=items, k=k, n=n)
 

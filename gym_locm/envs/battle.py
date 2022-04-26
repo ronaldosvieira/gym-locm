@@ -49,8 +49,6 @@ class LOCMBattleEnv(LOCMEnv):
             # 41 possible actions
             self.action_space = gym.spaces.Discrete(41)
 
-        self.reward_range = (-1, 1)
-
         # play through draft
         while self.state.phase == Phase.DRAFT:
             for agent in self.draft_agents:
