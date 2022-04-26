@@ -24,9 +24,15 @@ class PlayerHealthRewardFunction(RewardFunction):
         return state.players[for_player].health / 30
 
 
+class OpponentHealthRewardFunction(RewardFunction):
+    def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
+        return -max(0, state.players[for_player.opposing()].health) / 30
+
+
 available_rewards = {
     "win-loss": WinLossRewardFunction,
-    "player-health": PlayerHealthRewardFunction
+    "player-health": PlayerHealthRewardFunction,
+    "opponent-health": OpponentHealthRewardFunction
 }
 
 
