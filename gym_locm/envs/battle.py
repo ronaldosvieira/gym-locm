@@ -12,8 +12,10 @@ class LOCMBattleEnv(LOCMEnv):
 
     def __init__(self,
                  draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
-                 return_action_mask=False, seed=None, items=True, k=3, n=30):
-        super().__init__(seed=seed, items=items, k=k, n=n)
+                 return_action_mask=False, seed=None, items=True, k=3, n=30,
+                 reward_functions=('win-loss',), reward_weights=(1.0,)):
+        super().__init__(seed=seed, items=items, k=k, n=n,
+                         reward_functions=reward_functions, reward_weights=reward_weights)
 
         self.rewards = [0.0]
 
@@ -76,6 +78,10 @@ class LOCMBattleEnv(LOCMEnv):
 
         # less property accesses
         state = self.state
+        current_player_id = state.current_player.id
+
+        reward_before = [weight * function.calculate(state, for_player=current_player_id)
+                         for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # execute the action
         if action is not None:
@@ -83,23 +89,25 @@ class LOCMBattleEnv(LOCMEnv):
         else:
             state.was_last_action_invalid = True
 
+        reward_after = [weight * function.calculate(state, for_player=current_player_id)
+                        for function, weight in zip(self.reward_functions, self.reward_weights)]
+
         # build return info
         winner = state.winner
 
-        reward = 0
+        raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+        reward = sum(raw_rewards)
         done = winner is not None
         info = {'phase': state.phase,
                 'turn': state.turn,
                 'winner': winner,
-                'invalid': state.was_last_action_invalid}
+                'invalid': state.was_last_action_invalid,
+                'raw_rewards': raw_rewards}
 
         if self.return_action_mask:
             info['action_mask'] = self.state.action_mask
 
-        if winner is not None:
-            reward = 1 if winner == PlayerOrder.FIRST else -1
-
-            self.rewards[-1] += reward
+        self.rewards[-1] += reward
 
         return self.encode_state(), reward, done, info
 
