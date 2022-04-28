@@ -67,6 +67,11 @@ def get_arg_parser():
     p.add_argument("--concurrency", type=int, default=1,
                    help="amount of environments to use")
 
+    p.add_argument("--wandb-entity", type=str, default="j-ufmg",
+                   help="entity name on W&B")
+    p.add_argument("--wandb-project", type=str, default="gym-locm",
+                   help="project name on W&B")
+
     return p
 
 
@@ -144,8 +149,8 @@ def run():
                     'tensorboard_log': args.path + '/tf_logs'}
 
     run = wandb.init(
-        project='gym-locm',
-        entity='j-ufmg',
+        project=args.wandb_project,
+        entity=args.wandb_entity,
         sync_tensorboard=True,
         config=vars(args)
     )
