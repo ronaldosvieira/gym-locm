@@ -1145,8 +1145,7 @@ class RLBattleAgent(Agent):
     def act(self, state, action_masks):
         action, self.hidden_states = \
             self.model.predict(state, state=self.hidden_states,
-                               mask=self.dones, deterministic=True,
-                               action_masks=action_masks)
+                               deterministic=True, action_masks=action_masks)
 
         return action
 
