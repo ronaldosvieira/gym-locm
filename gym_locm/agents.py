@@ -1129,8 +1129,9 @@ class RLDraftAgent(Agent):
 
 
 class RLBattleAgent(Agent):
-    def __init__(self, model):
+    def __init__(self, model, deterministic=False):
         self.model = model
+        self.deterministic = deterministic
 
         self.hidden_states = None
         self.dones = None
@@ -1145,7 +1146,8 @@ class RLBattleAgent(Agent):
     def act(self, state, action_masks):
         action, self.hidden_states = \
             self.model.predict(state, state=self.hidden_states,
-                               deterministic=True, action_masks=action_masks)
+                               deterministic=self.deterministic,
+                               action_masks=action_masks)
 
         return action
 

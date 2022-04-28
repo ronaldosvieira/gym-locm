@@ -161,7 +161,7 @@ class FixedAdversary(TrainingSession):
 
             agent_class = RLBattleAgent
 
-            agent = agent_class(self.model)
+            agent = agent_class(self.model, deterministic=True)
 
             win_rate, mean_reward, ep_length, battle_length, act_hist = \
                 self.evaluator.run(agent, play_first=self.model.role_id == 0)
@@ -353,7 +353,7 @@ class SelfPlay(TrainingSession):
                 self.evaluator.seed = self.seed + self.train_episodes
 
             win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                self.evaluator.run(agent_class(model), play_first=True)
+                self.evaluator.run(agent_class(model, deterministic=True), play_first=True)
 
             if self.evaluator.seed is not None:
                 self.evaluator.seed += self.eval_episodes
@@ -583,7 +583,7 @@ class AsymmetricSelfPlay(TrainingSession):
             agent_class = RLBattleAgent
 
             win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                self.evaluator.run(agent_class(model), play_first=model.role_id == 0)
+                self.evaluator.run(agent_class(model, deterministic=True), play_first=model.role_id == 0)
 
             end_time = time.perf_counter()
             self.logger.info(f"Finished evaluating "
