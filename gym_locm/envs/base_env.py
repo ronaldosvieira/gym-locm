@@ -25,7 +25,7 @@ class LOCMEnv(gym.Env, ABC):
         self.reward_functions = tuple([parse_reward(function_name)() for function_name in reward_functions])
         self.reward_weights = reward_weights
 
-        self.reward_range = (-max(reward_weights), max(reward_weights))
+        self.reward_range = (-sum(reward_weights), sum(reward_weights))
 
         self.state = State(seed=seed, items=items, k=k, n=n)
 
