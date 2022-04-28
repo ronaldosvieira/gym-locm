@@ -6,8 +6,6 @@ from datetime import datetime
 import wandb
 
 from gym_locm import agents
-from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, \
-    model_builder_lstm, model_builder_mlp_masked, SelfPlay, FixedAdversary
 
 _counter = 0
 
@@ -86,6 +84,9 @@ def run():
 
     if args.task == 'draft':
 
+        from gym_locm.toolbox.trainer_draft import AsymmetricSelfPlay, SelfPlay, FixedAdversary, \
+            model_builder_mlp, model_builder_lstm
+
         if args.approach == 'lstm':
             model_builder = model_builder_lstm
         else:
@@ -108,6 +109,8 @@ def run():
         }
 
     elif args.task == 'battle':
+
+        from gym_locm.toolbox.trainer_battle import AsymmetricSelfPlay, SelfPlay, FixedAdversary, model_builder_mlp_masked
 
         model_builder = model_builder_mlp_masked
         draft_agent = agents.parse_draft_agent(args.draft_agent)
