@@ -6,6 +6,7 @@ from datetime import datetime
 import wandb
 
 from gym_locm import agents
+from gym_locm.envs import rewards
 
 _counter = 0
 
@@ -26,6 +27,10 @@ def get_arg_parser():
                    default="max-attack")
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
                    default="max-attack")
+    p.add_argument("--reward-functions", "-rf", nargs="+", choices=list(rewards.available_rewards.keys()),
+                   default=("win-loss",), help="reward functions to use")
+    p.add_argument("--reward-weights", "-rw", nargs="+", type=float,
+                   default=None, help="weights of the reward functions")
     p.add_argument("--path", "-p", help="path to save models and results",
                    required=True)
 
@@ -87,6 +92,12 @@ def run():
 
     os.makedirs(args.path, exist_ok=True)
 
+    if args.reward_weights is None:
+        args.reward_weights = tuple([1.0 for _ in range(len(args.reward_functions))])
+
+    assert len(args.reward_weights) == len(args.reward_functions), \
+        f"The amount of reward weights should be the same as those of reward functions"
+
     if args.task == 'draft':
 
         from gym_locm.toolbox.trainer_draft import AsymmetricSelfPlay, SelfPlay, FixedAdversary, \
@@ -104,13 +115,17 @@ def run():
 
         env_params = {
             'battle_agents': (battle_agent(), battle_agent()),
-            'use_draft_history': args.approach == 'history'
+            'use_draft_history': args.approach == 'history',
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
         eval_env_params = {
             'draft_agent': agents.MaxAttackDraftAgent(),
             'battle_agents': (battle_agent(), battle_agent()),
-            'use_draft_history': args.approach == 'history'
+            'use_draft_history': args.approach == 'history',
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
     elif args.task == 'battle':
@@ -122,15 +137,19 @@ def run():
         battle_agent = agents.parse_battle_agent(args.battle_agent)
 
         env_params = {
-            'draft_agents': (draft_agent(), draft_agent())
+            'draft_agents': (draft_agent(), draft_agent()),
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
         if args.adversary == 'fixed':
-            env_params['battle_agent'] = battle_agent()
+            env_params['battle_agent'] = battle_agent(),
 
         eval_env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
-            'battle_agent': battle_agent()
+            'battle_agent': battle_agent(),
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
     else:
