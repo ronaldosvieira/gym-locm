@@ -359,7 +359,7 @@ class SelfPlay(TrainingSession):
                 self.evaluator.seed += self.eval_episodes
 
             win_rate2, mean_reward2, ep_length2, battle_length2, act_hist2 = \
-                self.evaluator.run(agent_class(model), play_first=False)
+                self.evaluator.run(agent_class(model, deterministic=True), play_first=False)
 
             mean_reward = (mean_reward + mean_reward2) / 2
             win_rate = (win_rate + win_rate2) / 2
