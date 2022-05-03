@@ -805,13 +805,12 @@ class Evaluator:
                 break
 
         # join all parallel metrics
-        all_wins = [win for wins in episode_wins
-                    for win in wins[:-1]]
         all_rewards = [reward for rewards in episode_rewards
                        for reward in rewards[:-1]]
         all_lengths = [length for lengths in episode_lengths
                        for length in lengths[:-1]]
         all_turns = [turn for turns in episode_turns for turn in turns]
+        all_wins = [win for wins in episode_wins for win in wins]
 
         # todo: fix -- sometimes we miss self.episodes by one
         # assert len(all_rewards) == self.episodes
