@@ -78,9 +78,8 @@ class LOCMBattleEnv(LOCMEnv):
 
         # less property accesses
         state = self.state
-        current_player_id = state.current_player.id
 
-        reward_before = [weight * function.calculate(state, for_player=current_player_id)
+        reward_before = [weight * function.calculate(state, for_player=PlayerOrder.FIRST)
                          for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # execute the action
@@ -89,7 +88,7 @@ class LOCMBattleEnv(LOCMEnv):
         else:
             state.was_last_action_invalid = True
 
-        reward_after = [weight * function.calculate(state, for_player=current_player_id)
+        reward_after = [weight * function.calculate(state, for_player=PlayerOrder.FIRST)
                         for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # build return info
