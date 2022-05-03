@@ -41,6 +41,7 @@ def get_arg_parser():
     p.add_argument("--num-evals", "-ne", type=int, default=12,
                    help="how many evaluations to perform throughout training")
 
+    p.add_argument("--gamma", type=float, default=1.0, help="gamma (discount factor)")
     p.add_argument("--switch-freq", type=int, default=1000,
                    help="how many episodes to run before updating opponent networks")
     p.add_argument("--layers", type=int, default=1,
@@ -165,7 +166,7 @@ def run():
                     'noptepochs': args.noptepochs, 'cliprange': args.cliprange,
                     'vf_coef': args.vf_coef, 'ent_coef': args.ent_coef,
                     'activation': args.act_fun, 'learning_rate': args.learning_rate,
-                    'tensorboard_log': args.path + '/tf_logs'}
+                    'tensorboard_log': args.path + '/tf_logs', 'gamma': args.gamma}
 
     run = wandb.init(
         project=args.wandb_project,
