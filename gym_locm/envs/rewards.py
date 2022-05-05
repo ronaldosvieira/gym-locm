@@ -29,10 +29,16 @@ class OpponentHealthRewardFunction(RewardFunction):
         return -max(0, state.players[for_player.opposing()].health) / 30
 
 
+class PlayerBoardPresenceRewardFunction(RewardFunction):
+    def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
+        return sum(creature.attack for lane in state.players[for_player].lanes for creature in lane)
+
+
 available_rewards = {
     "win-loss": WinLossRewardFunction,
     "player-health": PlayerHealthRewardFunction,
-    "opponent-health": OpponentHealthRewardFunction
+    "opponent-health": OpponentHealthRewardFunction,
+    "player-board-presence": PlayerBoardPresenceRewardFunction
 }
 
 
