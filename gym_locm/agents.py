@@ -286,7 +286,7 @@ class CoacBattleAgent(Agent):
         return score
 
     @staticmethod
-    def _eval_state(state):
+    def eval_state(state):
         score = 0
 
         player, enemy = state.current_player, state.opposing_player
@@ -353,7 +353,7 @@ class CoacBattleAgent(Agent):
 
         self.leaf += 1
 
-        return best_action, -self._eval_state(state)
+        return best_action, -self.eval_state(state)
 
     def _brute_force(self, state, depth, alpha):
         state = state.clone()
@@ -415,7 +415,7 @@ class CoacBattleAgent(Agent):
             else:
                 return action, -100000
 
-        return action, self._eval_state(state)
+        return action, self.eval_state(state)
 
     def act(self, state, time_limit_ms=1000):
         self.leaf = 0
