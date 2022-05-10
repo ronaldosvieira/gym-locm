@@ -97,8 +97,9 @@ class LOCMDraftEnv(LOCMEnv):
         state = self.state
         current_player_id = state.current_player.id
 
-        reward_before = [weight * function.calculate(state, for_player=current_player_id)
-                         for function, weight in zip(self.reward_functions, self.reward_weights)]
+        self.last_player_rewards[state.current_player.id] = \
+            [weight * function.calculate(state, for_player=current_player_id)
+             for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # find appropriate value for the provided card index
         if 0 <= action.origin < self.k:
@@ -113,6 +114,7 @@ class LOCMDraftEnv(LOCMEnv):
         # execute the action
         state.act(action)
 
+        reward_before = self.last_player_rewards[state.current_player.id]
         reward_after = [weight * function.calculate(state, for_player=current_player_id)
                         for function, weight in zip(self.reward_functions, self.reward_weights)]
 
@@ -152,7 +154,11 @@ class LOCMDraftEnv(LOCMEnv):
 
             del info['turn']
 
-        raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+        if reward_before is None:
+            raw_rewards = (0.0,) * len(self.reward_functions)
+        else:
+            raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+
         info['raw_rewards'] = raw_rewards
         reward = sum(raw_rewards)
 

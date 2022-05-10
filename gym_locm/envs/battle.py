@@ -79,8 +79,9 @@ class LOCMBattleEnv(LOCMEnv):
         # less property accesses
         state = self.state
 
-        reward_before = [weight * function.calculate(state, for_player=PlayerOrder.FIRST)
-                         for function, weight in zip(self.reward_functions, self.reward_weights)]
+        self.last_player_rewards[state.current_player.id] = \
+            [weight * function.calculate(state, for_player=PlayerOrder.FIRST)
+             for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # execute the action
         if action is not None:
@@ -88,13 +89,18 @@ class LOCMBattleEnv(LOCMEnv):
         else:
             state.was_last_action_invalid = True
 
+        reward_before = self.last_player_rewards[state.current_player.id]
         reward_after = [weight * function.calculate(state, for_player=PlayerOrder.FIRST)
                         for function, weight in zip(self.reward_functions, self.reward_weights)]
 
         # build return info
         winner = state.winner
 
-        raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+        if reward_before is None:
+            raw_rewards = (0.0,) * len(self.reward_functions)
+        else:
+            raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+
         reward = sum(raw_rewards)
         done = winner is not None
         info = {'phase': state.phase,

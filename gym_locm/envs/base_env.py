@@ -25,6 +25,8 @@ class LOCMEnv(gym.Env, ABC):
         self.reward_functions = tuple([parse_reward(function_name)() for function_name in reward_functions])
         self.reward_weights = reward_weights
 
+        self.last_player_rewards = [None, None]
+
         self.reward_range = (-sum(reward_weights), sum(reward_weights))
 
         self.state = State(seed=seed, items=items, k=k, n=n)
@@ -55,6 +57,7 @@ class LOCMEnv(gym.Env, ABC):
             self.state = State(seed=self._seed, items=self.items)
 
         self.episodes += 1
+        self.last_player_rewards = [None, None]
 
     def render(self, mode: str = 'text'):
         """Builds a representation of the current state."""
