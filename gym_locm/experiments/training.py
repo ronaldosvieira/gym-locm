@@ -144,7 +144,7 @@ def run():
         }
 
         if args.adversary == 'fixed':
-            env_params['battle_agent'] = battle_agent(),
+            env_params['battle_agent'] = battle_agent()
 
         eval_env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
