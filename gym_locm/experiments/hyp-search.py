@@ -8,7 +8,7 @@ from hyperopt import hp, STATUS_OK, trials_from_docs, Trials, partial, tpe, fmin
 from hyperopt.pyll import scope
 
 from gym_locm.agents import MaxAttackBattleAgent, GreedyBattleAgent, MaxAttackDraftAgent
-from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, model_builder_lstm
+from gym_locm.toolbox.trainer_draft import AsymmetricSelfPlay, model_builder_mlp, model_builder_lstm
 
 hyperparameter_space = {
     'switch_freq': hp.choice('switch_freq', [10, 100, 1000]),

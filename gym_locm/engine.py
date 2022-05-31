@@ -922,7 +922,11 @@ class State:
         cloned_state = State.empty_copy()
 
         cloned_state.np_random = np.random.RandomState()
-        cloned_state.np_random.set_state(self.np_random.get_state())
+
+        try:
+            cloned_state.np_random.set_state(self.np_random.get_state())
+        except ValueError:
+            pass
 
         cloned_state.instance_counter = self.instance_counter
         cloned_state.summon_counter = self.summon_counter
