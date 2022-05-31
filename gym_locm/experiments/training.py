@@ -6,8 +6,7 @@ from datetime import datetime
 import wandb
 
 from gym_locm import agents
-from gym_locm.toolbox.trainer import AsymmetricSelfPlay, model_builder_mlp, \
-    model_builder_lstm, model_builder_mlp_masked, SelfPlay, FixedAdversary
+from gym_locm.envs import rewards
 
 _counter = 0
 
@@ -28,6 +27,10 @@ def get_arg_parser():
                    default="max-attack")
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
                    default="max-attack")
+    p.add_argument("--reward-functions", "-rf", nargs="+", choices=list(rewards.available_rewards.keys()),
+                   default=("win-loss",), help="reward functions to use")
+    p.add_argument("--reward-weights", "-rw", nargs="+", type=float,
+                   default=None, help="weights of the reward functions")
     p.add_argument("--path", "-p", help="path to save models and results",
                    required=True)
 
@@ -38,6 +41,7 @@ def get_arg_parser():
     p.add_argument("--num-evals", "-ne", type=int, default=12,
                    help="how many evaluations to perform throughout training")
 
+    p.add_argument("--gamma", type=float, default=1.0, help="gamma (discount factor)")
     p.add_argument("--switch-freq", type=int, default=1000,
                    help="how many episodes to run before updating opponent networks")
     p.add_argument("--layers", type=int, default=1,
@@ -69,6 +73,11 @@ def get_arg_parser():
     p.add_argument("--concurrency", type=int, default=1,
                    help="amount of environments to use")
 
+    p.add_argument("--wandb-entity", type=str, default="j-ufmg",
+                   help="entity name on W&B")
+    p.add_argument("--wandb-project", type=str, default="gym-locm",
+                   help="project name on W&B")
+
     return p
 
 
@@ -84,7 +93,16 @@ def run():
 
     os.makedirs(args.path, exist_ok=True)
 
+    if args.reward_weights is None:
+        args.reward_weights = tuple([1.0 for _ in range(len(args.reward_functions))])
+
+    assert len(args.reward_weights) == len(args.reward_functions), \
+        f"The amount of reward weights should be the same as those of reward functions"
+
     if args.task == 'draft':
+
+        from gym_locm.toolbox.trainer_draft import AsymmetricSelfPlay, SelfPlay, FixedAdversary, \
+            model_builder_mlp, model_builder_lstm
 
         if args.approach == 'lstm':
             model_builder = model_builder_lstm
@@ -98,23 +116,31 @@ def run():
 
         env_params = {
             'battle_agents': (battle_agent(), battle_agent()),
-            'use_draft_history': args.approach == 'history'
+            'use_draft_history': args.approach == 'history',
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
         eval_env_params = {
             'draft_agent': agents.MaxAttackDraftAgent(),
             'battle_agents': (battle_agent(), battle_agent()),
-            'use_draft_history': args.approach == 'history'
+            'use_draft_history': args.approach == 'history',
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
     elif args.task == 'battle':
+
+        from gym_locm.toolbox.trainer_battle import AsymmetricSelfPlay, SelfPlay, FixedAdversary, model_builder_mlp_masked
 
         model_builder = model_builder_mlp_masked
         draft_agent = agents.parse_draft_agent(args.draft_agent)
         battle_agent = agents.parse_battle_agent(args.battle_agent)
 
         env_params = {
-            'draft_agents': (draft_agent(), draft_agent())
+            'draft_agents': (draft_agent(), draft_agent()),
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
         if args.adversary == 'fixed':
@@ -122,7 +148,9 @@ def run():
 
         eval_env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
-            'battle_agent': battle_agent()
+            'battle_agent': battle_agent(),
+            'reward_functions': args.reward_functions,
+            'reward_weights': args.reward_weights
         }
 
     else:
@@ -138,11 +166,11 @@ def run():
                     'noptepochs': args.noptepochs, 'cliprange': args.cliprange,
                     'vf_coef': args.vf_coef, 'ent_coef': args.ent_coef,
                     'activation': args.act_fun, 'learning_rate': args.learning_rate,
-                    'tensorboard_log': args.path + '/tf_logs'}
+                    'tensorboard_log': args.path + '/tf_logs', 'gamma': args.gamma}
 
     run = wandb.init(
-        project='gym-locm',
-        entity='j-ufmg',
+        project=args.wandb_project,
+        entity=args.wandb_entity,
         sync_tensorboard=True,
         config=vars(args)
     )
