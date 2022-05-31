@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='gym_locm',
-      version='1.0.0',
+      version='1.2.0',
       install_requires=['gym', 'numpy', 'prettytable', 'pexpect', 'sty'],
       extras_require={
             'experiments': ['numpy', 'scipy', 'stable_baselines', 'hyperopt',

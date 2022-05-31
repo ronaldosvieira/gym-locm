@@ -19,5 +19,5 @@ license: MIT
 message: "If you use this software, please cite it as below."
 repository-code: "https://github.com/ronaldosvieira/gym-locm"
 title: "OpenAI Gym Environments for Legends of Code and Magic"
-version: "1.1.0"
+version: "1.2.0"
 ...
