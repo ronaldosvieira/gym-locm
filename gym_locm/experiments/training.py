@@ -29,7 +29,7 @@ def get_arg_parser():
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
                    default="max-attack")
     p.add_argument("--eval-battle-agents", "-eb", choices=battle_agents,
-                   nargs="+", default=None, help="battle agents to use on evaluation; defaults to -b")
+                   nargs="+", default=["max-attack", "greedy"], help="battle agents to use on evaluation")
     p.add_argument("--role", "-r", choices=roles, default="alternate",
                    help="whether to train as first player, second player or alternate")
     p.add_argument("--reward-functions", "-rf", nargs="+", choices=list(rewards.available_rewards.keys()),
