@@ -118,6 +118,7 @@ class FixedAdversary(TrainingSession):
         self.num_evals = num_evals
         self.eval_frequency = train_episodes / num_evals
         self.eval_adversaries = [type(e['battle_agent']).__name__ for e in eval_env_params]
+        self.role = role
 
         # initialize control attributes
         self.model.last_eval = None
@@ -151,7 +152,7 @@ class FixedAdversary(TrainingSession):
 
             for evaluator, eval_adversary in zip(self.evaluators, self.eval_adversaries):
                 win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                    evaluator.run(agent, play_first=self.model.role_id == 0)
+                    evaluator.run(agent, play_first=self.role == 'first', alternate_roles=self.role == 'both')
 
                 end_time = time.perf_counter()
                 self.logger.info(f"Finished evaluating vs {eval_adversary} "
@@ -262,7 +263,7 @@ class SelfPlay(TrainingSession):
         self.logger.debug("Initializing evaluation envs...")
         eval_seed = seed + train_episodes if seed is not None else None
         self.evaluators: List[Evaluator] = \
-            [Evaluator(task, e, eval_episodes // 2, eval_seed, num_envs) for e in eval_env_params]
+            [Evaluator(task, e, eval_episodes, eval_seed, num_envs) for e in eval_env_params]
 
         # build the models
         self.logger.debug("Building the models...")
@@ -299,6 +300,7 @@ class SelfPlay(TrainingSession):
         self.eval_frequency = train_episodes / num_evals
         self.num_switches = math.ceil(train_episodes / switch_frequency)
         self.eval_adversaries = [type(e['battle_agent']).__name__ for e in eval_env_params]
+        self.role = role
 
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
@@ -340,19 +342,8 @@ class SelfPlay(TrainingSession):
                     evaluator.seed = self.seed + self.train_episodes
 
                 win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                    evaluator.run(agent_class(model, deterministic=True), play_first=True)
-
-                if evaluator.seed is not None:
-                    evaluator.seed += self.eval_episodes
-
-                win_rate2, mean_reward2, ep_length2, battle_length2, act_hist2 = \
-                    evaluator.run(agent_class(model, deterministic=True), play_first=False)
-
-                mean_reward = (mean_reward + mean_reward2) / 2
-                win_rate = (win_rate + win_rate2) / 2
-                ep_length = (ep_length + ep_length2) / 2
-                battle_length = (battle_length + battle_length2) / 2
-                act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(model.env.get_attr('action_space', indices=[0])[0].n)]
+                    evaluator.run(agent_class(model, deterministic=True),
+                                  play_first=self.role == 'first', alternate_roles=self.role == 'both')
 
                 end_time = time.perf_counter()
                 self.logger.info(f"Finished evaluating vs {eval_adversary} "
@@ -727,11 +718,13 @@ class Evaluator:
         self.logger.debug("Finished initializing evaluator "
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
-    def run(self, agent: Agent, play_first=True):
+    def run(self, agent: Agent, play_first=True, alternate_roles=False):
         """
         Evaluates an agent.
         :param agent: (gym_locm.agents.Agent) Agent to be evaluated.
         :param play_first: Whether the agent will be playing first.
+        :param alternate_roles: Whether the agent should be alternating
+        between playing first and second
         :return: A tuple containing the `win_rate`, the `mean_reward`,
         the `mean_length` and the `action_histogram` of the evaluation episodes.
         """
@@ -746,8 +739,7 @@ class Evaluator:
 
         # set agent role
         self.env.set_attr('play_first', play_first)
-
-        player = 0 if play_first else 1
+        self.env.set_attr('alternate_roles', alternate_roles)
 
         # reset the env
         observations = self.env.reset()
@@ -762,6 +754,9 @@ class Evaluator:
 
         # run the episodes
         while True:
+            # get current role info
+            roles = [0 if play_first else 1 for play_first in self.env.get_attr('play_first')]
+
             # get the agent's action for all parallel envs
             # todo: do this in a more elegant way
             if isinstance(agent, RLDraftAgent):
@@ -786,7 +781,7 @@ class Evaluator:
                 episode_lengths[i][-1] += 1
 
                 if dones[i]:
-                    episode_wins[i].append(1 if infos[i]['winner'] == player else 0)
+                    episode_wins[i].append(1 if infos[i]['winner'] == roles[i] else 0)
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
                     episode_turns[i].append(infos[i]['turn'])
