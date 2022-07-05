@@ -208,6 +208,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         self.battle_agent = battle_agent
         self.play_first = play_first
         self.alternate_roles = alternate_roles
+        self.rewards_single_player = []
 
         # reset the battle agent
         self.battle_agent.reset()
@@ -230,6 +231,8 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         if not self.play_first:
             while self.state.current_player.id != PlayerOrder.SECOND:
                 super().step(self.battle_agent.act(self.state))
+
+        self.rewards_single_player.append(0.0)
 
         return encoded_state
 
@@ -257,7 +260,15 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         if not self.play_first:
             reward = -reward
 
+        try:
+            self.rewards_single_player[-1] += reward
+        except IndexError:
+            self.rewards_single_player = [reward]
+
         return state, reward, done, info
+
+    def get_episode_rewards(self):
+        return self.rewards_single_player
 
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
@@ -269,6 +280,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         self.play_first = play_first
         self.adversary_policy = adversary_policy
         self.alternate_roles = alternate_roles
+        self.rewards_single_player = []
 
     def reset(self) -> np.array:
         """
@@ -292,6 +304,8 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
                 if info['invalid'] and not done:
                     state, reward, done, info = super().step(0)
                     break
+
+        self.rewards_single_player.append(0.0)
 
         return encoded_state
 
@@ -320,4 +334,12 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         if not self.play_first:
             reward = -reward
 
+        try:
+            self.rewards_single_player[-1] += reward
+        except IndexError:
+            self.rewards_single_player = [reward]
+
         return state, reward, done, info
+
+    def get_episode_rewards(self):
+        return self.rewards_single_player

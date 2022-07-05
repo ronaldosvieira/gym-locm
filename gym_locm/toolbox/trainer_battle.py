@@ -399,7 +399,7 @@ class SelfPlay(TrainingSession):
 
             # reset training env rewards
             for i in range(model.env.num_envs):
-                model.env.set_attr('rewards', [0.0], indices=[i])
+                model.env.set_attr('rewards_single_player', [], indices=[i])
 
             # update parameters of adversary models
             model.adversary.set_parameters(model.get_parameters(), exact_match=True)
