@@ -53,21 +53,6 @@ class TrainingSession:
     def _train(self):
         pass
 
-    def _save_results(self):
-        results_path = self.path + '/results.json'
-
-        with open(results_path, 'w') as file:
-            info = dict(task=self.task, **self.params, seed=self.seed, checkpoints=self.checkpoints,
-                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
-                        battle_lengths=self.battle_lengths,
-                        action_histograms=self.action_histograms,
-                        start_time=str(self.start_time), end_time=str(self.end_time))
-            info = json.dumps(info, indent=2)
-
-            file.write(info)
-
-        self.logger.debug(f"Results saved at {results_path}.")
-
     def run(self):
         # log start time
         self.start_time = datetime.now()
@@ -79,9 +64,6 @@ class TrainingSession:
         # log end time
         self.end_time = datetime.now()
         self.logger.info(f"End of training. Time elapsed: {self.end_time - self.start_time}.")
-
-        # save model info to results file
-        self._save_results()
 
 
 class FixedAdversary(TrainingSession):
@@ -185,9 +167,6 @@ class FixedAdversary(TrainingSession):
                 # update control attributes
                 self.model.last_eval = episodes_so_far
                 self.model.next_eval += self.eval_frequency
-
-                # write partial results to file
-                self._save_results()
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -396,9 +375,6 @@ class SelfPlay(TrainingSession):
                 # update control attributes
                 model.last_eval = episodes_so_far
                 model.next_eval += self.eval_frequency
-
-                # write partial results to file
-                self._save_results()
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -621,9 +597,6 @@ class AsymmetricSelfPlay(TrainingSession):
                 # update control attributes
                 model.last_eval = episodes_so_far
                 model.next_eval += self.eval_frequency
-
-                # write partial results to file
-                self._save_results()
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
