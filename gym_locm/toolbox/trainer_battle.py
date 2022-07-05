@@ -440,9 +440,6 @@ class SelfPlay(TrainingSession):
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
         try:
-            self.logger.debug(f"Training will switch models every "
-                              f"{self.switch_frequency} episodes")
-
             # train the model
             self.model.learn(total_timesteps=REALLY_BIG_INT,
                              reset_num_timesteps=False,
