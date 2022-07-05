@@ -277,7 +277,7 @@ class SelfPlay(TrainingSession):
         def make_adversary_policy(model, env):
             def adversary_policy(obs):
                 actions, _ = model.adversary.predict(
-                    obs, deterministic=True, action_masks=env.env_method('action_masks')[0])
+                    obs, action_masks=env.env_method('action_masks')[0])
 
                 return actions
 
@@ -498,7 +498,7 @@ class AsymmetricSelfPlay(TrainingSession):
         def make_adversary_policy(model, env):
             def adversary_policy(obs):
                 actions, _ = model.adversary.predict(
-                    obs, deterministic=True, action_masks=env.env_method('action_masks')[0])
+                    obs, action_masks=env.env_method('action_masks')[0])
 
                 return actions
 
