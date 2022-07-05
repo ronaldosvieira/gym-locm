@@ -19,6 +19,7 @@ def get_arg_parser():
     approach = ['immediate', 'lstm', 'history']
     battle_agents = ['max-attack', 'greedy']
     adversary = ['fixed', 'self-play', 'asymmetric-self-play']
+    roles = ['first', 'second', 'alternate']
 
     p.add_argument("--task", "-t", choices=tasks, default="draft")
     p.add_argument("--approach", "-ap", choices=approach, default="immediate")
@@ -29,6 +30,8 @@ def get_arg_parser():
                    default="max-attack")
     p.add_argument("--eval-battle-agents", "-eb", choices=battle_agents,
                    nargs="+", default=None, help="battle agents to use on evaluation; defaults to -b")
+    p.add_argument("--role", "-r", choices=roles, default="alternate",
+                   help="whether to train as first player, second player or alternate")
     p.add_argument("--reward-functions", "-rf", nargs="+", choices=list(rewards.available_rewards.keys()),
                    default=("win-loss",), help="reward functions to use")
     p.add_argument("--reward-weights", "-rw", nargs="+", type=float,
@@ -199,14 +202,14 @@ def run():
         trainer = SelfPlay(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            args.switch_freq, args.path, args.seed, args.concurrency,
+            args.role, args.switch_freq, args.path, args.seed, args.concurrency,
             wandb_run=run
         )
     elif args.adversary == 'fixed':
         trainer = FixedAdversary(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            True, args.path, args.seed, args.concurrency, wandb_run=run
+            args.role, args.path, args.seed, args.concurrency, wandb_run=run
         )
     else:
         raise Exception("Invalid adversary")

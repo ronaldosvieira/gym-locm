@@ -69,7 +69,7 @@ class TrainingSession:
 class FixedAdversary(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 play_first, path, seed, num_envs=1, wandb_run=None):
+                 role, path, seed, num_envs=1, wandb_run=None):
         super(FixedAdversary, self).__init__(
             task, model_params, path, seed, wandb_run=wandb_run)
 
@@ -90,7 +90,8 @@ class FixedAdversary(TrainingSession):
                 current_seed = None
 
             # create the env
-            env.append(lambda: env_class(seed=current_seed, play_first=play_first, **env_params))
+            env.append(lambda: env_class(
+                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'both', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
@@ -121,7 +122,7 @@ class FixedAdversary(TrainingSession):
         # initialize control attributes
         self.model.last_eval = None
         self.model.next_eval = 0
-        self.model.role_id = 0 if play_first else 1
+        self.model.role_id = 0 if role == 'first' else 1
 
         # log end time
         end_time = time.perf_counter()
@@ -230,7 +231,7 @@ class FixedAdversary(TrainingSession):
 class SelfPlay(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 switch_frequency, path, seed, num_envs=1, wandb_run=None):
+                 role, switch_frequency, path, seed, num_envs=1, wandb_run=None):
         super(SelfPlay, self).__init__(
             task, model_params, path, seed, wandb_run=wandb_run)
 
@@ -251,7 +252,8 @@ class SelfPlay(TrainingSession):
                 current_seed = None
 
             # create one env per process
-            env.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
+            env.append(lambda: env_class(
+                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'both', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
@@ -485,8 +487,8 @@ class AsymmetricSelfPlay(TrainingSession):
                 current_seed = None
 
             # create one env per process
-            env1.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
-            env2.append(lambda: env_class(seed=current_seed, play_first=False, **env_params))
+            env1.append(lambda: env_class(seed=current_seed, play_first=True, alternate_role=False, **env_params))
+            env2.append(lambda: env_class(seed=current_seed, play_first=False, alternate_role=False, **env_params))
 
         # wrap envs in a vectorized env
         self.env1: VecEnv3 = DummyVecEnv3(env1)

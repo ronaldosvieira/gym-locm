@@ -200,13 +200,14 @@ class LOCMBattleEnv(LOCMEnv):
 
 class LOCMBattleSingleEnv(LOCMBattleEnv):
     def __init__(self, battle_agent=RandomBattleAgent(),
-                 play_first=True, **kwargs):
+                 play_first=True, alternate_roles=False, **kwargs):
         # init the env
         super().__init__(**kwargs)
 
-        # also init the battle agent and the new parameter
+        # also init the battle agent and the new parameters
         self.battle_agent = battle_agent
         self.play_first = play_first
+        self.alternate_roles = alternate_roles
 
         # reset the battle agent
         self.battle_agent.reset()
@@ -216,6 +217,9 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         Resets the environment.
         The game is put into its initial state and all agents are reset.
         """
+        if self.alternate_roles:
+            self.play_first = not self.play_first
+
         # reset what is needed
         encoded_state = super().reset()
 
@@ -257,13 +261,14 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
-    def __init__(self, play_first=True, adversary_policy=None, **kwargs):
+    def __init__(self, play_first=True, alternate_roles=True, adversary_policy=None, **kwargs):
         # init the env
         super().__init__(**kwargs)
 
         # also init the new parameters
         self.play_first = play_first
         self.adversary_policy = adversary_policy
+        self.alternate_roles = alternate_roles
 
     def reset(self) -> np.array:
         """
@@ -273,8 +278,8 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         # reset what is needed
         encoded_state = super().reset()
 
-        # also reset the battle agent
-        self.play_first = not self.play_first
+        if self.alternate_roles:
+            self.play_first = not self.play_first
 
         # if playing second, have first player play
         if not self.play_first:
