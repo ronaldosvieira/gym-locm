@@ -320,14 +320,6 @@ class SelfPlay(TrainingSession):
         model = self.model
         episodes_so_far = sum(self.env.get_attr('episodes'))
 
-        # note: wtf was this code about, ronaldo???
-        # turns = model.env.get_attr('turn')
-        # playing_first = model.env.get_attr('play_first')
-        #
-        # for i in range(model.env.num_envs):
-        #     if turns[i] in range(0, model.env.num_envs):
-        #         model.env.set_attr('play_first', not playing_first[i], indices=[i])
-
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
             # save model
