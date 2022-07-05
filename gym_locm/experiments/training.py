@@ -27,6 +27,8 @@ def get_arg_parser():
                    default="max-attack")
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
                    default="max-attack")
+    p.add_argument("--eval-battle-agents", "-eb", choices=battle_agents,
+                   nargs="+", default=None, help="battle agents to use on evaluation; defaults to -b")
     p.add_argument("--reward-functions", "-rf", nargs="+", choices=list(rewards.available_rewards.keys()),
                    default=("win-loss",), help="reward functions to use")
     p.add_argument("--reward-weights", "-rw", nargs="+", type=float,
@@ -137,6 +139,11 @@ def run():
         draft_agent = agents.parse_draft_agent(args.draft_agent)
         battle_agent = agents.parse_battle_agent(args.battle_agent)
 
+        if args.eval_battle_agents is None:
+            args.eval_battle_agents = [args.battle_agent]
+
+        eval_battle_agents = list(map(agents.parse_battle_agent, args.eval_battle_agents))
+
         env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
             'reward_functions': args.reward_functions,
@@ -146,12 +153,15 @@ def run():
         if args.adversary == 'fixed':
             env_params['battle_agent'] = battle_agent()
 
-        eval_env_params = {
-            'draft_agents': (draft_agent(), draft_agent()),
-            'battle_agent': battle_agent(),
-            'reward_functions': args.reward_functions,
-            'reward_weights': args.reward_weights
-        }
+        eval_env_params = []
+
+        for eval_battle_agent in eval_battle_agents:
+            eval_env_params.append({
+                'draft_agents': (draft_agent(), draft_agent()),
+                'battle_agent': eval_battle_agent(),
+                'reward_functions': args.reward_functions,
+                'reward_weights': args.reward_weights
+            })
 
     else:
         raise Exception("Invalid task")
