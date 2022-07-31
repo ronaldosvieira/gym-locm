@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "gym-locm"
+version = "1.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "~3.7"
+gym = "~0.21.0"
+numpy = "~1.21"
+pexpect = "^4.8.0"
+prettytable = "^3.3.0"
+sty = "^1.0.4"
+
+hyperopt = {version = "^0.2.7", optional = true}
+matplotlib = {version = "^3.5.2", optional = true}
+mplcursors = {version = "^0.5.1", optional = true}
+pandas = {version = "~1.1", optional = true}
+sb3-contrib = {version = "^1.6.0", optional = true}
+scipy = {version = "~1.7", optional = true}
+scikit-learn = {version = "~1.0", optional = true}
+stable-baselines = {version = "^2.10.2", optional = true}
+stable-baselines3 = {version = "^1.6.0", optional = true}
+tensorflow = {version = "~1.15", optional = true}
+wandb = {version = "^0.12.21", optional = true}
+
+[tool.poetry.extras]
+experiments = [
+    "hyperopt",
+    "matplotlib",
+    "mplcursors",
+    "pandas",
+    "sb3-contrib",
+    "scipy",
+    "scikit-learn",
+    "stable-baselines",
+    "stable-baselines3",
+    "tensorflow",
+    "wandb",
+]
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
