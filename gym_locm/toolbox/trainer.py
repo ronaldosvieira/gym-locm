@@ -562,7 +562,8 @@ class SelfPlay(TrainingSession):
                     for rewards in model.env.env_method("get_episode_rewards")
                 ]
             )
-            self.wandb_run.log({"train_mean_reward": train_mean_reward})
+            if self.wandb_run:
+                self.wandb_run.log({"train_mean_reward": train_mean_reward})
 
             self.logger.debug(
                 f"Model trained for "
@@ -925,7 +926,8 @@ class AsymmetricSelfPlay(TrainingSession):
                         for rewards in self.env1.env_method("get_episode_rewards")
                     ]
                 )
-                self.wandb_run.log({"train_mean_reward_0": train_mean_reward1})
+                if self.wandb_run:
+                    self.wandb_run.log({"train_mean_reward1": train_mean_reward1})
 
                 # reset training env rewards
                 for i in range(self.env1.num_envs):
@@ -952,7 +954,8 @@ class AsymmetricSelfPlay(TrainingSession):
                         for rewards in self.env2.env_method("get_episode_rewards")
                     ]
                 )
-                self.wandb_run.log({"train_mean_reward_1": train_mean_reward2})
+                if self.wandb_run:
+                    self.wandb_run.log({"train_mean_reward2": train_mean_reward2})
 
                 # reset training env rewards
                 for i in range(self.env2.num_envs):
