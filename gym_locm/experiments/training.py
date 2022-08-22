@@ -225,12 +225,17 @@ def run():
         "tensorboard_log": args.path + "/tf_logs",
     }
 
-    run = wandb.init(
-        project="gym-locm", entity="j-ufmg", sync_tensorboard=True, config=vars(args)
-    )
-
-    # enable the use of wandb sweeps
-    args = wandb.config
+    if args.task == "battle":
+        wandb_run = wandb.init(
+            project="gym-locm",
+            entity="j-ufmg",
+            sync_tensorboard=True,
+            config=vars(args),
+        )
+        # enable the use of wandb sweeps
+        args = wandb.config
+    else:
+        wandb_run = None
 
     if args.adversary == "asymmetric-self-play":
         trainer = AsymmetricSelfPlay(
@@ -246,7 +251,7 @@ def run():
             args.path,
             args.seed,
             args.concurrency,
-            wandb_run=run,
+            wandb_run=wandb_run,
         )
     elif args.adversary == "self-play":
         trainer = SelfPlay(
@@ -262,7 +267,7 @@ def run():
             args.path,
             args.seed,
             args.concurrency,
-            wandb_run=run,
+            wandb_run=wandb_run,
         )
     elif args.adversary == "fixed":
         trainer = FixedAdversary(
@@ -278,7 +283,7 @@ def run():
             args.path,
             args.seed,
             args.concurrency,
-            wandb_run=run,
+            wandb_run=wandb_run,
         )
     else:
         raise Exception("Invalid adversary")
@@ -286,7 +291,8 @@ def run():
     try:
         trainer.run()
     finally:
-        run.finish()
+        if wandb_run:
+            wandb_run.finish()
 
 
 if __name__ == "__main__":
