@@ -4,7 +4,6 @@ import math
 import os
 import time
 import warnings
-import numpy as np
 from abc import abstractmethod
 from datetime import datetime
 from statistics import mean
@@ -14,39 +13,38 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=Warning)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # or any {'0', '1', '2'}
 
+import numpy as np
 import tensorflow as tf
 import torch as th
-
-tf.get_logger().setLevel("INFO")
-tf.get_logger().setLevel(logging.ERROR)
-
-from stable_baselines import PPO2
-from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
-from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
-from stable_baselines3.common.vec_env import (
-    VecEnv as VecEnv3,
-    DummyVecEnv as DummyVecEnv3,
-)
+from sb3_contrib.ppo_mask.ppo_mask import MaskablePPO
 from stable_baselines3.common.callbacks import BaseCallback
-from sb3_contrib import MaskablePPO
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv as VecEnv3
+from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv as DummyVecEnv3
+from stable_baselines.common.policies import MlpLstmPolicy, MlpPolicy
+from stable_baselines.common.vec_env.base_vec_env import VecEnv
+from stable_baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+from stable_baselines.ppo2.ppo2 import PPO2
 from wandb.integration.sb3 import WandbCallback
 
 from gym_locm.agents import (
     Agent,
-    MaxAttackDraftAgent,
     MaxAttackBattleAgent,
-    RLDraftAgent,
+    MaxAttackDraftAgent,
     RLBattleAgent,
+    RLDraftAgent,
 )
-from gym_locm.envs import LOCMDraftSingleEnv, LOCMBattleSingleEnv
-from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
+from gym_locm.envs import LOCMBattleSingleEnv, LOCMDraftSingleEnv
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
+from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
 
 verbose = True
 REALLY_BIG_INT = 1_000_000_000
 
 if verbose:
     logging.basicConfig(level=logging.DEBUG)
+
+tf.get_logger().setLevel("INFO")
+tf.get_logger().setLevel(logging.ERROR)
 
 
 class TrainingSession:
