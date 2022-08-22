@@ -147,8 +147,6 @@ class LOCMDraftEnv(LOCMEnv):
             self.rewards[-1] += reward
             done = True
 
-            del info["turn"]
-
         return self.encode_state(), reward, done, info
 
     def do_match(self, state):

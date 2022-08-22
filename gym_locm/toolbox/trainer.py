@@ -61,7 +61,6 @@ class TrainingSession:
         self.checkpoints = []
         self.win_rates = []
         self.episode_lengths = []
-        self.battle_lengths = []
         self.action_histograms = []
         self.start_time, self.end_time = None, None
         self.wandb_run = wandb_run
@@ -87,7 +86,6 @@ class TrainingSession:
                 checkpoints=self.checkpoints,
                 win_rates=self.win_rates,
                 ep_lengths=self.episode_lengths,
-                battle_lengths=self.battle_lengths,
                 action_histograms=self.action_histograms,
                 start_time=str(self.start_time),
                 end_time=str(self.end_time),
@@ -226,7 +224,7 @@ class FixedAdversary(TrainingSession):
 
             agent = agent_class(self.model)
 
-            mean_reward, ep_length, battle_length, act_hist = self.evaluator.run(
+            mean_reward, ep_length, act_hist = self.evaluator.run(
                 agent, play_first=self.model.role_id == 0
             )
 
@@ -242,7 +240,6 @@ class FixedAdversary(TrainingSession):
             win_rate = (mean_reward + 1) / 2
             self.win_rates.append(win_rate)
             self.episode_lengths.append(ep_length)
-            self.battle_lengths.append(battle_length)
             self.action_histograms.append(act_hist)
 
             # update control attributes
@@ -259,7 +256,6 @@ class FixedAdversary(TrainingSession):
                     mean_reward=mean_reward,
                     win_rate=win_rate,
                     mean_ep_length=ep_length,
-                    mean_battle_length=battle_length,
                 )
 
                 if self.task == "battle":
@@ -453,14 +449,6 @@ class SelfPlay(TrainingSession):
         model = self.model
         episodes_so_far = sum(self.env.get_attr("episodes"))
 
-        # note: wtf was this code about, ronaldo???
-        # turns = model.env.get_attr('turn')
-        # playing_first = model.env.get_attr('play_first')
-        #
-        # for i in range(model.env.num_envs):
-        #     if turns[i] in range(0, model.env.num_envs):
-        #         model.env.set_attr('play_first', not playing_first[i], indices=[i])
-
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
             # save model
@@ -486,20 +474,19 @@ class SelfPlay(TrainingSession):
             if self.evaluator.seed is not None:
                 self.evaluator.seed = self.seed + self.train_episodes
 
-            mean_reward, ep_length, battle_length, act_hist = self.evaluator.run(
+            mean_reward, ep_length, act_hist = self.evaluator.run(
                 agent_class(model), play_first=True
             )
 
             if self.evaluator.seed is not None:
                 self.evaluator.seed += self.eval_episodes
 
-            mean_reward2, ep_length2, battle_length2, act_hist2 = self.evaluator.run(
+            mean_reward2, ep_length2, act_hist2 = self.evaluator.run(
                 agent_class(model), play_first=False
             )
 
             mean_reward = (mean_reward + mean_reward2) / 2
             ep_length = (ep_length + ep_length2) / 2
-            battle_length = (battle_length + battle_length2) / 2
             act_hist = [
                 (act_hist[i] + act_hist2[i]) / 2
                 for i in range(model.env.get_attr("action_space", indices=[0])[0].n)
@@ -517,7 +504,6 @@ class SelfPlay(TrainingSession):
             win_rate = (mean_reward + 1) / 2
             self.win_rates.append(win_rate)
             self.episode_lengths.append(ep_length)
-            self.battle_lengths.append(battle_length)
             self.action_histograms.append(act_hist)
 
             # update control attributes
@@ -534,7 +520,6 @@ class SelfPlay(TrainingSession):
                     mean_reward=mean_reward,
                     win_rate=win_rate,
                     mean_ep_length=ep_length,
-                    mean_battle_length=battle_length,
                 )
 
                 if self.task == "battle":
@@ -817,7 +802,7 @@ class AsymmetricSelfPlay(TrainingSession):
             else:
                 agent_class = RLDraftAgent
 
-            mean_reward, ep_length, battle_length, act_hist = self.evaluator.run(
+            mean_reward, ep_length, act_hist = self.evaluator.run(
                 agent_class(model), play_first=model.role_id == 0
             )
 
@@ -833,7 +818,6 @@ class AsymmetricSelfPlay(TrainingSession):
             win_rate = (mean_reward + 1) / 2
             self.win_rates[model.role_id].append(win_rate)
             self.episode_lengths[model.role_id].append(ep_length)
-            self.battle_lengths[model.role_id].append(battle_length)
             self.action_histograms[model.role_id].append(act_hist)
 
             # update control attributes
@@ -850,7 +834,6 @@ class AsymmetricSelfPlay(TrainingSession):
                     f"mean_reward_{model.role_id}": mean_reward,
                     f"win_rate_{model.role_id}": win_rate,
                     f"mean_ep_length_{model.role_id}": ep_length,
-                    f"mean_battle_length_{model.role_id}": battle_length,
                 }
 
                 if self.task == "battle":
@@ -1054,7 +1037,6 @@ class Evaluator:
         episodes_so_far = 0
         episode_rewards = [[0.0] for _ in range(self.env.num_envs)]
         episode_lengths = [[0] for _ in range(self.env.num_envs)]
-        episode_turns = [[] for _ in range(self.env.num_envs)]
         action_histogram = [0] * self.env.action_space.n
 
         # run the episodes
@@ -1085,7 +1067,6 @@ class Evaluator:
                 if dones[i]:
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
-                    # episode_turns[i].append(infos[i]['turn'])
 
                     episodes_so_far += 1
 
@@ -1096,12 +1077,10 @@ class Evaluator:
         # join all parallel metrics
         all_rewards = [reward for rewards in episode_rewards for reward in rewards[:-1]]
         all_lengths = [length for lengths in episode_lengths for length in lengths[:-1]]
-        all_turns = [turn for turns in episode_turns for turn in turns]
 
         # todo: fix -- sometimes we miss self.episodes by one
         # assert len(all_rewards) == self.episodes
         # assert len(all_lengths) == self.episodes
-        # assert len(all_turns) == self.episodes
 
         # transform the action histogram in a probability distribution
         action_histogram = [
@@ -1111,9 +1090,8 @@ class Evaluator:
         # cap any unsolicited additional episodes
         all_rewards = all_rewards[: self.episodes]
         all_lengths = all_lengths[: self.episodes]
-        all_turns = all_turns[: self.episodes]
 
-        return mean(all_rewards), mean(all_lengths), mean(all_turns), action_histogram
+        return mean(all_rewards), mean(all_lengths), action_histogram
 
     def close(self):
         self.env.close()
