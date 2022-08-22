@@ -7,6 +7,7 @@ import warnings
 from abc import abstractmethod
 from datetime import datetime
 from statistics import mean
+from typing import Callable
 
 # suppress tensorflow deprecated warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -17,9 +18,13 @@ import numpy as np
 import tensorflow as tf
 import torch as th
 from sb3_contrib.ppo_mask.ppo_mask import MaskablePPO
-from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.callbacks import (
+    BaseCallback as BaseCallback3,
+    CallbackList as CallbackList3,
+)
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv as VecEnv3
 from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv as DummyVecEnv3
+from stable_baselines.common.callbacks import BaseCallback, CallbackList
 from stable_baselines.common.policies import MlpLstmPolicy, MlpPolicy
 from stable_baselines.common.vec_env.base_vec_env import VecEnv
 from stable_baselines.common.vec_env.dummy_vec_env import DummyVecEnv
@@ -281,22 +286,16 @@ class FixedAdversary(TrainingSession):
         # save and evaluate starting model
         self._training_callback()
 
-        if self.task == "battle":
-            from stable_baselines3.common.callbacks import CallbackList
-        else:
-            from stable_baselines.common.callbacks import CallbackList
-
-        callbacks = [TrainingCallback(self._training_callback)]
-
-        if self.wandb_run:
-            callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
+        callback = _build_callback(
+            self.task, self._training_callback, bool(self.wandb_run)
+        )
 
         try:
             # train the model
             # note: dynamic learning or clip rates will require accurate # of timesteps
             self.model.learn(
                 total_timesteps=REALLY_BIG_INT,  # we'll stop manually
-                callback=CallbackList(callbacks),
+                callback=callback,
             )
         except KeyboardInterrupt:
             pass
@@ -594,15 +593,9 @@ class SelfPlay(TrainingSession):
         # save and evaluate starting models
         self._training_callback({"self": self.model})
 
-        if self.task == "battle":
-            from stable_baselines3.common.callbacks import CallbackList
-        else:
-            from stable_baselines.common.callbacks import CallbackList
-
-        callbacks = [TrainingCallback(self._training_callback)]
-
-        if self.wandb_run:
-            callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
+        callback = _build_callback(
+            self.task, self._training_callback, bool(self.wandb_run)
+        )
 
         try:
             self.logger.debug(
@@ -614,7 +607,7 @@ class SelfPlay(TrainingSession):
             self.model.learn(
                 total_timesteps=REALLY_BIG_INT,
                 reset_num_timesteps=False,
-                callback=CallbackList(callbacks),
+                callback=callback,
             )
 
         except KeyboardInterrupt:
@@ -889,10 +882,16 @@ class AsymmetricSelfPlay(TrainingSession):
         self._training_callback({"self": self.model1})
         self._training_callback({"self": self.model2})
 
-        if self.task == "battle":
-            from stable_baselines3.common.callbacks import CallbackList
-        else:
-            from stable_baselines.common.callbacks import CallbackList
+        callback1 = _build_callback(
+            self.task,
+            lambda: self._training_callback({"self": self.model1}),
+            bool(self.wandb_run),
+        )
+        callback2 = _build_callback(
+            self.task,
+            lambda: self._training_callback({"self": self.model2}),
+            bool(self.wandb_run),
+        )
 
         try:
             self.logger.debug(
@@ -900,23 +899,12 @@ class AsymmetricSelfPlay(TrainingSession):
                 f"{self.switch_frequency} episodes"
             )
 
-            callbacks1 = [
-                TrainingCallback(lambda: self._training_callback({"self": self.model1}))
-            ]
-            callbacks2 = [
-                TrainingCallback(lambda: self._training_callback({"self": self.model2}))
-            ]
-
-            if self.wandb_run:
-                callbacks1.append(WandbCallback(gradient_save_freq=0, verbose=0))
-                callbacks2.append(WandbCallback(gradient_save_freq=0, verbose=0))
-
             for _ in range(self.num_switches):
                 # train the first player model
                 self.model1.learn(
                     total_timesteps=REALLY_BIG_INT,
                     reset_num_timesteps=False,
-                    callback=CallbackList(callbacks1),
+                    callback=callback1,
                 )
 
                 # log training win rate at the time of the switch
@@ -944,7 +932,7 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.model2.learn(
                     total_timesteps=REALLY_BIG_INT,
                     reset_num_timesteps=False,
-                    callback=CallbackList(callbacks2),
+                    callback=callback2,
                 )
 
                 # log training win rate at the time of the switch
@@ -1131,14 +1119,34 @@ class Evaluator:
         self.env.close()
 
 
-class TrainingCallback(BaseCallback):
+class BattleTrainingCallback(BaseCallback3):
     def __init__(self, callback_func, verbose=0):
-        super(TrainingCallback, self).__init__(verbose)
-
+        super(BattleTrainingCallback, self).__init__(verbose)
         self.callback_func = callback_func
 
     def _on_step(self):
         return self.callback_func()
+
+
+class DraftTrainingCallback(BaseCallback):
+    def __init__(self, callback_func, verbose=0):
+        super(DraftTrainingCallback, self).__init__(verbose)
+        self.callback_func = callback_func
+
+    def _on_step(self):
+        return self.callback_func()
+
+
+def _build_callback(task: str, callback_func: Callable, include_wandb=False):
+    callbacks = []
+    if include_wandb:
+        callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
+    if task == "battle":
+        callbacks.insert(0, BattleTrainingCallback(callback_func))
+        return CallbackList3(callbacks)
+    else:
+        callbacks.insert(0, DraftTrainingCallback(callback_func))
+        return CallbackList(callbacks)
 
 
 def save_model_as_json(model, act_fun, path):
