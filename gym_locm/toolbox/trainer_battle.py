@@ -3,6 +3,8 @@ import logging
 import math
 import os
 import time
+from typing import List
+
 import numpy as np
 from abc import abstractmethod
 from datetime import datetime
@@ -15,7 +17,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from sb3_contrib import MaskablePPO
 from wandb.integration.sb3 import WandbCallback
 
-from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLBattleAgent, RLDraftAgent
+from gym_locm.agents import Agent, RLBattleAgent, RLDraftAgent
 from gym_locm.envs import LOCMBattleSingleEnv
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
 
@@ -51,21 +53,6 @@ class TrainingSession:
     def _train(self):
         pass
 
-    def _save_results(self):
-        results_path = self.path + '/results.json'
-
-        with open(results_path, 'w') as file:
-            info = dict(task=self.task, **self.params, seed=self.seed, checkpoints=self.checkpoints,
-                        win_rates=self.win_rates, ep_lengths=self.episode_lengths,
-                        battle_lengths=self.battle_lengths,
-                        action_histograms=self.action_histograms,
-                        start_time=str(self.start_time), end_time=str(self.end_time))
-            info = json.dumps(info, indent=2)
-
-            file.write(info)
-
-        self.logger.debug(f"Results saved at {results_path}.")
-
     def run(self):
         # log start time
         self.start_time = datetime.now()
@@ -78,14 +65,11 @@ class TrainingSession:
         self.end_time = datetime.now()
         self.logger.info(f"End of training. Time elapsed: {self.end_time - self.start_time}.")
 
-        # save model info to results file
-        self._save_results()
-
 
 class FixedAdversary(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 play_first, path, seed, num_envs=1, wandb_run=None):
+                 role, path, seed, num_envs=1, wandb_run=None):
         super(FixedAdversary, self).__init__(
             task, model_params, path, seed, wandb_run=wandb_run)
 
@@ -106,7 +90,8 @@ class FixedAdversary(TrainingSession):
                 current_seed = None
 
             # create the env
-            env.append(lambda: env_class(seed=current_seed, play_first=play_first, **env_params))
+            env.append(lambda: env_class(
+                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'alternate', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
@@ -114,8 +99,8 @@ class FixedAdversary(TrainingSession):
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
         eval_seed = seed + train_episodes if seed is not None else None
-        self.evaluator: Evaluator = Evaluator(task, eval_env_params, eval_episodes,
-                                              eval_seed, num_envs)
+        self.evaluators: List[Evaluator] = \
+            [Evaluator(task, e, eval_episodes, eval_seed, num_envs) for e in eval_env_params]
 
         # build the model
         self.logger.debug("Building the model...")
@@ -132,11 +117,13 @@ class FixedAdversary(TrainingSession):
         self.train_episodes = train_episodes
         self.num_evals = num_evals
         self.eval_frequency = train_episodes / num_evals
+        self.eval_adversaries = [type(e['battle_agent']).__name__ for e in eval_env_params]
+        self.role = role
 
         # initialize control attributes
         self.model.last_eval = None
         self.model.next_eval = 0
-        self.model.role_id = 0 if play_first else 1
+        self.model.role_id = 0 if role == 'first' else 1
 
         # log end time
         end_time = time.perf_counter()
@@ -163,44 +150,48 @@ class FixedAdversary(TrainingSession):
 
             agent = agent_class(self.model, deterministic=True)
 
-            win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                self.evaluator.run(agent, play_first=self.model.role_id == 0)
+            for evaluator, eval_adversary in zip(self.evaluators, self.eval_adversaries):
+                win_rate, mean_reward, ep_length, battle_length, act_hist = \
+                    evaluator.run(agent, play_first=self.role == 'first', alternate_roles=self.role == 'alternate')
 
-            end_time = time.perf_counter()
-            self.logger.info(f"Finished evaluating "
-                             f"({round(end_time - start_time, 3)}s). "
-                             f"Avg. reward: {mean_reward}")
+                end_time = time.perf_counter()
+                self.logger.info(f"Finished evaluating vs {eval_adversary} "
+                                 f"({round(end_time - start_time, 3)}s). "
+                                 f"Avg. reward: {mean_reward}")
 
-            # save the results
-            self.checkpoints.append(episodes_so_far)
-            self.win_rates.append(win_rate)
-            self.episode_lengths.append(ep_length)
-            self.battle_lengths.append(battle_length)
-            self.action_histograms.append(act_hist)
+                # save the results
+                self.checkpoints.append(episodes_so_far)
+                self.win_rates.append(win_rate)
+                self.episode_lengths.append(ep_length)
+                self.battle_lengths.append(battle_length)
+                self.action_histograms.append(act_hist)
 
-            # update control attributes
-            self.model.last_eval = episodes_so_far
-            self.model.next_eval += self.eval_frequency
+                # update control attributes
+                self.model.last_eval = episodes_so_far
+                self.model.next_eval += self.eval_frequency
 
-            # write partial results to file
-            self._save_results()
+                # upload stats to wandb, if enabled
+                if self.wandb_run:
+                    panel_name = f"eval_vs_{eval_adversary}"
 
-            # upload stats to wandb, if enabled
-            if self.wandb_run:
-                info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
-                            win_rate=win_rate, mean_ep_length=ep_length,
-                            mean_battle_length=battle_length)
+                    info = dict()
 
-                info['pass_actions'] = act_hist[0]
-                info['summon_actions'] = sum(act_hist[1:17])
+                    info['checkpoint'] = episodes_so_far
+                    info[panel_name + '/mean_reward'] = mean_reward
+                    info[panel_name + '/win_rate'] = win_rate
+                    info[panel_name + '/mean_ep_length'] = ep_length
+                    info[panel_name + '/mean_battle_length'] = battle_length
 
-                if self.env.get_attr('items', indices=[0])[0]:
-                    info['use_actions'] = sum(act_hist[17:121])
-                    info['attack_actions'] = sum(act_hist[121:])
-                else:
-                    info['attack_actions'] = sum(act_hist[17:])
+                    info[panel_name + '/pass_actions'] = act_hist[0]
+                    info[panel_name + '/summon_actions'] = sum(act_hist[1:17])
 
-                self.wandb_run.log(info)
+                    if self.env.get_attr('items', indices=[0])[0]:
+                        info[panel_name + '/use_actions'] = sum(act_hist[17:121])
+                        info[panel_name + '/attack_actions'] = sum(act_hist[121:])
+                    else:
+                        info[panel_name + '/attack_actions'] = sum(act_hist[17:])
+
+                    self.wandb_run.log(info)
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= self.train_episodes
@@ -231,15 +222,17 @@ class FixedAdversary(TrainingSession):
         if len(self.win_rates) < self.num_evals:
             self._training_callback()
 
-        # close the envs
-        for e in (self.env, self.evaluator):
+        # close all envs
+        self.env.close()
+
+        for e in self.evaluators:
             e.close()
 
 
 class SelfPlay(TrainingSession):
     def __init__(self, task, model_builder, model_params, env_params,
                  eval_env_params, train_episodes, eval_episodes, num_evals,
-                 switch_frequency, path, seed, num_envs=1, wandb_run=None):
+                 role, switch_frequency, path, seed, num_envs=1, wandb_run=None):
         super(SelfPlay, self).__init__(
             task, model_params, path, seed, wandb_run=wandb_run)
 
@@ -260,7 +253,8 @@ class SelfPlay(TrainingSession):
                 current_seed = None
 
             # create one env per process
-            env.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
+            env.append(lambda: env_class(
+                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'alternate', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
@@ -268,8 +262,8 @@ class SelfPlay(TrainingSession):
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
         eval_seed = seed + train_episodes if seed is not None else None
-        self.evaluator: Evaluator = Evaluator(task, eval_env_params, eval_episodes // 2,
-                                              eval_seed, num_envs)
+        self.evaluators: List[Evaluator] = \
+            [Evaluator(task, e, eval_episodes, eval_seed, num_envs) for e in eval_env_params]
 
         # build the models
         self.logger.debug("Building the models...")
@@ -283,7 +277,7 @@ class SelfPlay(TrainingSession):
         def make_adversary_policy(model, env):
             def adversary_policy(obs):
                 actions, _ = model.adversary.predict(
-                    obs, deterministic=True, action_masks=env.env_method('action_masks')[0])
+                    obs, action_masks=env.env_method('action_masks')[0])
 
                 return actions
 
@@ -305,6 +299,8 @@ class SelfPlay(TrainingSession):
         self.switch_frequency = switch_frequency
         self.eval_frequency = train_episodes / num_evals
         self.num_switches = math.ceil(train_episodes / switch_frequency)
+        self.eval_adversaries = [type(e['battle_agent']).__name__ for e in eval_env_params]
+        self.role = role
 
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
@@ -326,14 +322,6 @@ class SelfPlay(TrainingSession):
         model = self.model
         episodes_so_far = sum(self.env.get_attr('episodes'))
 
-        # note: wtf was this code about, ronaldo???
-        # turns = model.env.get_attr('turn')
-        # playing_first = model.env.get_attr('play_first')
-        #
-        # for i in range(model.env.num_envs):
-        #     if turns[i] in range(0, model.env.num_envs):
-        #         model.env.set_attr('play_first', not playing_first[i], indices=[i])
-
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
             # save model
@@ -349,59 +337,52 @@ class SelfPlay(TrainingSession):
 
             agent_class = RLBattleAgent
 
-            if self.evaluator.seed is not None:
-                self.evaluator.seed = self.seed + self.train_episodes
+            for evaluator, eval_adversary in zip(self.evaluators, self.eval_adversaries):
+                if evaluator.seed is not None:
+                    evaluator.seed = self.seed + self.train_episodes
 
-            win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                self.evaluator.run(agent_class(model, deterministic=True), play_first=True)
+                win_rate, mean_reward, ep_length, battle_length, act_hist = \
+                    evaluator.run(agent_class(model, deterministic=True),
+                                  play_first=self.role == 'first', alternate_roles=self.role == 'alternate')
 
-            if self.evaluator.seed is not None:
-                self.evaluator.seed += self.eval_episodes
+                end_time = time.perf_counter()
+                self.logger.info(f"Finished evaluating vs {eval_adversary} "
+                                 f"({round(end_time - start_time, 3)}s). "
+                                 f"Avg. reward: {mean_reward}")
 
-            win_rate2, mean_reward2, ep_length2, battle_length2, act_hist2 = \
-                self.evaluator.run(agent_class(model, deterministic=True), play_first=False)
+                # save the results
+                self.checkpoints.append(episodes_so_far)
+                self.win_rates.append(win_rate)
+                self.episode_lengths.append(ep_length)
+                self.battle_lengths.append(battle_length)
+                self.action_histograms.append(act_hist)
 
-            mean_reward = (mean_reward + mean_reward2) / 2
-            win_rate = (win_rate + win_rate2) / 2
-            ep_length = (ep_length + ep_length2) / 2
-            battle_length = (battle_length + battle_length2) / 2
-            act_hist = [(act_hist[i] + act_hist2[i]) / 2 for i in range(model.env.get_attr('action_space', indices=[0])[0].n)]
+                # update control attributes
+                model.last_eval = episodes_so_far
+                model.next_eval += self.eval_frequency
 
-            end_time = time.perf_counter()
-            self.logger.info(f"Finished evaluating "
-                             f"({round(end_time - start_time, 3)}s). "
-                             f"Avg. reward: {mean_reward}")
+                # upload stats to wandb, if enabled
+                if self.wandb_run:
+                    panel_name = f"eval_vs_{eval_adversary}"
 
-            # save the results
-            self.checkpoints.append(episodes_so_far)
-            self.win_rates.append(win_rate)
-            self.episode_lengths.append(ep_length)
-            self.battle_lengths.append(battle_length)
-            self.action_histograms.append(act_hist)
+                    info = dict()
 
-            # update control attributes
-            model.last_eval = episodes_so_far
-            model.next_eval += self.eval_frequency
+                    info['checkpoint'] = episodes_so_far
+                    info[panel_name + '/mean_reward'] = mean_reward
+                    info[panel_name + '/win_rate'] = win_rate
+                    info[panel_name + '/mean_ep_length'] = ep_length
+                    info[panel_name + '/mean_battle_length'] = battle_length
 
-            # write partial results to file
-            self._save_results()
+                    info[panel_name + '/pass_actions'] = act_hist[0]
+                    info[panel_name + '/summon_actions'] = sum(act_hist[1:17])
 
-            # upload stats to wandb, if enabled
-            if self.wandb_run:
-                info = dict(checkpoint=episodes_so_far, mean_reward=mean_reward,
-                            win_rate=win_rate, mean_ep_length=ep_length,
-                            mean_battle_length=battle_length)
+                    if self.env.get_attr('items', indices=[0])[0]:
+                        info[panel_name + '/use_actions'] = sum(act_hist[17:121])
+                        info[panel_name + '/attack_actions'] = sum(act_hist[121:])
+                    else:
+                        info[panel_name + '/attack_actions'] = sum(act_hist[17:])
 
-                info['pass_actions'] = act_hist[0]
-                info['summon_actions'] = sum(act_hist[1:17])
-
-                if self.env.get_attr('items', indices=[0])[0]:
-                    info['use_actions'] = sum(act_hist[17:121])
-                    info['attack_actions'] = sum(act_hist[121:])
-                else:
-                    info['attack_actions'] = sum(act_hist[17:])
-
-                self.wandb_run.log(info)
+                    self.wandb_run.log(info)
 
         # if it is time to update the adversary model, do so
         if episodes_so_far >= model.next_switch:
@@ -418,7 +399,7 @@ class SelfPlay(TrainingSession):
 
             # reset training env rewards
             for i in range(model.env.num_envs):
-                model.env.set_attr('rewards', [0.0], indices=[i])
+                model.env.set_attr('rewards_single_player', [], indices=[i])
 
             # update parameters of adversary models
             model.adversary.set_parameters(model.get_parameters(), exact_match=True)
@@ -440,9 +421,6 @@ class SelfPlay(TrainingSession):
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
         try:
-            self.logger.debug(f"Training will switch models every "
-                              f"{self.switch_frequency} episodes")
-
             # train the model
             self.model.learn(total_timesteps=REALLY_BIG_INT,
                              reset_num_timesteps=False,
@@ -461,8 +439,10 @@ class SelfPlay(TrainingSession):
         if len(self.win_rates) < self.num_evals:
             self._training_callback({'self': self.model})
 
-        # close the envs
-        for e in (self.env, self.evaluator):
+        # close all envs
+        self.env.close()
+
+        for e in self.evaluators:
             e.close()
 
 
@@ -490,8 +470,8 @@ class AsymmetricSelfPlay(TrainingSession):
                 current_seed = None
 
             # create one env per process
-            env1.append(lambda: env_class(seed=current_seed, play_first=True, **env_params))
-            env2.append(lambda: env_class(seed=current_seed, play_first=False, **env_params))
+            env1.append(lambda: env_class(seed=current_seed, play_first=True, alternate_role=False, **env_params))
+            env2.append(lambda: env_class(seed=current_seed, play_first=False, alternate_role=False, **env_params))
 
         # wrap envs in a vectorized env
         self.env1: VecEnv3 = DummyVecEnv3(env1)
@@ -500,8 +480,8 @@ class AsymmetricSelfPlay(TrainingSession):
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
         eval_seed = seed + train_episodes if seed is not None else None
-        self.evaluator: Evaluator = Evaluator(task, eval_env_params, eval_episodes,
-                                              eval_seed, num_envs)
+        self.evaluators: List[Evaluator] = \
+            [Evaluator(task, e, eval_episodes, eval_seed, num_envs) for e in eval_env_params]
 
         # build the models
         self.logger.debug("Building the models...")
@@ -518,7 +498,7 @@ class AsymmetricSelfPlay(TrainingSession):
         def make_adversary_policy(model, env):
             def adversary_policy(obs):
                 actions, _ = model.adversary.predict(
-                    obs, deterministic=True, action_masks=env.env_method('action_masks')[0])
+                    obs, action_masks=env.env_method('action_masks')[0])
 
                 return actions
 
@@ -542,6 +522,7 @@ class AsymmetricSelfPlay(TrainingSession):
         self.switch_frequency = switch_frequency
         self.eval_frequency = train_episodes / num_evals
         self.num_switches = math.ceil(train_episodes / switch_frequency)
+        self.eval_adversaries = [type(e['battle_agent']).__name__ for e in eval_env_params]
 
         # initialize control attributes
         self.model1.role_id, self.model2.role_id = 0, 1
@@ -582,45 +563,45 @@ class AsymmetricSelfPlay(TrainingSession):
 
             agent_class = RLBattleAgent
 
-            win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                self.evaluator.run(agent_class(model, deterministic=True), play_first=model.role_id == 0)
+            for evaluator, eval_adversary in zip(self.evaluators, self.eval_adversaries):
+                win_rate, mean_reward, ep_length, battle_length, act_hist = \
+                    evaluator.run(agent_class(model, deterministic=True), play_first=model.role_id == 0)
 
-            end_time = time.perf_counter()
-            self.logger.info(f"Finished evaluating "
-                             f"({round(end_time - start_time, 3)}s). "
-                             f"Avg. reward: {mean_reward}")
+                end_time = time.perf_counter()
+                self.logger.info(f"Finished evaluating vs {eval_adversary} "
+                                 f"({round(end_time - start_time, 3)}s). "
+                                 f"Avg. reward: {mean_reward}")
 
-            # save the results
-            self.checkpoints[model.role_id].append(episodes_so_far)
-            self.win_rates[model.role_id].append(win_rate)
-            self.episode_lengths[model.role_id].append(ep_length)
-            self.battle_lengths[model.role_id].append(battle_length)
-            self.action_histograms[model.role_id].append(act_hist)
+                # save the results
+                self.checkpoints[model.role_id].append(episodes_so_far)
+                self.win_rates[model.role_id].append(win_rate)
+                self.episode_lengths[model.role_id].append(ep_length)
+                self.battle_lengths[model.role_id].append(battle_length)
+                self.action_histograms[model.role_id].append(act_hist)
 
-            # update control attributes
-            model.last_eval = episodes_so_far
-            model.next_eval += self.eval_frequency
+                # update control attributes
+                model.last_eval = episodes_so_far
+                model.next_eval += self.eval_frequency
 
-            # write partial results to file
-            self._save_results()
+                # upload stats to wandb, if enabled
+                if self.wandb_run:
+                    panel_name = f"eval_vs_{eval_adversary}"
 
-            # upload stats to wandb, if enabled
-            if self.wandb_run:
-                info = {'checkpoint_' + model.role_id: episodes_so_far,
-                        'mean_reward_' + model.role_id: mean_reward,
-                        'win_rate_' + model.role_id: win_rate,
-                        'mean_ep_length_' + model.role_id: ep_length,
-                        'mean_battle_length_' + model.role_id: battle_length,
-                        'pass_actions_' + model.role_id: act_hist[0],
-                        'summon_actions_' + model.role_id: sum(act_hist[1:17])}
+                    info = {'checkpoint_' + model.role_id: episodes_so_far,
+                            panel_name + '/mean_reward_' + model.role_id: mean_reward,
+                            panel_name + '/win_rate_' + model.role_id: win_rate,
+                            panel_name + '/mean_ep_length_' + model.role_id: ep_length,
+                            panel_name + '/mean_battle_length_' + model.role_id: battle_length,
+                            panel_name + '/pass_actions_' + model.role_id: act_hist[0],
+                            panel_name + '/summon_actions_' + model.role_id: sum(act_hist[1:17])}
 
-                if model.env.get_attr('items', indices=[0])[0]:
-                    info['use_actions'] = sum(act_hist[17:121])
-                    info['attack_actions'] = sum(act_hist[121:])
-                else:
-                    info['attack_actions'] = sum(act_hist[17:])
+                    if model.env.get_attr('items', indices=[0])[0]:
+                        info[panel_name + '/use_actions' + model.role_id] = sum(act_hist[17:121])
+                        info[panel_name + '/attack_actions' + model.role_id] = sum(act_hist[121:])
+                    else:
+                        info[panel_name + '/attack_actions' + model.role_id] = sum(act_hist[17:])
 
-                self.wandb_run.log(info)
+                    self.wandb_run.log(info)
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= model.next_switch or episodes_so_far >= self.train_episodes
@@ -702,8 +683,11 @@ class AsymmetricSelfPlay(TrainingSession):
         if len(self.win_rates[1]) < self.num_evals:
             self._training_callback({'self': self.model1})
 
-        # close the envs
-        for e in (self.env1, self.env2, self.evaluator):
+        # close all envs
+        self.env1.close()
+        self.env2.close()
+
+        for e in self.evaluators:
             e.close()
 
 
@@ -734,11 +718,13 @@ class Evaluator:
         self.logger.debug("Finished initializing evaluator "
                           f"({round(end_time - start_time, ndigits=3)}s).")
 
-    def run(self, agent: Agent, play_first=True):
+    def run(self, agent: Agent, play_first=True, alternate_roles=False):
         """
         Evaluates an agent.
         :param agent: (gym_locm.agents.Agent) Agent to be evaluated.
         :param play_first: Whether the agent will be playing first.
+        :param alternate_roles: Whether the agent should be alternating
+        between playing first and second
         :return: A tuple containing the `win_rate`, the `mean_reward`,
         the `mean_length` and the `action_histogram` of the evaluation episodes.
         """
@@ -753,8 +739,7 @@ class Evaluator:
 
         # set agent role
         self.env.set_attr('play_first', play_first)
-
-        player = 0 if play_first else 1
+        self.env.set_attr('alternate_roles', alternate_roles)
 
         # reset the env
         observations = self.env.reset()
@@ -769,6 +754,9 @@ class Evaluator:
 
         # run the episodes
         while True:
+            # get current role info
+            roles = [0 if play_first else 1 for play_first in self.env.get_attr('play_first')]
+
             # get the agent's action for all parallel envs
             # todo: do this in a more elegant way
             if isinstance(agent, RLDraftAgent):
@@ -793,7 +781,7 @@ class Evaluator:
                 episode_lengths[i][-1] += 1
 
                 if dones[i]:
-                    episode_wins[i].append(1 if infos[i]['winner'] == player else 0)
+                    episode_wins[i].append(1 if infos[i]['winner'] == roles[i] else 0)
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
                     episode_turns[i].append(infos[i]['turn'])
@@ -849,7 +837,7 @@ def save_model_as_json(model, act_fun, path):
 
 def model_builder_mlp_masked(env, seed, neurons, layers, activation, n_steps,
                              nminibatches, noptepochs, cliprange, vf_coef, ent_coef,
-                             learning_rate, gamma, tensorboard_log=None):
+                             learning_rate, gamma=1, tensorboard_log=None):
     net_arch = [neurons] * layers
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 

@@ -19,6 +19,7 @@ def get_arg_parser():
     approach = ['immediate', 'lstm', 'history']
     battle_agents = ['max-attack', 'greedy']
     adversary = ['fixed', 'self-play', 'asymmetric-self-play']
+    roles = ['first', 'second', 'alternate']
 
     p.add_argument("--task", "-t", choices=tasks, default="draft")
     p.add_argument("--approach", "-ap", choices=approach, default="immediate")
@@ -27,6 +28,10 @@ def get_arg_parser():
                    default="max-attack")
     p.add_argument("--battle-agent", "-b", choices=battle_agents,
                    default="max-attack")
+    p.add_argument("--eval-battle-agents", "-eb", choices=battle_agents,
+                   nargs="+", default=["max-attack", "greedy"], help="battle agents to use on evaluation")
+    p.add_argument("--role", "-r", choices=roles, default="alternate",
+                   help="whether to train as first player, second player or alternate")
     p.add_argument("--reward-functions", "-rf", nargs="+", choices=list(rewards.available_rewards.keys()),
                    default=("win-loss",), help="reward functions to use")
     p.add_argument("--reward-weights", "-rw", nargs="+", type=float,
@@ -137,6 +142,11 @@ def run():
         draft_agent = agents.parse_draft_agent(args.draft_agent)
         battle_agent = agents.parse_battle_agent(args.battle_agent)
 
+        if args.eval_battle_agents is None:
+            args.eval_battle_agents = [args.battle_agent]
+
+        eval_battle_agents = list(map(agents.parse_battle_agent, args.eval_battle_agents))
+
         env_params = {
             'draft_agents': (draft_agent(), draft_agent()),
             'reward_functions': args.reward_functions,
@@ -146,12 +156,15 @@ def run():
         if args.adversary == 'fixed':
             env_params['battle_agent'] = battle_agent()
 
-        eval_env_params = {
-            'draft_agents': (draft_agent(), draft_agent()),
-            'battle_agent': battle_agent(),
-            'reward_functions': args.reward_functions,
-            'reward_weights': args.reward_weights
-        }
+        eval_env_params = []
+
+        for eval_battle_agent in eval_battle_agents:
+            eval_env_params.append({
+                'draft_agents': (draft_agent(), draft_agent()),
+                'battle_agent': eval_battle_agent(),
+                'reward_functions': args.reward_functions,
+                'reward_weights': args.reward_weights
+            })
 
     else:
         raise Exception("Invalid task")
@@ -168,15 +181,18 @@ def run():
                     'activation': args.act_fun, 'learning_rate': args.learning_rate,
                     'tensorboard_log': args.path + '/tf_logs', 'gamma': args.gamma}
 
-    run = wandb.init(
-        project=args.wandb_project,
-        entity=args.wandb_entity,
-        sync_tensorboard=True,
-        config=vars(args)
-    )
+    if args.task == 'battle':
+        run = wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args)
+        )
 
-    # enable the use of wandb sweeps
-    args = wandb.config
+        # enable the use of wandb sweeps
+        args = wandb.config
+    else:
+        run = None
 
     if args.adversary == 'asymmetric-self-play':
         trainer = AsymmetricSelfPlay(
@@ -189,14 +205,14 @@ def run():
         trainer = SelfPlay(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            args.switch_freq, args.path, args.seed, args.concurrency,
+            args.role, args.switch_freq, args.path, args.seed, args.concurrency,
             wandb_run=run
         )
     elif args.adversary == 'fixed':
         trainer = FixedAdversary(
             args.task, model_builder, model_params, env_params, eval_env_params,
             args.train_episodes, args.eval_episodes, args.num_evals,
-            True, args.path, args.seed, args.concurrency, wandb_run=run
+            args.role, args.path, args.seed, args.concurrency, wandb_run=run
         )
     else:
         raise Exception("Invalid adversary")

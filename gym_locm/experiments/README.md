@@ -37,7 +37,7 @@ python3 gym_locm/experiments/training.py --approach <approach> --battle-agent <b
 ```
 
 We trained 20 draft agents (ten 1st players and 2nd second players) of each combination of `<approach>` and 
-`<battle agent>`, using the best sets of hyperparameters found for them in the previous experiment. That comprises
+`<battle_agent>`, using the best sets of hyperparameters found for them in the previous experiment. That comprises
 ten runs of the script, in which we used the seeds 32359627, 91615349, 88803987, 83140551, 50731732, 19279988, 35717793, 
 48046766, 86798618 and 62644993.
 
