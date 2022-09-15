@@ -181,15 +181,18 @@ def run():
                     'activation': args.act_fun, 'learning_rate': args.learning_rate,
                     'tensorboard_log': args.path + '/tf_logs', 'gamma': args.gamma}
 
-    run = wandb.init(
-        project=args.wandb_project,
-        entity=args.wandb_entity,
-        sync_tensorboard=True,
-        config=vars(args)
-    )
+    if args.task == 'battle':
+        run = wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args)
+        )
 
-    # enable the use of wandb sweeps
-    args = wandb.config
+        # enable the use of wandb sweeps
+        args = wandb.config
+    else:
+        run = None
 
     if args.adversary == 'asymmetric-self-play':
         trainer = AsymmetricSelfPlay(
