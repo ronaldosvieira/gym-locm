@@ -91,7 +91,7 @@ class FixedAdversary(TrainingSession):
 
             # create the env
             env.append(lambda: env_class(
-                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'both', **env_params))
+                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'alternate', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
@@ -152,7 +152,7 @@ class FixedAdversary(TrainingSession):
 
             for evaluator, eval_adversary in zip(self.evaluators, self.eval_adversaries):
                 win_rate, mean_reward, ep_length, battle_length, act_hist = \
-                    evaluator.run(agent, play_first=self.role == 'first', alternate_roles=self.role == 'both')
+                    evaluator.run(agent, play_first=self.role == 'first', alternate_roles=self.role == 'alternate')
 
                 end_time = time.perf_counter()
                 self.logger.info(f"Finished evaluating vs {eval_adversary} "
@@ -254,7 +254,7 @@ class SelfPlay(TrainingSession):
 
             # create one env per process
             env.append(lambda: env_class(
-                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'both', **env_params))
+                seed=current_seed, play_first=role == 'first', alternate_roles=role == 'alternate', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
@@ -343,7 +343,7 @@ class SelfPlay(TrainingSession):
 
                 win_rate, mean_reward, ep_length, battle_length, act_hist = \
                     evaluator.run(agent_class(model, deterministic=True),
-                                  play_first=self.role == 'first', alternate_roles=self.role == 'both')
+                                  play_first=self.role == 'first', alternate_roles=self.role == 'alternate')
 
                 end_time = time.perf_counter()
                 self.logger.info(f"Finished evaluating vs {eval_adversary} "
