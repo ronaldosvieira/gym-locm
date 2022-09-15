@@ -837,7 +837,7 @@ def save_model_as_json(model, act_fun, path):
 
 def model_builder_mlp_masked(env, seed, neurons, layers, activation, n_steps,
                              nminibatches, noptepochs, cliprange, vf_coef, ent_coef,
-                             learning_rate, gamma, tensorboard_log=None):
+                             learning_rate, gamma=1, tensorboard_log=None):
     net_arch = [neurons] * layers
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 

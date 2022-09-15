@@ -961,12 +961,12 @@ def save_model_as_json(model, act_fun, path):
 
 
 def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatches,
-                      noptepochs, cliprange, vf_coef, ent_coef, learning_rate,
+                      noptepochs, cliprange, vf_coef, ent_coef, learning_rate, gamma=1,
                       tensorboard_log=None):
     net_arch = [neurons] * layers
     activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
 
-    return PPO2(MlpPolicy, env, verbose=0, gamma=1, seed=seed,
+    return PPO2(MlpPolicy, env, verbose=0, gamma=gamma, seed=seed,
                 policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
                 n_steps=n_steps, nminibatches=nminibatches,
                 noptepochs=noptepochs, cliprange=cliprange,
@@ -975,12 +975,12 @@ def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatc
 
 
 def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibatches,
-                       noptepochs, cliprange, vf_coef, ent_coef, learning_rate,
+                       noptepochs, cliprange, vf_coef, ent_coef, learning_rate, gamma=1,
                        tensorboard_log=None):
     net_arch = ['lstm'] + [neurons] * (layers - 1)
     activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
 
-    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=1, seed=seed,
+    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=gamma, seed=seed,
                 policy_kwargs=dict(net_arch=net_arch, n_lstm=neurons, act_fun=activation),
                 n_steps=n_steps, nminibatches=nminibatches,
                 noptepochs=noptepochs, cliprange=cliprange,
@@ -991,12 +991,12 @@ def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibat
 
 def model_builder_mlp_masked(env, seed, neurons, layers, activation, n_steps,
                              nminibatches, noptepochs, cliprange, vf_coef, ent_coef,
-                             learning_rate, tensorboard_log=None):
+                             learning_rate, gamma=1, tensorboard_log=None):
     net_arch = [neurons] * layers
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
     return MaskablePPO("MlpPolicy", env, learning_rate=learning_rate, n_steps=n_steps,
-                       batch_size=nminibatches, n_epochs=noptepochs, gamma=1,
+                       batch_size=nminibatches, n_epochs=noptepochs, gamma=gamma,
                        clip_range=cliprange, ent_coef=ent_coef, vf_coef=vf_coef,
                        verbose=0, seed=seed,
                        policy_kwargs=dict(net_arch=net_arch, activation_fn=activation),
