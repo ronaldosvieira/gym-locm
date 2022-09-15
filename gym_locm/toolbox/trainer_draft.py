@@ -647,6 +647,7 @@ class AsymmetricSelfPlay(TrainingSession):
         self.win_rates = [], []
         self.episode_lengths = [], []
         self.action_histograms = [], []
+        self.battle_lengths = [], []
 
         # log end time
         end_time = time.perf_counter()
@@ -707,22 +708,22 @@ class AsymmetricSelfPlay(TrainingSession):
             # upload stats to wandb, if enabled
             if self.wandb_run:
                 info = {
-                    'checkpoint_' + model.role_id: episodes_so_far,
-                    'mean_reward_' + model.role_id: mean_reward,
-                    'win_rate_' + model.role_id: win_rate,
-                    'mean_ep_length_' + model.role_id: ep_length,
-                    'mean_battle_length_' + model.role_id: battle_length
+                    f'checkpoint_{model.role_id}': episodes_so_far,
+                    f'mean_reward_{model.role_id}': mean_reward,
+                    f'win_rate_{model.role_id}': win_rate,
+                    f'mean_ep_length_{model.role_id}': ep_length,
+                    f'mean_battle_length_{model.role_id}': battle_length
                 }
 
                 if self.task == 'battle':
-                    info['pass_actions_' + model.role_id] = act_hist[0]
-                    info['summon_actions_' + model.role_id] = sum(act_hist[1:17])
+                    info[f'pass_actions_{model.role_id}'] = act_hist[0]
+                    info[f'summon_actions_{model.role_id}'] = sum(act_hist[1:17])
 
                     if model.env.get_attr('items', indices=[0])[0]:
-                        info['use_actions'] = sum(act_hist[17:121])
-                        info['attack_actions'] = sum(act_hist[121:])
+                        info[f'use_actions_{model.role_id}'] = sum(act_hist[17:121])
+                        info[f'attack_actions_{model.role_id}'] = sum(act_hist[121:])
                     else:
-                        info['attack_actions'] = sum(act_hist[17:])
+                        info[f'attack_actions_{model.role_id}'] = sum(act_hist[17:])
 
                 self.wandb_run.log(info)
 
