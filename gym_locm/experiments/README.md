@@ -17,7 +17,7 @@ python3 gym_locm/experiments/hyp-search.py --approach <approach> --battle-agent 
     --path hyp_search_results/ --seed 96765 --processes 4
 ```
 
-The list and range of hyperparameted explored is available in the Appendix of our paper and in Attachment A of 
+The list and range of hyperparameters explored is available in the Appendix of our paper and in Attachment A of 
 our thesis. we performed hyperparameter tunings for all combinations of `<approach>` (`immediate`, `history` 
 and `lstm`) and `<battle_agent>` (`max-attack` and `greedy`). Each run of the script took around 2 days with the
 `max-attack` battle agent and more than a week with the `greedy` battle agent. To learn about other script's 

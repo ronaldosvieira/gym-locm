@@ -1198,8 +1198,10 @@ battle_agents = {
     "pass": PassBattleAgent,
     "random": RandomBattleAgent,
     "greedy": GreedyBattleAgent,
+    "osl": GreedyBattleAgent,
     "rule-based": RuleBasedBattleAgent,
     "max-attack": MaxAttackBattleAgent,
+    "ma": MaxAttackBattleAgent,
     "coac": CoacBattleAgent,
     "mcts": MCTSBattleAgent
 }
