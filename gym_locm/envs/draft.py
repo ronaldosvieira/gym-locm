@@ -152,8 +152,6 @@ class LOCMDraftEnv(LOCMEnv):
 
             done = True
 
-            del info['turn']
-
         if reward_before is None:
             raw_rewards = (0.0,) * len(self.reward_functions)
         else:

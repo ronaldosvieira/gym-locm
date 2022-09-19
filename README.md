@@ -243,8 +243,9 @@ engine, and with a specific random seed:
 ### Train draft agents with deep reinforcement learning
 
 We provide scripts to train deep reinforcement learning draft agents as described in our 
-thesis <a href="#vieira2020a">[2]</a> and paper <a href="#vieira2020b">[3]</a>. Further instructions are available in the README.md in 
-the [experiments](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/experiments) 
+thesis <a href="#vieira2020a">[2]</a> and SBGames 2020 paper <a href="#vieira2020b">[3]</a>. 
+Further instructions are available in the README.md file in 
+the [experiments](gym_locm/experiments) 
 package.
 
 To install the dependencies necessary to run the scripts, install 
@@ -253,16 +254,25 @@ the repository with
 pip install -e .['experiments']
 ```
 
-### Use trained draft agents
-
-We provide a collection of draft agents trained with deep 
+We also provide a collection of draft agents trained with deep 
 reinforcement learning, and a script to use them in the LOCM's original engine.
 Further details on these agents and instructions for the script are available in the
 README.md in the 
-[trained_models](https://github.com/ronaldosvieira/gym-locm/tree/master/gym_locm/trained_models) 
+[trained_models](gym_locm/trained_models) 
+package. The use of these draft agents with the Runner script is not implemented yet.
+
+### Train battle agents with deep reinforcement learning
+
+We provide scripts to train deep reinforcement learning battle agents as described in our
+SBGames 2022 paper <a href="#vieira2022a">[4]</a>. Further instructions are available
+in the README.md file in the [experiments/papers/sbgames-2022](gym_locm/experiments/papers/sbgames-2022)
 package.
 
-The use of these draft agents with the Runner script is not implemented yet.
+To install the dependencies necessary to run the scripts, install
+the repository with
+```python
+pip install -e .['experiments']
+```
 
 ## References
 1. <span id="kowalski2020">Kowalski, J., Miernik, R. (2020). Evolutionary 
@@ -275,6 +285,10 @@ of Minas Gerais, Belo Horizonte, Brazil.</span>
 3. <span id="vieira2020b">Vieira, R., Tavares, A. R., Chaimowicz, L. (2020). Drafting in 
 Collectible Card Games via Reinforcement Learning. 19th Brazilian Symposium of Computer Games
 and Digital Entertainment (SBGames).</span>
+
+4. <span id="vieira2022a">Vieira, R., Tavares, A. R., Chaimowicz, L. (2022). Exploring Deep 
+   Reinforcement Learning for Battling in Collectible Card Games. 19th Brazilian Symposium 
+   of Computer Games and Digital Entertainment (SBGames).</span>
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

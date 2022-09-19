@@ -1,0 +1,74 @@
+method: bayes
+metric:
+  goal: maximize
+  name: eval_vs_GreedyBattleAgent/win_rate
+name: sbgames-2022
+parameters:
+  act-fun:
+    value: relu
+  adversary:
+    value: self-play
+  cliprange:
+    value: 0.2
+  concurrency:
+    value: 4
+  draft-agent:
+    value: random
+  ent-coef:
+    value: 0.005
+  eval-episodes:
+    value: 500
+  gamma:
+    value: 0.99
+  layers:
+    distribution: int_uniform
+    max: 12
+    min: 3
+  learning-rate:
+    distribution: uniform
+    max: 0.01
+    min: 1e-06
+  n-steps:
+    values:
+      - 64
+      - 128
+      - 256
+      - 512
+      - 1024
+      - 2048
+  neurons:
+    distribution: int_uniform
+    max: 512
+    min: 32
+  nminibatches-divider:
+    values:
+      - 1
+      - 2
+      - 4
+      - 8
+      - "n"
+  noptepochs:
+    distribution: int_uniform
+    max: 24
+    min: 1
+  num-evals:
+    value: 100
+  path:
+    value: papers/sbgames-2022/sweep
+  role:
+    value: alternate
+  seed:
+    value: 91577453
+  switch-freq:
+    values:
+      - 10
+      - 100
+      - 1000
+  task:
+    value: battle
+  train-episodes:
+    value: 100000
+  vf-coef:
+    value: 1
+program: gym_locm/experiments/training.py
+project: sbgames-2022

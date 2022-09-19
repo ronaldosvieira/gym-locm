@@ -2,13 +2,14 @@
 
 In this folder, there are all draft agents trained and used in experiments for our paper and thesis. They are organized in the following folder structure:
 ```
-.../trained_models/<battle_agent>/<draft_approach>/<1st or 2nd player>/<file>.(zip|json)
+.../trained_models/<battle_agent>/<draft_approach>-<training_episodes>/<1st or 2nd player>/<file>.(zip|json)
 ```
 
 Where: 
-- `battle_agent` means which battle agent played the battles while they were being trained,
+- `battle_agent` means which battle agent played the battles while they were being trained. Can be `max-attack` (MA) or `greedy` (OSL).
 - `draft_approach` is either `immediate` (disregards past picks), `history` (leverages past picks by enumerating them in the input) or `lstm` 
 (leverages past picks via long short-term memory (LSTM) units). The `immediate` obtained best results.
+- `training_episodes` is either `30k` or `1M`, meaning the amount of training episodes used.
 - `1st or 2nd player` is either `1st` or `2nd`, meaning for which role they were trained.
 - `file` is a number from 1 to 10. For each combination of battle agent, draft approach and role, we trained ten different agents.
 
@@ -22,13 +23,13 @@ The only use case implemented so far is replacing the draft portion of an AI pla
 To do so, execute `predictor.py` in one of the two scenarios below:
 1. To use **different** models when playing first and second, with some AI player `player.py`.
   ```
-  python3 gym_locm/toolbox/predictor.py --draft-1 gym_locm/trained_models/greedy/immediate/1st/4.json \
-                                        --draft-2 gym_locm/trained_models/greedy/immediate/2nd/3.json \
+  python3 gym_locm/toolbox/predictor.py --draft-1 gym_locm/trained_models/greedy/immediate-30k/1st/4.json \
+                                        --draft-2 gym_locm/trained_models/greedy/immediate-30k/2nd/3.json \
                                           --battle "python3 /path/to/player.py"
   ```
 2. To use the **same** model when playing first and second, with some AI player `player`
   ```
-  python3 gym_locm/toolbox/predictor.py --draft gym_locm/trained_models/max-attack/history/1st/5.json \
+  python3 gym_locm/toolbox/predictor.py --draft gym_locm/trained_models/max-attack/history-1M/1st/5.json \
                                         --battle "./path/to/player"
   ```
 The use of LSTM draft agents with predictor is not yet implemented.
