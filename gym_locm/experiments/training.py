@@ -26,9 +26,9 @@ def get_arg_parser():
     p.add_argument("--adversary", "-ad", choices=adversary, default="asymmetric-self-play")
     p.add_argument("--draft-agent", "-d", choices=list(agents.draft_agents.keys()),
                    default="max-attack")
-    p.add_argument("--battle-agent", "-b", choices=battle_agents,
+    p.add_argument("--battle-agent", "-b", choices=list(agents.battle_agents.keys()),
                    default="max-attack")
-    p.add_argument("--eval-battle-agents", "-eb", choices=battle_agents,
+    p.add_argument("--eval-battle-agents", "-eb", choices=list(agents.battle_agents.keys()),
                    nargs="+", default=["max-attack", "greedy"], help="battle agents to use on evaluation")
     p.add_argument("--role", "-r", choices=roles, default="alternate",
                    help="whether to train as first player, second player or alternate")
@@ -114,10 +114,7 @@ def run():
         else:
             model_builder = model_builder_mlp
 
-        if args.battle_agent == 'greedy':
-            battle_agent = agents.GreedyBattleAgent
-        else:
-            battle_agent = agents.MaxAttackBattleAgent
+        battle_agent = agents.parse_battle_agent(args.battle_agent)
 
         env_params = {
             'battle_agents': (battle_agent(), battle_agent()),
