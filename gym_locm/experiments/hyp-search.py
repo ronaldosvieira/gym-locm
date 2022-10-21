@@ -190,7 +190,11 @@ if __name__ == "__main__":
         _counter += 1
         trial_id = _counter
 
+        # Need to pass a task
+        task = "draft"
+
         trainer = AsymmetricSelfPlay(
+            task,
             model_builder,
             model_params,
             env_params,
