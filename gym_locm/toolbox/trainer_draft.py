@@ -788,7 +788,7 @@ class AsymmetricSelfPlay(TrainingSession):
             self._training_callback({"self": self.model1})
 
         if len(self.win_rates[1]) < self.num_evals:
-            self._training_callback({"self": self.model1})
+            self._training_callback({"self": self.model2})
 
         # close the envs
         for e in (self.env1, self.env2, self.evaluator):
