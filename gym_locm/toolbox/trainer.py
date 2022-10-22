@@ -1,3 +1,4 @@
+import itertools as it
 import json
 import logging
 import math
@@ -1049,26 +1050,26 @@ class Evaluator:
 
                     episodes_so_far += 1
 
-            # check exiting condition
-            if episodes_so_far >= self.episodes:
-                break
+                # check exiting condition
+                if episodes_so_far >= self.episodes:
+                    episode_rewards = [rs[:-1] for rs in episode_rewards]
+                    episode_lengths = [ls[:-1] for ls in episode_lengths]
+                    break
+            # if we didn't break due to exit condition, go back to start
+            # of while loop
+            else:
+                continue
+            # only hits break if exit condition breaks from for loop
+            break
 
         # join all parallel metrics
-        all_rewards = [reward for rewards in episode_rewards for reward in rewards[:-1]]
-        all_lengths = [length for lengths in episode_lengths for length in lengths[:-1]]
-
-        # todo: fix -- sometimes we miss self.episodes by one
-        # assert len(all_rewards) == self.episodes
-        # assert len(all_lengths) == self.episodes
+        all_rewards = it.chain.from_iterable(episode_rewards)
+        all_lengths = it.chain.from_iterable(episode_lengths)
 
         # transform the action histogram in a probability distribution
         action_histogram = [
             action_freq / sum(action_histogram) for action_freq in action_histogram
         ]
-
-        # cap any unsolicited additional episodes
-        all_rewards = all_rewards[: self.episodes]
-        all_lengths = all_lengths[: self.episodes]
 
         return mean(all_rewards), mean(all_lengths), action_histogram
 
