@@ -29,6 +29,8 @@ class LOCMDraftEnv(LOCMEnv):
         self.choices = ([], [])
         self.draft_ordering = list(range(3))
 
+        self.rewards = [0.0]
+
         self.battle_agents = battle_agents
 
         for battle_agent in self.battle_agents:
@@ -75,6 +77,8 @@ class LOCMDraftEnv(LOCMEnv):
         for agent in self.battle_agents:
             agent.reset()
             agent.seed(self._seed)
+
+        self.rewards.append(0.0)
 
         return self.encode_state()
 
@@ -140,6 +144,7 @@ class LOCMDraftEnv(LOCMEnv):
                     info["winner"].append(winner)
 
             reward = np.mean(self.results)
+            self.rewards[-1] += reward
             done = True
 
             del info["turn"]
@@ -213,6 +218,9 @@ class LOCMDraftEnv(LOCMEnv):
 
     def _encode_state_battle(self):
         pass
+
+    def get_episode_rewards(self):
+        return self.rewards
 
 
 class LOCMDraftSingleEnv(LOCMDraftEnv):
