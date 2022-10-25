@@ -64,6 +64,7 @@ def get_arg_parser():
         help="how many evaluations to perform throughout training",
     )
 
+    p.add_argument("--gamma", type=float, default=1.0, help="gamma (discount factor)")
     p.add_argument(
         "--switch-freq",
         type=int,
@@ -222,6 +223,7 @@ def run():
         "ent_coef": args.ent_coef,
         "activation": args.act_fun,
         "learning_rate": args.learning_rate,
+        "gamma": args.gamma,
         "tensorboard_log": args.path + "/tf_logs",
     }
 
