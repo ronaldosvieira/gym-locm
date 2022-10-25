@@ -835,10 +835,6 @@ class AsymmetricSelfPlay(TrainingSession):
         return not training_is_finished
 
     def _train(self):
-        # save and evaluate starting models
-        self._training_callback({"self": self.model1})
-        self._training_callback({"self": self.model2})
-
         callback1 = _build_callback(
             self.task,
             lambda: self._training_callback({"self": self.model1}),
@@ -1090,9 +1086,27 @@ class DraftTrainingCallback(BaseCallback):
     def __init__(self, callback_func, verbose=0):
         super(DraftTrainingCallback, self).__init__(verbose)
         self.callback_func = callback_func
+        self.original_runner_run = None
 
-    def _on_step(self):
-        return self.callback_func()
+    def _on_rollout_start(self):
+        continue_training = self.callback_func()
+        if not continue_training:
+            self.model.runner.continue_training = False
+            # Drop in a dummy to prevent `Runner` from performing
+            # another rollout, so that the env is left in the correct
+            # state for the next training.
+            self.original_runner_run = self.model.runner.run
+            self.model.runner.run = _dummy_run
+
+    def _on_rollout_end(self):
+        if not self.model.runner.continue_training:
+            # Now that the rollout was successfully skipped, restore the
+            # original `Runner.run` method.
+            self.model.runner.run = self.original_runner_run
+
+
+def _dummy_run(self, callback=None):
+    return [None] * 9
 
 
 def _build_callback(task: str, callback_func: Callable, include_wandb=False):
