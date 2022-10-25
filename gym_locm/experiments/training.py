@@ -100,6 +100,12 @@ def get_arg_parser():
 
     p.add_argument("--gamma", type=float, default=1.0, help="gamma (discount factor)")
     p.add_argument(
+        "--gae-lambda",
+        type=float,
+        default=0.95,
+        help="lambda (Generalized Advantage Estimator regularization)",
+    )
+    p.add_argument(
         "--switch-freq",
         type=int,
         default=1000,
@@ -317,6 +323,7 @@ def run(args):
         "ent_coef": args.ent_coef,
         "activation": args.act_fun,
         "learning_rate": args.learning_rate,
+        "gae_lambda": args.gae_lambda,
         "tensorboard_log": args.path + "/tf_logs",
         "gamma": args.gamma,
     }

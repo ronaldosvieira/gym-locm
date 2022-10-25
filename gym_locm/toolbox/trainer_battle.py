@@ -1331,6 +1331,7 @@ def model_builder_mlp_masked(
     ent_coef,
     learning_rate,
     gamma=1,
+    gae_lambda=0.95,
     tensorboard_log=None,
 ):
     net_arch = [neurons] * layers
@@ -1344,6 +1345,7 @@ def model_builder_mlp_masked(
         batch_size=nminibatches,
         n_epochs=noptepochs,
         gamma=gamma,
+        gae_lambda=gae_lambda,
         clip_range=cliprange,
         ent_coef=ent_coef,
         vf_coef=vf_coef,
