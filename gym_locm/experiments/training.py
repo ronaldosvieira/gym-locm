@@ -66,6 +66,12 @@ def get_arg_parser():
 
     p.add_argument("--gamma", type=float, default=1.0, help="gamma (discount factor)")
     p.add_argument(
+        "--lam",
+        type=float,
+        default=0.95,
+        help="lambda (Generalized Advantage Estimator regularization)",
+    )
+    p.add_argument(
         "--switch-freq",
         type=int,
         default=1000,
@@ -224,6 +230,7 @@ def run():
         "activation": args.act_fun,
         "learning_rate": args.learning_rate,
         "gamma": args.gamma,
+        "lam": args.lam,
         "tensorboard_log": args.path + "/tf_logs",
     }
 

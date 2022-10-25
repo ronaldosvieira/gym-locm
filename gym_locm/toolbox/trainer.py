@@ -1145,6 +1145,7 @@ def model_builder_mlp(
     ent_coef,
     learning_rate,
     gamma=1,
+    lam=0.95,
     tensorboard_log=None,
 ):
     net_arch = [neurons] * layers
@@ -1155,6 +1156,7 @@ def model_builder_mlp(
         env,
         verbose=0,
         gamma=gamma,
+        lam=lam,
         seed=seed,
         policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
         n_steps=n_steps,
@@ -1183,6 +1185,7 @@ def model_builder_lstm(
     ent_coef,
     learning_rate,
     gamma=1,
+    lam=0.95,
     tensorboard_log=None,
 ):
     net_arch = ["lstm"] + [neurons] * (layers - 1)
@@ -1193,6 +1196,7 @@ def model_builder_lstm(
         env,
         verbose=0,
         gamma=gamma,
+        lam=lam,
         seed=seed,
         policy_kwargs=dict(net_arch=net_arch, n_lstm=neurons, act_fun=activation),
         n_steps=n_steps,
@@ -1221,6 +1225,7 @@ def model_builder_mlp_masked(
     ent_coef,
     learning_rate,
     gamma=1,
+    lam=0.95,
     tensorboard_log=None,
 ):
     net_arch = [neurons] * layers
@@ -1234,6 +1239,7 @@ def model_builder_mlp_masked(
         batch_size=nminibatches,
         n_epochs=noptepochs,
         gamma=gamma,
+        gae_lambda=lam,
         clip_range=cliprange,
         ent_coef=ent_coef,
         vf_coef=vf_coef,
