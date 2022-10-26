@@ -565,6 +565,10 @@ class BattlePhase(Phase):
                     lane.remove(creature)
 
         if action.type == ActionType.PASS:
+            # Reset drawn cards for both players
+            for p in self.state.players:
+                p.drawn_cards = []
+            
             self._next_turn()
 
         self._check_win_conditions()
@@ -604,7 +608,9 @@ class BattlePhase(Phase):
             if len(player.deck) == 0:
                 raise EmptyDeckError(amount - i)
 
-            player.hand.append(player.deck.pop())
+            drawn_card = player.deck.pop()
+            player.hand.append(drawn_card)
+            player.drawn_cards.append(drawn_card)
 
     def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
         self._damage_player(
@@ -978,7 +984,9 @@ class Version12BattlePhase(BattlePhase):
             if len(player.hand) >= 8:
                 raise FullHandError()
 
-            player.hand.append(player.deck.pop())
+            drawn_card = player.deck.pop()
+            player.hand.append(drawn_card)
+            player.drawn_cards.append(drawn_card)
 
     def _do_use(self, origin, target):
         super()._do_use(origin, target)

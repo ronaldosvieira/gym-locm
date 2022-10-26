@@ -13,6 +13,7 @@ class Player:
         self.bonus_draw = 0
 
         self.last_drawn = 0
+        self.drawn_cards = []
 
         self.deck = []
         self.hand = []
