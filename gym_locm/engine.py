@@ -72,6 +72,7 @@ class Player:
 
         self.deck = []
         self.hand = []
+        self.drawn_cards = []
         self.lanes = ([], [])
 
         self.actions = []
@@ -84,7 +85,9 @@ class Player:
             if len(self.hand) >= 8:
                 raise FullHandError()
 
-            self.hand.append(self.deck.pop())
+            drawn_card = self.deck.pop()
+            self.hand.append(drawn_card)
+            self.drawn_cards.append(drawn_card)
 
     def damage(self, amount: int) -> int:
         self.health -= amount
@@ -714,6 +717,11 @@ class State:
 
     def _act_on_battle(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
+
+        # Reset drawn cards for both players
+        for p in self.players:
+            p.drawn_cards = []
+
         try:
             origin, target = action.origin, action.target
 
