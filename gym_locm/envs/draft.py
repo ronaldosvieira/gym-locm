@@ -149,16 +149,23 @@ class LOCMDraftEnv(LOCMEnv):
 
         # init return info
         terminated = False
-        info = {"phase": state.phase, "turn": state.turn, "winner": []}
+        info = {
+            "phase": state.phase,
+            "turn": state.turn,
+            "drafted": tuple(c[:] for c in self.choices),
+            "drawn": [],
+            "winner": [],
+        }
 
         # if draft is now ended, evaluation should be done
         if self._draft_is_finished:
             # faster evaluation method for when only one battle is required
             # todo: check if this optimization is still necessary
             if self.evaluation_battles == 1:
-                winner = self.do_match(state)
+                drawn, winner = self.do_match(state)
 
                 self.results = [1 if winner == PlayerOrder.FIRST else -1]
+                info["drawn"] = [drawn]
                 info["winner"] = [winner]
             else:
                 # for each evaluation battle required, copy the current
@@ -166,9 +173,10 @@ class LOCMDraftEnv(LOCMEnv):
                 for i in range(self.evaluation_battles):
                     state_copy = self.state.clone()
 
-                    winner = self.do_match(state_copy)
+                    drawn, winner = self.do_match(state_copy)
 
                     self.results.append(1 if winner == PlayerOrder.FIRST else -1)
+                    info["drawn"].append(drawn)
                     info["winner"].append(winner)
 
             try:
@@ -200,6 +208,9 @@ class LOCMDraftEnv(LOCMEnv):
         for agent in self.battle_agents:
             agent.reset()
 
+        # get initial hands
+        drawn = tuple(p.drawn_cards for p in state.players)
+
         # while the game doesn't end, get agents acting alternatively
         while state.winner is None:
             agent = self.battle_agents[state.current_player.id]
@@ -208,7 +219,10 @@ class LOCMDraftEnv(LOCMEnv):
 
             state.act(action)
 
-        return state.winner
+            for p in state.players:
+                drawn[p.id].extend(p.drawn_cards)
+
+        return drawn, state.winner
 
     def _render_text_ended(self):
         if len(self.results) == 1:
@@ -307,10 +321,14 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
             state, reward, terminated, truncated, info = super().step(
                 self.draft_agent.act(self.state)
             )
+            info["drafted"] = info["drafted"][0]
+            info["drawn"] = [d[0] for d in info["drawn"]]
         else:
             super().step(self.draft_agent.act(self.state))
             state, reward, terminated, truncated, info = super().step(action)
             reward = -reward
+            info["drafted"] = info["drafted"][1]
+            info["drawn"] = [d[1] for d in info["drawn"]]
 
         try:
             self.rewards_single_player[-1] += reward
@@ -352,13 +370,13 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            state, reward, terminated, truncated, info = super().step(
-                self.adversary_policy(obs)
-            )
+            state, reward, done, info = super().step(self.adversary_policy(obs))
         else:
             super().step(self.adversary_policy(obs))
             state, reward, terminated, truncated, info = super().step(action)
             reward = -reward
+            info["drafted"] = info["drafted"][1]
+            info["drawn"] = [d[1] for d in info["drawn"]]
 
         try:
             self.rewards_single_player[-1] += reward
