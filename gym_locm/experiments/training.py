@@ -193,14 +193,21 @@ def get_arg_parser():
     return p
 
 
-def run(args):
-    args.path += (
-        "/"
-        + args.task
-        + "-"
-        + str(args.seed)
-        + "-"
-        + datetime.now().strftime("%y%m%d%H%M")
+def run():
+    if sys.version_info < (3, 0, 0):
+        sys.stderr.write("You need python 3.0 or later to run this script\n")
+        sys.exit(1)
+
+    arg_parser = get_arg_parser()
+    args = arg_parser.parse_args()
+
+    args.path += "/" + "-".join(
+        [
+            args.task,
+            args.approach,
+            datetime.now().strftime("%y%m%d%H%M"),
+            str(args.seed),
+        ]
     )
 
     os.makedirs(args.path, exist_ok=True)
