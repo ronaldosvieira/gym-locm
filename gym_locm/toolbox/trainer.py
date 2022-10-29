@@ -1008,6 +1008,8 @@ class Evaluator:
         else:
             self.env: VecEnv = DummyVecEnv(self.env)
 
+        self.env.reset()
+
         # save parameters
         self.episodes = episodes
         self.seed = seed

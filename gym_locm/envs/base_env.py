@@ -27,19 +27,24 @@ class LOCMEnv(gym.Env, ABC):
         self.episodes = 0
         self.items = items
         self.k, self.n = k, n
-
-        self.state = State(seed=seed, items=items, k=k, n=n)
+        self.state = None
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
         self._seed = seed
-        self.state.seed(seed)
+        if self.state:
+            self.state.seed(seed)
 
     def reset(self):
         """
         Resets the environment.
         The game is put into its initial state
         """
+        # if this is the first invocation of reset, init the first state
+        if not self.state:
+            self.state = State(seed=self._seed, items=self.items, k=self.k, n=self.n)
+            return
+
         if self._seed is None:
             # recover random state from current state obj
             random_state = self.state.np_random
@@ -56,6 +61,10 @@ class LOCMEnv(gym.Env, ABC):
             self.state = State(seed=self._seed, items=self.items, k=self.k, n=self.n)
 
         self.episodes += 1
+
+    def step(self):
+        """Makes an action in the game."""
+        assert self.state, "Cannot call env.step() before calling reset()"
 
     def render(self, mode: str = "text"):
         """Builds a representation of the current state."""

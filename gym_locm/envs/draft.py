@@ -84,6 +84,8 @@ class LOCMDraftEnv(LOCMEnv):
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
+        super().step()
+
         # if the draft is finished, there should be no more actions
         if self._draft_is_finished:
             raise GameIsEndedError()
