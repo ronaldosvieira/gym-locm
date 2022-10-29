@@ -160,13 +160,14 @@ def run():
     arg_parser = get_arg_parser()
     args = arg_parser.parse_args()
 
-    args.path += (
-        "/"
-        + args.task
-        + "-"
-        + str(args.seed)
-        + "-"
-        + datetime.now().strftime("%y%m%d%H%M")
+    args.path += "/" + "-".join(
+        [
+            args.task,
+            args.approach,
+            args.battle_agent.split("-")[0],
+            datetime.now().strftime("%y%m%d%H%M"),
+            str(args.seed),
+        ]
     )
 
     os.makedirs(args.path, exist_ok=True)
