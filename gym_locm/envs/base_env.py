@@ -40,26 +40,15 @@ class LOCMEnv(gym.Env, ABC):
         Resets the environment.
         The game is put into its initial state
         """
-        # if this is the first invocation of reset, init the first state
-        if not self.state:
-            self.state = State(seed=self._seed, items=self.items, k=self.k, n=self.n)
-            return
-
-        if self._seed is None:
-            # recover random state from current state obj
-            random_state = self.state.np_random
-
-            # start a brand new game
+        # start a brand new game, using the current random state
+        if self.state:
             self.state = State(
-                np_random=random_state, items=self.items, k=self.k, n=self.n
+                np_random=self.state.np_random, items=self.items, k=self.k, n=self.n
             )
+            self.episodes += 1
+        # if this is the first invocation of reset, init the first state
         else:
-            # start a brand new game with next seed
-            self._seed += 1
-
             self.state = State(seed=self._seed, items=self.items, k=self.k, n=self.n)
-
-        self.episodes += 1
 
     def step(self):
         """Makes an action in the game."""

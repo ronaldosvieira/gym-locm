@@ -140,26 +140,16 @@ class FixedAdversary(TrainingSession):
 
         # initialize parallel environments
         self.logger.debug("Initializing training env...")
-        env = []
 
         if task == "battle":
             env_class = LOCMBattleSingleEnv
         else:
             env_class = LOCMDraftSingleEnv
 
-        for i in range(num_envs):
-            # no overlap between episodes at each concurrent env
-            if seed is not None:
-                current_seed = seed + (train_episodes // num_envs) * i
-            else:
-                current_seed = None
-
-            # create the env
-            env.append(
-                lambda: env_class(
-                    seed=current_seed, play_first=play_first, **env_params
-                )
-            )
+        env = [
+            lambda: env_class(play_first=play_first, **env_params)
+            for _ in range(num_envs)
+        ]
 
         # wrap envs in a vectorized env
         if task == "battle":
@@ -169,7 +159,7 @@ class FixedAdversary(TrainingSession):
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
-        eval_seed = seed + train_episodes if seed is not None else None
+        eval_seed = seed + num_envs if seed is not None else None
         self.evaluator: Evaluator = Evaluator(
             task, eval_env_params, eval_episodes, eval_seed, num_envs
         )
@@ -338,17 +328,9 @@ class SelfPlay(TrainingSession):
         else:
             env_class = LOCMDraftSelfPlayEnv
 
-        for i in range(num_envs):
-            # no overlap between episodes at each process
-            if seed is not None:
-                current_seed = seed + (train_episodes // num_envs) * i
-            else:
-                current_seed = None
-
-            # create one env per process
-            env.append(
-                lambda: env_class(seed=current_seed, play_first=True, **env_params)
-            )
+        env = [
+            lambda: env_class(play_first=True, **env_params) for _ in range(num_envs)
+        ]
 
         # wrap envs in a vectorized env
         if task == "battle":
@@ -358,7 +340,7 @@ class SelfPlay(TrainingSession):
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
-        eval_seed = seed + train_episodes if seed is not None else None
+        eval_seed = seed + num_envs if seed is not None else None
         self.evaluator: Evaluator = Evaluator(
             task, eval_env_params, eval_episodes // 2, eval_seed, num_envs
         )
@@ -472,14 +454,14 @@ class SelfPlay(TrainingSession):
                 agent_class = RLDraftAgent
 
             if self.evaluator.seed is not None:
-                self.evaluator.seed = self.seed + self.train_episodes
+                self.evaluator.seed = self.seed + self.env.num_envs
 
             mean_reward, ep_length, act_hist = self.evaluator.run(
                 agent_class(model), play_first=True
             )
 
             if self.evaluator.seed is not None:
-                self.evaluator.seed += self.eval_episodes
+                self.evaluator.seed += self.env.num_envs
 
             mean_reward2, ep_length2, act_hist2 = self.evaluator.run(
                 agent_class(model), play_first=False
@@ -640,27 +622,18 @@ class AsymmetricSelfPlay(TrainingSession):
 
         # initialize parallel training environments
         self.logger.debug("Initializing training envs...")
-        env1, env2 = [], []
 
         if task == "battle":
             env_class = LOCMBattleSelfPlayEnv
         else:
             env_class = LOCMDraftSelfPlayEnv
 
-        for i in range(num_envs):
-            # no overlap between episodes at each process
-            if seed is not None:
-                current_seed = seed + (train_episodes // num_envs) * i
-            else:
-                current_seed = None
-
-            # create one env per process
-            env1.append(
-                lambda: env_class(seed=current_seed, play_first=True, **env_params)
-            )
-            env2.append(
-                lambda: env_class(seed=current_seed, play_first=False, **env_params)
-            )
+        env1 = [
+            lambda: env_class(play_first=True, **env_params) for _ in range(num_envs)
+        ]
+        env2 = [
+            lambda: env_class(play_first=False, **env_params) for _ in range(num_envs)
+        ]
 
         # wrap envs in a vectorized env
         if task == "battle":
@@ -672,7 +645,7 @@ class AsymmetricSelfPlay(TrainingSession):
 
         # initialize parallel evaluating environments
         self.logger.debug("Initializing evaluation envs...")
-        eval_seed = seed + train_episodes if seed is not None else None
+        eval_seed = seed + num_envs if seed is not None else None
         self.evaluator: Evaluator = Evaluator(
             task, eval_env_params, eval_episodes, eval_seed, num_envs
         )
@@ -1008,8 +981,6 @@ class Evaluator:
         else:
             self.env: VecEnv = DummyVecEnv(self.env)
 
-        self.env.reset()
-
         # save parameters
         self.episodes = episodes
         self.seed = seed
@@ -1030,14 +1001,10 @@ class Evaluator:
         :return: A tuple containing the `mean_reward`, the `mean_length`
         and the `action_histogram` of the evaluation episodes.
         """
-        # set appropriate seeds
+        # reset seeds
         if self.seed is not None:
             for i in range(self.env.num_envs):
-                current_seed = self.seed
-                current_seed += (self.episodes // self.env.num_envs) * i
-                current_seed -= 1  # resetting the env increases the seed by one
-
-                self.env.env_method("seed", current_seed, indices=[i])
+                self.env.env_method("seed", self.seed + i, indices=[i])
 
         # set agent role
         self.env.set_attr("play_first", play_first)

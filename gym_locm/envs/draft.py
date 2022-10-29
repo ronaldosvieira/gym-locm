@@ -76,7 +76,6 @@ class LOCMDraftEnv(LOCMEnv):
         # reset all agents' internal state
         for agent in self.battle_agents:
             agent.reset()
-            agent.seed(self._seed)
 
         self.rewards.append(0.0)
 
