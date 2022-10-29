@@ -1123,6 +1123,7 @@ def model_builder_mlp(
     vf_coef,
     ent_coef,
     learning_rate,
+    n_cpu_tf_sess,
     gamma=1,
     lam=0.95,
     tensorboard_log=None,
@@ -1145,7 +1146,7 @@ def model_builder_mlp(
         vf_coef=vf_coef,
         ent_coef=ent_coef,
         learning_rate=learning_rate,
-        n_cpu_tf_sess=env.num_envs,
+        n_cpu_tf_sess=n_cpu_tf_sess,
         tensorboard_log=tensorboard_log,
     )
 
@@ -1163,6 +1164,7 @@ def model_builder_lstm(
     vf_coef,
     ent_coef,
     learning_rate,
+    n_cpu_tf_sess,
     gamma=1,
     lam=0.95,
     tensorboard_log=None,
@@ -1185,7 +1187,7 @@ def model_builder_lstm(
         vf_coef=vf_coef,
         ent_coef=ent_coef,
         learning_rate=learning_rate,
-        n_cpu_tf_sess=env.num_envs,
+        n_cpu_tf_sess=n_cpu_tf_sess,
         tensorboard_log=tensorboard_log,
     )
 

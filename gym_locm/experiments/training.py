@@ -148,6 +148,12 @@ def get_arg_parser():
     p.add_argument(
         "--concurrency", type=int, default=1, help="amount of environments to use"
     )
+    p.add_argument(
+        "--deterministic",
+        action="store_true",
+        default=False,
+        help="use one thread for TensorFlow operations to guarantee determinism",
+    )
 
     return p
 
@@ -234,6 +240,9 @@ def run():
         "lam": args.lam,
         "tensorboard_log": args.path + "/tf_logs",
     }
+
+    if model_builder in [model_builder_mlp, model_builder_lstm]:
+        model_params["n_cpu_tf_sess"] = 1 if args.deterministic else args.concurrency
 
     if args.task == "battle":
         wandb_run = wandb.init(
