@@ -6,6 +6,7 @@ import os
 import time
 import warnings
 from abc import abstractmethod
+from collections import Counter, defaultdict
 from datetime import datetime
 from statistics import mean
 from typing import Callable
@@ -274,7 +275,7 @@ class FixedAdversary(TrainingSession):
         self._training_callback()
 
         callback = _build_callback(
-            self.task, self._training_callback, bool(self.wandb_run)
+            self.task, self._training_callback, bool(self.wandb_run), self.seed
         )
 
         try:
@@ -562,7 +563,10 @@ class SelfPlay(TrainingSession):
         self._training_callback({"self": self.model})
 
         callback = _build_callback(
-            self.task, self._training_callback, bool(self.wandb_run)
+            self.task,
+            self._training_callback,
+            bool(self.wandb_run),
+            self.seed,
         )
 
         try:
@@ -839,11 +843,13 @@ class AsymmetricSelfPlay(TrainingSession):
             self.task,
             lambda: self._training_callback({"self": self.model1}),
             bool(self.wandb_run),
+            self.seed,
         )
         callback2 = _build_callback(
             self.task,
             lambda: self._training_callback({"self": self.model2}),
             bool(self.wandb_run),
+            self.seed,
         )
 
         try:
@@ -1083,8 +1089,9 @@ class BattleTrainingCallback(BaseCallback3):
 
 
 class DraftTrainingCallback(BaseCallback):
-    def __init__(self, callback_func, verbose=0):
+    def __init__(self, callback_func, verbose=0, seed=None):
         super(DraftTrainingCallback, self).__init__(verbose)
+        self.rng = np.random.default_rng(seed)
         self.callback_func = callback_func
         self.original_runner_run = None
 
@@ -1104,12 +1111,59 @@ class DraftTrainingCallback(BaseCallback):
             # original `Runner.run` method.
             self.model.runner.run = self.original_runner_run
 
+    def _on_step(self):
+        runner = self.locals["self"]
+        if any(runner.dones):
+            self._update_effective_steps()
+
+    def _update_effective_steps(self):
+        effective_steps = self.locals["mb_effective_steps"]
+        gae_masks = self.locals["mb_gae_masks"]
+
+        for env, info in enumerate(self.locals["infos"]):
+            drafted = [card.id for card in info["drafted"]]
+            first_eval, *_ = info["drawn"]
+            drawn = [card.id for card in first_eval]
+
+            # get start of episode
+            start = len(self.locals["mb_obs"]) - len(drafted)
+
+            # build drafted card to step map
+            drafted_steps = defaultdict(list)
+            for step, card in enumerate(drafted, start):
+                drafted_steps[card].append(step)
+
+            # get undrawn card steps
+            undrawn = Counter(drafted) - Counter(drawn)
+            undrawn_steps = set()
+            for card in undrawn.elements():
+                possible_steps = drafted_steps[card]
+                i = self.rng.integers(len(possible_steps))
+                undrawn_steps.add(possible_steps.pop(i))
+
+            # update gae_masks to exclude undrawn cards
+            end = start + sum(undrawn.values())
+            gae_masks[start:end, env] = False
+
+            # construct ordering which places undrawn cards at start,
+            # followed by drawn cards, in drafted order
+            undrawn_step = start
+            drawn_step = end
+            for step in range(start, len(drafted)):
+                if step in undrawn_steps:
+                    i = undrawn_step
+                    undrawn_step += 1
+                else:
+                    i = drawn_step
+                    drawn_step += 1
+                effective_steps[step, env] = i
+
 
 def _dummy_run(self, callback=None):
     return [None] * 9
 
 
-def _build_callback(task: str, callback_func: Callable, include_wandb=False):
+def _build_callback(task: str, callback_func: Callable, include_wandb=False, seed=None):
     callbacks = []
     if include_wandb:
         callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
@@ -1117,7 +1171,7 @@ def _build_callback(task: str, callback_func: Callable, include_wandb=False):
         callbacks.insert(0, BattleTrainingCallback(callback_func))
         return CallbackList3(callbacks)
     else:
-        callbacks.insert(0, DraftTrainingCallback(callback_func))
+        callbacks.insert(0, DraftTrainingCallback(callback_func, seed=seed))
         return CallbackList(callbacks)
 
 
