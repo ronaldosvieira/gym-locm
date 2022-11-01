@@ -345,14 +345,18 @@ _cards = load_cards()
 
 
 class State:
-    def __init__(self, seed=None, items=True, k=3, n=30):
+    def __init__(self, seed=None, items=True, k=3, n=30, np_random=None):
         assert k <= len(_cards)
 
         self.instance_counter = 0
         self.summon_counter = 0
 
-        self.np_random = None
         self.seed(seed)
+        # if a random state is provided, override the one initialized
+        # by the seed
+        if np_random:
+            self.np_random.set_state(np_random.get_state())
+
         self.items = items
         self.k, self.n = k, n
 
