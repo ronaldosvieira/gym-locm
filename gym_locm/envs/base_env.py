@@ -45,7 +45,7 @@ class LOCMEnv(gym.Env, ABC):
             random_state = self.state.np_random
 
             # start a brand new game
-            self.state = State(items=self.items)
+            self.state = State(items=self.items, k=self.k, n=self.n)
 
             # apply random state
             self.state.np_random = random_state
@@ -53,7 +53,7 @@ class LOCMEnv(gym.Env, ABC):
             # start a brand new game with next seed
             self._seed += 1
 
-            self.state = State(seed=self._seed, items=self.items)
+            self.state = State(seed=self._seed, items=self.items, k=self.k, n=self.n)
 
         self.episodes += 1
 
