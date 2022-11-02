@@ -1125,38 +1125,27 @@ class DraftTrainingCallback(BaseCallback):
             first_eval, *_ = info["drawn"]
             drawn = [card.id for card in first_eval]
 
+            # prepend undrawn cards to drawn list
+            undrawn = Counter(drafted) - Counter(drawn)
+            drawn = list(undrawn.elements()) + drawn
+
             # get start of episode
             start = len(self.locals["mb_obs"]) - len(drafted)
-
-            # build drafted card to step map
-            drafted_steps = defaultdict(list)
-            for step, card in enumerate(drafted, start):
-                drafted_steps[card].append(step)
-
-            # get undrawn card steps
-            undrawn = Counter(drafted) - Counter(drawn)
-            undrawn_steps = set()
-            for card in undrawn.elements():
-                possible_steps = drafted_steps[card]
-                i = self.rng.integers(len(possible_steps))
-                undrawn_steps.add(possible_steps.pop(i))
 
             # update gae_masks to exclude undrawn cards
             end = start + sum(undrawn.values())
             gae_masks[start:end, env] = False
 
-            # construct ordering which places undrawn cards at start,
-            # followed by drawn cards, in drafted order
-            undrawn_step = start
-            drawn_step = end
-            for step in range(start, len(drafted)):
-                if step in undrawn_steps:
-                    i = undrawn_step
-                    undrawn_step += 1
-                else:
-                    i = drawn_step
-                    drawn_step += 1
-                effective_steps[step, env] = i
+            # build drawn card to step map
+            drawn_steps = defaultdict(list)
+            for step, card in enumerate(drawn, start):
+                drawn_steps[card].append(step)
+
+            # update effective steps
+            for step, card in enumerate(drafted, start):
+                possible_steps = drawn_steps[card]
+                i = self.rng.integers(len(possible_steps))
+                effective_steps[step, env] = possible_steps.pop(i)
 
 
 def _dummy_run(self, callback=None):
