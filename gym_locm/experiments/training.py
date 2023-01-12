@@ -217,7 +217,8 @@ def run():
     try:
         trainer.run()
     finally:
-        run.finish()
+        if run:
+            run.finish()
 
 
 if __name__ == "__main__":
