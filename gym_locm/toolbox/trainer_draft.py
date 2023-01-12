@@ -133,8 +133,8 @@ class FixedAdversary(TrainingSession):
         # create necessary folders
         os.makedirs(self.path, exist_ok=True)
 
-        # set tensorflow log dir
-        self.model.tensorflow_log = self.path
+        # set tensorboard log dir
+        self.model.tensorboard_log = self.path
 
         # save parameters
         self.train_episodes = train_episodes
@@ -283,8 +283,8 @@ class SelfPlay(TrainingSession):
         # create necessary folders
         os.makedirs(self.path, exist_ok=True)
 
-        # set tensorflow log dirs
-        self.model.tensorflow_log = self.path
+        # set tensorboard log dirs
+        self.model.tensorboard_log = self.path
 
         # save parameters
         self.task = task
@@ -504,9 +504,9 @@ class AsymmetricSelfPlay(TrainingSession):
         os.makedirs(self.path + '/role0', exist_ok=True)
         os.makedirs(self.path + '/role1', exist_ok=True)
 
-        # set tensorflow log dirs
-        self.model1.tensorflow_log = self.path + '/role0'
-        self.model2.tensorflow_log = self.path + '/role1'
+        # set tensorboard log dirs
+        self.model1.tensorboard_log = self.path + '/role0'
+        self.model2.tensorboard_log = self.path + '/role1'
 
         # save parameters
         self.train_episodes = train_episodes
