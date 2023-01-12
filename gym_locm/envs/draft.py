@@ -23,6 +23,7 @@ class LOCMDraftEnv(LOCMEnv):
         self.results = []
         self.choices = ([], [])
         self.draft_ordering = list(range(3))
+        self.rewards = [0.0]
 
         self.battle_agents = battle_agents
 
@@ -72,6 +73,8 @@ class LOCMDraftEnv(LOCMEnv):
         for agent in self.battle_agents:
             agent.reset()
             agent.seed(self._seed)
+
+        self.rewards.append(0.0)
 
         return self.encode_state()
 
@@ -160,6 +163,8 @@ class LOCMDraftEnv(LOCMEnv):
         info['raw_rewards'] = raw_rewards
         reward = sum(raw_rewards)
 
+        self.rewards[-1] += reward
+
         return self.encode_state(), reward, done, info
 
     def do_match(self, state):
@@ -229,6 +234,9 @@ class LOCMDraftEnv(LOCMEnv):
     def _encode_state_battle(self):
         pass
 
+    def get_episode_rewards(self):
+        return self.rewards
+
 
 class LOCMDraftSingleEnv(LOCMDraftEnv):
     def __init__(self, draft_agent=RandomDraftAgent(),
@@ -240,6 +248,8 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         self.draft_agent = draft_agent
         self.play_first = play_first
 
+        self.rewards_single_player = []
+
     def reset(self) -> np.array:
         """
         Resets the environment.
@@ -250,6 +260,8 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
 
         # also reset the draft agent
         self.draft_agent.reset()
+
+        self.rewards_single_player.append(0.0)
 
         return encoded_state
 
@@ -264,7 +276,15 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
             state, reward, done, info = super().step(action)
             reward = -reward
 
+        try:
+            self.rewards_single_player[-1] += reward
+        except IndexError:
+            self.rewards_single_player = [reward]
+
         return state, reward, done, info
+
+    def get_episode_rewards(self):
+        return self.rewards_single_player
 
 
 class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
@@ -275,6 +295,15 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         # also init the new parameters
         self.play_first = play_first
         self.adversary_policy = adversary_policy
+
+        self.rewards_single_player = []
+
+    def reset(self) -> np.array:
+        encoded_state = super().reset()
+
+        self.rewards_single_player.append(0.0)
+
+        return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
@@ -289,7 +318,15 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
             state, reward, done, info = super().step(action)
             reward = -reward
 
+        try:
+            self.rewards_single_player[-1] += reward
+        except IndexError:
+            self.rewards_single_player = [reward]
+
         return state, reward, done, info
+
+    def get_episode_rewards(self):
+        return self.rewards_single_player
 
 
 class LOCMDraftSingleTabularEnv(LOCMDraftSingleEnv):
