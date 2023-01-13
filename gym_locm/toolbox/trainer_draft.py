@@ -3,26 +3,19 @@ import logging
 import math
 import os
 import time
-import warnings
+from typing import List
+
 import numpy as np
 from abc import abstractmethod
 from datetime import datetime
 from statistics import mean
 
-# suppress tensorflow deprecated warnings
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=Warning)
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+import torch as th
 
-import tensorflow as tf
-
-tf.get_logger().setLevel('INFO')
-tf.get_logger().setLevel(logging.ERROR)
-
-from stable_baselines import PPO2
-from stable_baselines.common.policies import MlpPolicy, MlpLstmPolicy
-from stable_baselines.common.vec_env import VecEnv, DummyVecEnv
-from stable_baselines.common.callbacks import CallbackList, BaseCallback
+from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
+from stable_baselines3.common.vec_env import VecEnv, DummyVecEnv
+from stable_baselines3.common.callbacks import CallbackList, BaseCallback
 
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent, RLBattleAgent
 from gym_locm.envs import LOCMDraftSingleEnv
@@ -264,7 +257,7 @@ class SelfPlay(TrainingSession):
         self.model.adversary = model_builder(self.env, seed, **model_params)
 
         # initialize parameters of adversary models accordingly
-        self.model.adversary.load_parameters(self.model.get_parameters(), exact_match=True)
+        self.model.adversary.set_parameters(self.model.get_parameters(), exact_match=True)
 
         # set adversary models as adversary policies of the self-play envs
         def make_adversary_policy(model, env):
@@ -328,8 +321,7 @@ class SelfPlay(TrainingSession):
             # save model
             model_path = self.path + f'/{episodes_so_far}'
 
-            model.save(model_path)
-
+            model.save(model_path, exclude=['adversary'])
             save_model_as_json(model, self.params['activation'], model_path)
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
@@ -390,10 +382,10 @@ class SelfPlay(TrainingSession):
 
             # reset training env rewards
             for i in range(model.env.num_envs):
-                model.env.set_attr('rewards', [0.0], indices=[i])
+                model.env.set_attr('rewards_single_player', [], indices=[i])
 
             # update parameters of adversary models
-            model.adversary.load_parameters(model.get_parameters(), exact_match=True)
+            model.adversary.set_parameters(model.get_parameters(), exact_match=True)
 
             self.logger.debug("Parameters of adversary network updated.")
 
@@ -480,8 +472,8 @@ class AsymmetricSelfPlay(TrainingSession):
         self.model2.adversary = model_builder(self.env1, seed, **model_params)
 
         # initialize parameters of adversary models accordingly
-        self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
-        self.model2.adversary.load_parameters(self.model1.get_parameters(), exact_match=True)
+        self.model1.adversary.set_parameters(self.model2.get_parameters(), exact_match=True)
+        self.model2.adversary.set_parameters(self.model1.get_parameters(), exact_match=True)
 
         # set adversary models as adversary policies of the self-play envs
         def make_adversary_policy(model, env):
@@ -495,10 +487,8 @@ class AsymmetricSelfPlay(TrainingSession):
 
             return adversary_policy
 
-        self.env1.set_attr('adversary_policy',
-                           make_adversary_policy(self.model1, self.env1))
-        self.env2.set_attr('adversary_policy',
-                           make_adversary_policy(self.model2, self.env2))
+        self.env1.set_attr('adversary_policy', make_adversary_policy(self.model1, self.env1))
+        self.env2.set_attr('adversary_policy', make_adversary_policy(self.model2, self.env2))
 
         # create necessary folders
         os.makedirs(self.path + '/role0', exist_ok=True)
@@ -545,8 +535,7 @@ class AsymmetricSelfPlay(TrainingSession):
             # save model
             model_path = f'{self.path}/role{model.role_id}/{episodes_so_far}'
 
-            model.save(model_path)
-
+            model.save(model_path, exclude=['adversary'])
             save_model_as_json(model, self.params['activation'], model_path)
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
@@ -612,7 +601,7 @@ class AsymmetricSelfPlay(TrainingSession):
 
                 # reset training env rewards
                 for i in range(self.env1.num_envs):
-                    self.env1.set_attr('rewards', [0.0], indices=[i])
+                    self.env1.set_attr('rewards_single_player', [0.0], indices=[i])
 
                 self.logger.debug(f"Model {self.model1.role_id} trained for "
                                   f"{sum(self.env1.get_attr('episodes'))} episodes. "
@@ -629,7 +618,7 @@ class AsymmetricSelfPlay(TrainingSession):
 
                 # reset training env rewards
                 for i in range(self.env2.num_envs):
-                    self.env2.set_attr('rewards', [0.0], indices=[i])
+                    self.env2.set_attr('rewards_single_player', [0.0], indices=[i])
 
                 self.logger.debug(f"Model {self.model2.role_id} trained for "
                                   f"{sum(self.env2.get_attr('episodes'))} episodes. "
@@ -637,8 +626,8 @@ class AsymmetricSelfPlay(TrainingSession):
                                   f"Switching to model {self.model1.role_id}.")
 
                 # update parameters of adversary models
-                self.model1.adversary.load_parameters(self.model2.get_parameters(), exact_match=True)
-                self.model2.adversary.load_parameters(self.model1.get_parameters(), exact_match=True)
+                self.model1.adversary.set_parameters(self.model2.get_parameters(), exact_match=True)
+                self.model2.adversary.set_parameters(self.model1.get_parameters(), exact_match=True)
 
                 self.logger.debug("Parameters of adversary networks updated.")
         except KeyboardInterrupt:
@@ -744,7 +733,7 @@ class Evaluator:
                 if dones[i]:
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
-                    episode_turns[i].append(infos[i]['turn'])
+                    episode_turns[i].append(infos[i]['turn'])  # note: does not work for draft
 
                     episodes_so_far += 1
 
@@ -797,52 +786,26 @@ def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatc
                       noptepochs, cliprange, vf_coef, ent_coef, learning_rate, gamma=1,
                       tensorboard_log=None):
     net_arch = [neurons] * layers
-    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
+    activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
-    return PPO2(MlpPolicy, env, verbose=0, gamma=gamma, seed=seed,
-                policy_kwargs=dict(net_arch=net_arch, act_fun=activation),
-                n_steps=n_steps, nminibatches=nminibatches,
-                noptepochs=noptepochs, cliprange=cliprange,
-                vf_coef=vf_coef, ent_coef=ent_coef, learning_rate=learning_rate,
-                n_cpu_tf_sess=env.num_envs, tensorboard_log=tensorboard_log)
+    return PPO("MlpPolicy", env, verbose=0, gamma=gamma, seed=seed,
+               policy_kwargs=dict(net_arch=net_arch, activation_fn=activation),
+               n_steps=n_steps, batch_size=(env.num_envs * n_steps) // nminibatches,
+               n_epochs=noptepochs, clip_range=cliprange,
+               vf_coef=vf_coef, ent_coef=ent_coef, learning_rate=learning_rate,
+               tensorboard_log=tensorboard_log)
 
 
 def model_builder_lstm(env, seed, neurons, layers, activation, n_steps, nminibatches,
                        noptepochs, cliprange, vf_coef, ent_coef, learning_rate, gamma=1,
                        tensorboard_log=None):
-    net_arch = ['lstm'] + [neurons] * (layers - 1)
-    activation = dict(tanh=tf.nn.tanh, relu=tf.nn.relu, elu=tf.nn.elu)[activation]
+    net_arch = [neurons] * (layers - 1)
+    activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
-    return PPO2(MlpLstmPolicy, env, verbose=0, gamma=gamma, seed=seed,
-                policy_kwargs=dict(net_arch=net_arch, n_lstm=neurons, act_fun=activation),
-                n_steps=n_steps, nminibatches=nminibatches,
-                noptepochs=noptepochs, cliprange=cliprange,
-                vf_coef=vf_coef, ent_coef=ent_coef,
-                learning_rate=learning_rate, n_cpu_tf_sess=env.num_envs,
-                tensorboard_log=tensorboard_log)
+    return RecurrentPPO("MlpLstmPolicy", env, verbose=0, gamma=gamma, seed=seed,
+                        policy_kwargs=dict(net_arch=net_arch, lstm_hidden_size=neurons, activation_fn=activation,
+                                           shared_lstm=True, enable_critic_lstm=False, n_lstm_layers=1),
+                        n_steps=n_steps, batch_size=(env.num_envs * n_steps) // nminibatches,
+                        n_epochs=noptepochs, clip_range=cliprange, vf_coef=vf_coef, ent_coef=ent_coef,
+                        learning_rate=learning_rate, tensorboard_log=tensorboard_log)
 
-
-if __name__ == '__main__':
-    env_params = {
-        'battle_agents': (MaxAttackBattleAgent(), MaxAttackBattleAgent()),
-        'use_draft_history': False,
-        'use_mana_curve': False
-    }
-
-    eval_env_params = {
-        'draft_agent': MaxAttackDraftAgent(),
-        'battle_agents': (MaxAttackBattleAgent(), MaxAttackBattleAgent()),
-        'use_draft_history': False,
-        'use_mana_curve': False
-    }
-
-    model_params = {'layers': 1, 'neurons': 29, 'n_steps': 30, 'nminibatches': 30,
-                    'noptepochs': 19, 'cliprange': 0.1, 'vf_coef': 1.0,
-                    'ent_coef': 0.00781891437626065, 'activation': 'tanh',
-                    'learning_rate': 0.0001488768154153614}
-
-    ts = FixedAdversary(model_builder_mlp, model_params, env_params, eval_env_params,
-                        30000, 1000, 12, True, 'models/trashcan/trash04', 36987,
-                        num_envs=4)
-
-    ts.run()

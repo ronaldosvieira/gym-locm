@@ -1123,7 +1123,7 @@ class RLDraftAgent(Agent):
     def act(self, state):
         action, self.hidden_states = \
             self.model.predict(state, state=self.hidden_states,
-                               mask=self.dones, deterministic=True)
+                               episode_start=self.dones, deterministic=True)
 
         return action
 
