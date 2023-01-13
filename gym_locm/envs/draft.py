@@ -5,6 +5,7 @@ import gym
 from gym_locm.agents import *
 from gym_locm.engine import *
 from gym_locm.envs.base_env import LOCMEnv
+from gym_locm.envs.rewards import WinLossRewardFunction
 
 
 class LOCMDraftEnv(LOCMEnv):
@@ -148,7 +149,7 @@ class LOCMDraftEnv(LOCMEnv):
                     info['winner'].append(winner)
 
             try:
-                win_loss_reward_index = self.reward_functions.index("win-loss")
+                win_loss_reward_index = list(map(type, self.reward_functions)).index(WinLossRewardFunction)
                 reward_after[win_loss_reward_index] = np.mean(self.results)
             except ValueError:
                 pass
