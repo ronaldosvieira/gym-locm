@@ -108,7 +108,7 @@ class FixedAdversary(TrainingSession):
                 current_seed = None
 
             # create the env
-            env.append(lambda: env_class(seed=current_seed, play_first=play_first, **env_params))
+            env.append(lambda: env_class(seed=current_seed, play_first=play_first == 'first', **env_params))
 
         # wrap envs in a vectorized env
         self.env: VecEnv = DummyVecEnv(env)
@@ -137,7 +137,7 @@ class FixedAdversary(TrainingSession):
         # initialize control attributes
         self.model.last_eval = None
         self.model.next_eval = 0
-        self.model.role_id = 0 if play_first else 1
+        self.model.role_id = 0 if play_first == 'first' else 1
 
         # log end time
         end_time = time.perf_counter()
