@@ -16,7 +16,7 @@ def get_arg_parser():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     tasks = ['draft', 'battle']
-    approach = ['immediate', 'lstm', 'history']
+    approach = ['immediate', 'lstm', 'history', 'immediate-pe']
     battle_agents = ['max-attack', 'greedy']
     adversary = ['fixed', 'self-play', 'asymmetric-self-play']
     roles = ['first', 'second', 'alternate']
@@ -107,10 +107,12 @@ def run():
     if args.task == 'draft':
 
         from gym_locm.toolbox.trainer_draft import AsymmetricSelfPlay, SelfPlay, FixedAdversary, \
-            model_builder_mlp, model_builder_lstm
+            model_builder_mlp, model_builder_lstm, model_builder_pe
 
         if args.approach == 'lstm':
             model_builder = model_builder_lstm
+        elif args.approach == 'immediate-pe':
+            model_builder = model_builder_pe
         else:
             model_builder = model_builder_mlp
 

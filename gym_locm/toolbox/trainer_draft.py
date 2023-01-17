@@ -20,6 +20,7 @@ from stable_baselines3.common.callbacks import CallbackList, BaseCallback
 from gym_locm.agents import Agent, MaxAttackDraftAgent, MaxAttackBattleAgent, RLDraftAgent, RLBattleAgent
 from gym_locm.envs import LOCMDraftSingleEnv
 from gym_locm.envs.draft import LOCMDraftSelfPlayEnv
+from gym_locm.toolbox.policies import PermutationEquivariantPolicy
 
 verbose = True
 REALLY_BIG_INT = 1_000_000_000
@@ -789,6 +790,20 @@ def model_builder_mlp(env, seed, neurons, layers, activation, n_steps, nminibatc
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
     return PPO("MlpPolicy", env, verbose=0, gamma=gamma, seed=seed,
+               policy_kwargs=dict(net_arch=net_arch, activation_fn=activation),
+               n_steps=n_steps, batch_size=(env.num_envs * n_steps) // nminibatches,
+               n_epochs=noptepochs, clip_range=cliprange,
+               vf_coef=vf_coef, ent_coef=ent_coef, learning_rate=learning_rate,
+               tensorboard_log=tensorboard_log)
+
+
+def model_builder_pe(env, seed, neurons, layers, activation, n_steps, nminibatches,
+                     noptepochs, cliprange, vf_coef, ent_coef, learning_rate, gamma=1,
+                     tensorboard_log=None):
+    net_arch = [neurons] * layers
+    activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
+
+    return PPO(PermutationEquivariantPolicy, env, verbose=0, gamma=gamma, seed=seed,
                policy_kwargs=dict(net_arch=net_arch, activation_fn=activation),
                n_steps=n_steps, batch_size=(env.num_envs * n_steps) // nminibatches,
                n_epochs=noptepochs, clip_range=cliprange,
