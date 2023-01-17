@@ -34,23 +34,30 @@ class Node:
         cp = self.state.players[self.player_id]
 
         attributes = [
-            s.phase, s.turn, s.current_player.id,
-            p0.health, p0.base_mana + p0.bonus_mana, p0.bonus_draw,
-            p1.health, p1.base_mana + p1.bonus_mana, p1.bonus_draw
+            s.phase,
+            s.turn,
+            s.current_player.id,
+            p0.health,
+            p0.base_mana + p0.bonus_mana,
+            p0.bonus_draw,
+            p1.health,
+            p1.base_mana + p1.bonus_mana,
+            p1.bonus_draw,
         ]
 
-        attributes.extend(c.instance_id
-                          for c in sorted(cp.hand, key=attrgetter('id')))
+        attributes.extend(c.instance_id for c in sorted(cp.hand, key=attrgetter("id")))
 
         for p in (p0, p1):
             for j in range(2):
                 for i in range(3):
                     if len(p.lanes[j]) > i:
-                        c = sorted(p.lanes[j], key=attrgetter('id'))[i]
+                        c = sorted(p.lanes[j], key=attrgetter("id"))[i]
 
-                        stats = [c.instance_id, c.attack, c.defense] + \
-                            list(map(int, map(c.keywords.__contains__, 'BCDGLW'))) + \
-                            [int(p.id), j, c.able_to_attack()]
+                        stats = (
+                            [c.instance_id, c.attack, c.defense]
+                            + list(map(int, map(c.keywords.__contains__, "BCDGLW")))
+                            + [int(p.id), j, c.able_to_attack()]
+                        )
                     else:
                         stats = [-1] * 12
 
@@ -150,13 +157,17 @@ class MCTS:
         while True:
             path.append(node)
 
-            if node not in self.children or not self.children[node] \
-                    or state_copy.winner is not None:
+            if (
+                node not in self.children
+                or not self.children[node]
+                or state_copy.winner is not None
+            ):
                 # node is either unexplored or terminal
                 return path, state_copy
 
-            unexplored = [item for item in self.children[node]
-                          if item not in self.children.keys()]
+            unexplored = [
+                item for item in self.children[node] if item not in self.children.keys()
+            ]
 
             if unexplored:
                 n = unexplored.pop()
@@ -168,7 +179,7 @@ class MCTS:
             state_copy.act(node.actions[-1])
 
     def _expand(self, node, root_state, new_state):
-        """"Update the `children` dict with the children of `node`"""
+        """ "Update the `children` dict with the children of `node`"""
         if node in self.children:
             return  # already expanded
 
@@ -185,9 +196,10 @@ class MCTS:
         amount_deck = len(new_state.opposing_player.deck)
         amount_hand = len(new_state.opposing_player.hand)
 
-        ids = map(attrgetter('instance_id'),
-                  new_state.opposing_player.hand +
-                  new_state.opposing_player.deck)
+        ids = map(
+            attrgetter("instance_id"),
+            new_state.opposing_player.hand + new_state.opposing_player.deck,
+        )
 
         new_deck = []
 

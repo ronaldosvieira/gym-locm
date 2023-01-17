@@ -45,7 +45,9 @@ def q_learning(worker_id: int):
     env = LOCMDraftSingleTabularEnv(
         draft_agent=MaxAttackDraftAgent(),
         battle_agents=(MaxAttackBattleAgent(), MaxAttackBattleAgent()),
-        evaluation_battles=1, k=k, n=n
+        evaluation_battles=1,
+        k=k,
+        n=n,
     )
 
     state = env.reset()
@@ -72,9 +74,9 @@ def q_learning(worker_id: int):
 
         best_q_new_state = _get_best_q_for_state(new_state)
 
-        q[(*state, action)] += \
-            alpha(current_iteration) \
-            * (reward + gamma * best_q_new_state - q[(*state, action)])
+        q[(*state, action)] += alpha(current_iteration) * (
+            reward + gamma * best_q_new_state - q[(*state, action)]
+        )
 
         if q[(*state, action)] != 0:
             with test.get_lock():
@@ -96,18 +98,20 @@ def run():
 
     print("Saving policy...")
 
-    with open('policy.csv', 'a') as policy:
+    with open("policy.csv", "a") as policy:
         policy.write("c1;c2;c3;pi\n")
 
         for c1 in range(160):
             for c2 in range(c1 + 1, 160):
                 for c3 in range(c2 + 1, 160):
-                    policy.write(f"{c1};{c2};{c3};{_get_policy_for_state((c1, c2, c3))}\n")
+                    policy.write(
+                        f"{c1};{c2};{c3};{_get_policy_for_state((c1, c2, c3))}\n"
+                    )
 
     print("✅")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     k = 3
     n = 30
 
@@ -118,7 +122,7 @@ if __name__ == '__main__':
 
     manager = multiprocessing.Manager()
     q = manager.dict(_init_q_table())
-    iteration = multiprocessing.Value('l', 0)
-    test = multiprocessing.Value('l', 0)
+    iteration = multiprocessing.Value("l", 0)
+    test = multiprocessing.Value("l", 0)
 
     run()

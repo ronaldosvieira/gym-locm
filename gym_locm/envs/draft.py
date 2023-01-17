@@ -9,16 +9,30 @@ from gym_locm.envs.rewards import WinLossRewardFunction
 
 
 class LOCMDraftEnv(LOCMEnv):
-    metadata = {'render.modes': ['text', 'native']}
+    metadata = {"render.modes": ["text", "native"]}
 
-    def __init__(self,
-                 battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-                 use_draft_history=False, use_mana_curve=False,
-                 sort_cards=False, evaluation_battles=1,
-                 seed=None, items=True, k=3, n=30,
-                 reward_functions=('win-loss',), reward_weights=(1.0,)):
-        super().__init__(seed=seed, items=items, k=k, n=n,
-                         reward_functions=reward_functions, reward_weights=reward_weights)
+    def __init__(
+        self,
+        battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
+        use_draft_history=False,
+        use_mana_curve=False,
+        sort_cards=False,
+        evaluation_battles=1,
+        seed=None,
+        items=True,
+        k=3,
+        n=30,
+        reward_functions=("win-loss",),
+        reward_weights=(1.0,),
+    ):
+        super().__init__(
+            seed=seed,
+            items=items,
+            k=k,
+            n=n,
+            reward_functions=reward_functions,
+            reward_weights=reward_weights,
+        )
 
         # init bookkeeping structures
         self.results = []
@@ -44,12 +58,10 @@ class LOCMDraftEnv(LOCMEnv):
         if self.use_mana_curve:
             self.state_shape += 13
 
-        self.state_shape = self.state_shape,
+        self.state_shape = (self.state_shape,)
 
         self.observation_space = gym.spaces.Box(
-            low=-1.0, high=1.0,
-            shape=self.state_shape,
-            dtype=np.float32
+            low=-1.0, high=1.0, shape=self.state_shape, dtype=np.float32
         )
 
         # three actions possible - choose each of the three cards
@@ -90,8 +102,10 @@ class LOCMDraftEnv(LOCMEnv):
             try:
                 action = int(action)
             except ValueError:
-                error = f"Action should be an action object " \
+                error = (
+                    f"Action should be an action object "
                     f"or an integer, not {type(action)}"
+                )
 
                 raise MalformedActionError(error)
 
@@ -101,9 +115,10 @@ class LOCMDraftEnv(LOCMEnv):
         state = self.state
         current_player_id = state.current_player.id
 
-        self.last_player_rewards[state.current_player.id] = \
-            [weight * function.calculate(state, for_player=current_player_id)
-             for function, weight in zip(self.reward_functions, self.reward_weights)]
+        self.last_player_rewards[state.current_player.id] = [
+            weight * function.calculate(state, for_player=current_player_id)
+            for function, weight in zip(self.reward_functions, self.reward_weights)
+        ]
 
         # find appropriate value for the provided card index
         if 0 <= action.origin < self.k:
@@ -119,14 +134,14 @@ class LOCMDraftEnv(LOCMEnv):
         state.act(action)
 
         reward_before = self.last_player_rewards[state.current_player.id]
-        reward_after = [weight * function.calculate(state, for_player=current_player_id)
-                        for function, weight in zip(self.reward_functions, self.reward_weights)]
+        reward_after = [
+            weight * function.calculate(state, for_player=current_player_id)
+            for function, weight in zip(self.reward_functions, self.reward_weights)
+        ]
 
         # init return info
         done = False
-        info = {'phase': state.phase,
-                'turn': state.turn,
-                'winner': []}
+        info = {"phase": state.phase, "turn": state.turn, "winner": []}
 
         # if draft is now ended, evaluation should be done
         if self._draft_is_finished:
@@ -136,7 +151,7 @@ class LOCMDraftEnv(LOCMEnv):
                 winner = self.do_match(state)
 
                 self.results = [1 if winner == PlayerOrder.FIRST else -1]
-                info['winner'] = [winner]
+                info["winner"] = [winner]
             else:
                 # for each evaluation battle required, copy the current
                 # start-of-battle state and do battle
@@ -146,10 +161,12 @@ class LOCMDraftEnv(LOCMEnv):
                     winner = self.do_match(state_copy)
 
                     self.results.append(1 if winner == PlayerOrder.FIRST else -1)
-                    info['winner'].append(winner)
+                    info["winner"].append(winner)
 
             try:
-                win_loss_reward_index = list(map(type, self.reward_functions)).index(WinLossRewardFunction)
+                win_loss_reward_index = list(map(type, self.reward_functions)).index(
+                    WinLossRewardFunction
+                )
                 reward_after[win_loss_reward_index] = np.mean(self.results)
             except ValueError:
                 pass
@@ -159,9 +176,11 @@ class LOCMDraftEnv(LOCMEnv):
         if reward_before is None:
             raw_rewards = (0.0,) * len(self.reward_functions)
         else:
-            raw_rewards = tuple([after - before for before, after in zip(reward_before, reward_after)])
+            raw_rewards = tuple(
+                [after - before for before, after in zip(reward_before, reward_after)]
+            )
 
-        info['raw_rewards'] = raw_rewards
+        info["raw_rewards"] = raw_rewards
         reward = sum(raw_rewards)
 
         self.rewards[-1] += reward
@@ -189,7 +208,7 @@ class LOCMDraftEnv(LOCMEnv):
         else:
             wins_by_p0 = int(((np.mean(self.results) + 1) / 2) * 100)
 
-            print(f'P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%')
+            print(f"P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%")
 
     def _encode_state_draft(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
@@ -197,13 +216,14 @@ class LOCMDraftEnv(LOCMEnv):
         chosen_cards = self.choices[self.state.current_player.id]
 
         if not self._draft_is_finished:
-            card_choices = self.state.current_player.hand[0:self.k]
+            card_choices = self.state.current_player.hand[0 : self.k]
 
             self.draft_ordering = list(range(self.k))
 
             if self.sort_cards:
-                sorted_cards = sorted(self.draft_ordering,
-                                      key=lambda p: card_choices[p].id)
+                sorted_cards = sorted(
+                    self.draft_ordering, key=lambda p: card_choices[p].id
+                )
 
                 self.draft_ordering = list(sorted_cards)
 
@@ -240,8 +260,7 @@ class LOCMDraftEnv(LOCMEnv):
 
 
 class LOCMDraftSingleEnv(LOCMDraftEnv):
-    def __init__(self, draft_agent=RandomDraftAgent(),
-                 play_first=True, **kwargs):
+    def __init__(self, draft_agent=RandomDraftAgent(), play_first=True, **kwargs):
         # init the env
         super().__init__(**kwargs)
 
@@ -331,17 +350,18 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
 
 
 class LOCMDraftSingleTabularEnv(LOCMDraftSingleEnv):
-    def __init__(self, draft_agent=RandomDraftAgent(),
-                 play_first=True, **kwargs):
-        super(LOCMDraftSingleTabularEnv, self).__init__(draft_agent, play_first, **kwargs)
+    def __init__(self, draft_agent=RandomDraftAgent(), play_first=True, **kwargs):
+        super(LOCMDraftSingleTabularEnv, self).__init__(
+            draft_agent, play_first, **kwargs
+        )
 
         self.observation_space = gym.spaces.Box(
-            low=-1.0, high=1.0,
-            shape=(self.k,),
-            dtype=np.int
+            low=-1.0, high=1.0, shape=(self.k,), dtype=np.int
         )
 
         self.observation_space = gym.spaces.MultiDiscrete((160, 160, 160))
 
     def _encode_state_draft(self):
-        return np.array(sorted(map(attrgetter('id'), self.state.current_player.hand))) - 1
+        return (
+            np.array(sorted(map(attrgetter("id"), self.state.current_player.hand))) - 1
+        )

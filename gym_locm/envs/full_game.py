@@ -21,19 +21,29 @@ class LOCMFullGameEnv(LOCMEnv):
 
         self.state_shapes = {
             Phase.DRAFT: (cards_in_draft_state, card_features),
-            Phase.BATTLE: (player_features * 2 + cards_in_battle_state * card_features,)
+            Phase.BATTLE: (
+                player_features * 2 + cards_in_battle_state * card_features,
+            ),
         }
 
         self.observation_spaces = {
-            Phase.DRAFT: gym.spaces.Box(low=-1.0, high=1.0, dtype=np.float32,
-                                        shape=self.state_shapes[Phase.DRAFT]),
-            Phase.BATTLE: gym.spaces.Box(low=-1.0, high=1.0, dtype=np.float32,
-                                         shape=self.state_shapes[Phase.BATTLE])
+            Phase.DRAFT: gym.spaces.Box(
+                low=-1.0,
+                high=1.0,
+                dtype=np.float32,
+                shape=self.state_shapes[Phase.DRAFT],
+            ),
+            Phase.BATTLE: gym.spaces.Box(
+                low=-1.0,
+                high=1.0,
+                dtype=np.float32,
+                shape=self.state_shapes[Phase.BATTLE],
+            ),
         }
 
         self.action_spaces = {
             Phase.DRAFT: gym.spaces.Discrete(self.k),
-            Phase.BATTLE: gym.spaces.Discrete(163)
+            Phase.BATTLE: gym.spaces.Discrete(163),
         }
 
         self.reward_range = (-1, 1)
@@ -75,8 +85,10 @@ class LOCMFullGameEnv(LOCMEnv):
             try:
                 action = int(action)
             except ValueError:
-                error = f"Action should be an action object " \
+                error = (
+                    f"Action should be an action object "
                     f"or an integer, not {type(action)}"
+                )
 
                 raise MalformedActionError(error)
 
@@ -100,9 +112,7 @@ class LOCMFullGameEnv(LOCMEnv):
         winner = state.winner
         reward = 0
         done = winner is not None
-        info = {'phase': state.phase,
-                'turn': state.turn,
-                'winner': winner}
+        info = {"phase": state.phase, "turn": state.turn, "winner": winner}
 
         if winner is not None:
             reward = 1 if winner == PlayerOrder.FIRST else -1
@@ -110,8 +120,7 @@ class LOCMFullGameEnv(LOCMEnv):
         return self.encode_state(), reward, done, info
 
     def _encode_state_battle(self):
-        encoded_state = np.full(self.state_shapes[Phase.BATTLE],
-                                0, dtype=np.float32)
+        encoded_state = np.full(self.state_shapes[Phase.BATTLE], 0, dtype=np.float32)
 
         p0, p1 = self.state.current_player, self.state.opposing_player
 
@@ -144,10 +153,9 @@ class LOCMFullGameEnv(LOCMEnv):
         return encoded_state
 
     def _encode_state_draft(self):
-        encoded_state = np.full(self.state_shapes[Phase.DRAFT],
-                                0, dtype=np.float32)
+        encoded_state = np.full(self.state_shapes[Phase.DRAFT], 0, dtype=np.float32)
 
-        card_choices = self.state.current_player.hand[0:self.k]
+        card_choices = self.state.current_player.hand[0 : self.k]
 
         for i in range(len(card_choices)):
             encoded_state[-(self.k - i)] = self.encode_card(card_choices[i])
@@ -156,20 +164,19 @@ class LOCMFullGameEnv(LOCMEnv):
 
 
 class LOCMFullGameSingleEnv(LOCMFullGameEnv):
-    def __init__(self,
-                 draft_agent=RandomDraftAgent(),
-                 battle_agent=RandomBattleAgent(),
-                 play_first=True,
-                 seed=None):
+    def __init__(
+        self,
+        draft_agent=RandomDraftAgent(),
+        battle_agent=RandomBattleAgent(),
+        play_first=True,
+        seed=None,
+    ):
         # init the env
         super().__init__(seed=seed)
 
         # also init the new parameters
         self.play_first = play_first
-        self.agents = {
-            Phase.DRAFT: draft_agent,
-            Phase.BATTLE: battle_agent
-        }
+        self.agents = {Phase.DRAFT: draft_agent, Phase.BATTLE: battle_agent}
 
     @property
     def agent(self):
@@ -205,7 +212,7 @@ class LOCMFullGameSingleEnv(LOCMFullGameEnv):
         while self.state.current_player.id != player and self.state.winner is None:
             state, reward, done, info = super().step(self.agent.act(self.state))
 
-            if info['invalid'] and not done:
+            if info["invalid"] and not done:
                 state, reward, done, info = super().step(0)
                 break
 
