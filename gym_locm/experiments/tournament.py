@@ -13,13 +13,13 @@ import pandas as pd
 # suppress tensorflow deprecated warnings
 from gym_locm.engine import PlayerOrder
 
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=Warning)
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=Warning)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # or any {'0', '1', '2'}
 
 import tensorflow as tf
 
-tf.get_logger().setLevel('INFO')
+tf.get_logger().setLevel("INFO")
 tf.get_logger().setLevel(logging.ERROR)
 
 # continue importing
@@ -36,24 +36,42 @@ def get_arg_parser() -> argparse.ArgumentParser:
     Set up the argument parser.
     :return: a ready-to-use argument parser object
     """
-    p = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    p.add_argument('--drafters', '-d', nargs='+', required=True,
-                   help='draft agents in the tournament '
-                        '(at least one, separated by space)')
-    p.add_argument('--battler', '-b', default='random',
-                   choices=agents.battle_agents.keys(),
-                   help='battle agent to use (just one)')
-    p.add_argument("--games", '-g', type=int, default=100,
-                   help='amount of games to run in every match-up')
-    p.add_argument('--seeds', '-s', type=int, nargs='+', default=[1],
-                   help='seeds to use (at least one - match-ups will be '
-                        'repeated with each seed')
-    p.add_argument('--concurrency', '-c', type=int, default=1,
-                   help='amount of concurrent games')
-    p.add_argument('--path', '-p', '-o', default='.',
-                   help='path to save result files')
+    p.add_argument(
+        "--drafters",
+        "-d",
+        nargs="+",
+        required=True,
+        help="draft agents in the tournament " "(at least one, separated by space)",
+    )
+    p.add_argument(
+        "--battler",
+        "-b",
+        default="random",
+        choices=agents.battle_agents.keys(),
+        help="battle agent to use (just one)",
+    )
+    p.add_argument(
+        "--games",
+        "-g",
+        type=int,
+        default=100,
+        help="amount of games to run in every match-up",
+    )
+    p.add_argument(
+        "--seeds",
+        "-s",
+        type=int,
+        nargs="+",
+        default=[1],
+        help="seeds to use (at least one - match-ups will be "
+        "repeated with each seed",
+    )
+    p.add_argument(
+        "--concurrency", "-c", type=int, default=1, help="amount of concurrent games"
+    )
+    p.add_argument("--path", "-p", "-o", default=".", help="path to save result files")
 
     # todo: implement time limit for search-based battlers
     # p.add_argument('--time', '-t', default=200,
@@ -62,9 +80,16 @@ def get_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
-def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
-                seed: int, concurrency: int) \
-        -> Tuple[Tuple[float, float], Tuple[list, list], Tuple[list, list], List[List[Tuple]], Tuple[list, list], List[float]]:
+def run_matchup(
+    drafter1: str, drafter2: str, battler: str, games: int, seed: int, concurrency: int
+) -> Tuple[
+    Tuple[float, float],
+    Tuple[list, list],
+    Tuple[list, list],
+    List[List[Tuple]],
+    Tuple[list, list],
+    List[float],
+]:
     """
     Run the match-up between `drafter1` and `drafter2` using `battler` battler
     :param drafter1: drafter to play as first player
@@ -85,7 +110,10 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     battler = agents.parse_battle_agent(battler)
 
     # initialize envs
-    env = [lambda: LOCMDraftEnv(battle_agents=(battler(), battler())) for _ in range(concurrency)]
+    env = [
+        lambda: LOCMDraftEnv(battle_agents=(battler(), battler()))
+        for _ in range(concurrency)
+    ]
 
     # wrap envs in a vectorized env
     env = DummyVecEnv(env)
@@ -96,13 +124,13 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
         current_seed -= 1  # resetting the env increases the seed by 1
 
         # set seed to env
-        env.env_method('seed', current_seed, indices=[i])
+        env.env_method("seed", current_seed, indices=[i])
 
     # reset the env
     env.reset()
 
     # initialize first player
-    if drafter1.endswith('zip'):
+    if drafter1.endswith("zip"):
         current_drafter = agents.RLDraftAgent(PPO2.load(drafter1))
         current_drafter.use_history = "history" in drafter1
     else:
@@ -113,7 +141,7 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     drafter1 = current_drafter
 
     # initialize second player
-    if drafter2.endswith('zip'):
+    if drafter2.endswith("zip"):
         other_drafter = agents.RLDraftAgent(PPO2.load(drafter2))
         other_drafter.use_history = "history" in drafter2
     else:
@@ -136,26 +164,25 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
 
     # run the episodes
     while True:
-        observations = env.get_attr('state')
+        observations = env.get_attr("state")
 
         # get the current agent's action for all concurrent envs
         if isinstance(current_drafter, agents.RLDraftAgent):
-            all_past_choices = env.get_attr('choices')
+            all_past_choices = env.get_attr("choices")
             new_observations = []
 
             for i, observation in enumerate(observations):
                 new_observation = encode_state_draft(
                     observation,
                     use_history=current_drafter.use_history,
-                    past_choices=all_past_choices[i][observation.current_player.id]
+                    past_choices=all_past_choices[i][observation.current_player.id],
                 )
 
                 new_observations.append(new_observation)
 
             actions = current_drafter.act(new_observations)
         else:
-            actions = [current_drafter.act(observation)
-                       for observation in observations]
+            actions = [current_drafter.act(observation) for observation in observations]
 
         # log chosen cards into current agent's mana curve
         for i, (action, observation) in enumerate(zip(actions, observations)):
@@ -179,7 +206,9 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
 
             # save card alternatives
             if observation.current_player.id == PlayerOrder.FIRST:
-                alternatives[i].append(tuple(map(lambda c: c.id, observation.current_player.hand)))
+                alternatives[i].append(
+                    tuple(map(lambda c: c.id, observation.current_player.hand))
+                )
 
         # perform the action and get the outcome
         _, rewards, dones, _ = env.step(actions)
@@ -211,8 +240,7 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
     drafter2.mana_curve = [freq / total_choices for freq in drafter2.mana_curve]
 
     # join all parallel rewards
-    all_rewards = [reward for rewards in episode_rewards
-                   for reward in rewards[:-1]]
+    all_rewards = [reward for rewards in episode_rewards for reward in rewards[:-1]]
 
     # join all parallel choices
     drafter1.choices = [c for choices in drafter1.choices for c in choices]
@@ -227,21 +255,23 @@ def run_matchup(drafter1: str, drafter2: str, battler: str, games: int,
 
     # cap any unsolicited data from additional episodes
     all_rewards = all_rewards[:games]
-    drafter1.choices = drafter1.choices[:30 * games]
-    drafter2.choices = drafter2.choices[:30 * games]
+    drafter1.choices = drafter1.choices[: 30 * games]
+    drafter2.choices = drafter2.choices[: 30 * games]
     drafter1.decks = drafter1.decks[:games]
     drafter2.decks = drafter2.decks[:games]
-    alternatives = alternatives[:30 * games]
+    alternatives = alternatives[: 30 * games]
 
     # convert the list of rewards to the first player's win rate
     win_rate = (mean(all_rewards) + 1) * 50
 
-    return (win_rate, 100 - win_rate), \
-        (drafter1.mana_curve, drafter2.mana_curve), \
-        (drafter1.choices, drafter2.choices), \
-        alternatives, \
-        (drafter1.decks, drafter2.decks), \
-        all_rewards
+    return (
+        (win_rate, 100 - win_rate),
+        (drafter1.mana_curve, drafter2.mana_curve),
+        (drafter1.choices, drafter2.choices),
+        alternatives,
+        (drafter1.decks, drafter2.decks),
+        all_rewards,
+    )
 
 
 def run():
@@ -265,24 +295,28 @@ def run():
     ind_results = []
 
     drafter_role_index = pd.MultiIndex.from_product(
-        [args.drafters, ['1st', '2nd']], names=['drafter', 'role'])
+        [args.drafters, ["1st", "2nd"]], names=["drafter", "role"]
+    )
     mana_curves = pd.DataFrame(index=drafter_role_index, columns=range(13))
-    choices = pd.DataFrame(index=drafter_role_index,
-                           columns=range(30 * args.games * len(args.seeds)))
+    choices = pd.DataFrame(
+        index=drafter_role_index, columns=range(30 * args.games * len(args.seeds))
+    )
 
     alternatives_index = pd.MultiIndex.from_product(
         [args.seeds, range(1, args.games + 1), range(1, 31)],
-        names=['seed', 'episode', 'turn'])
-    alternatives = pd.DataFrame(index=alternatives_index,
-                                columns=['card 1', 'card 2', 'card 3'])
+        names=["seed", "episode", "turn"],
+    )
+    alternatives = pd.DataFrame(
+        index=alternatives_index, columns=["card 1", "card 2", "card 3"]
+    )
 
     episodes_index = pd.MultiIndex.from_product(
         [args.seeds, range(1, args.games + 1), args.drafters, args.drafters],
-        names=['seed', 'episode', '1st_player', '2nd_player']
+        names=["seed", "episode", "1st_player", "2nd_player"],
     )
     episodes = pd.DataFrame(
         index=episodes_index,
-        columns=['timestamp', 'reward'] + list(range(30)) + list(range(30))
+        columns=["timestamp", "reward"] + list(range(30)) + list(range(30)),
     )
 
     # for each combination of two drafters
@@ -296,12 +330,21 @@ def run():
             for i, seed in enumerate(args.seeds):
                 # if any drafter is a path to a folder, then select the
                 # appropriate model inside the folder
-                d1 = drafter1 + f'1st/{i + 1}.zip' if drafter1.endswith('/') else drafter1
-                d2 = drafter2 + f'2nd/{i + 1}.zip' if drafter2.endswith('/') else drafter2
+                d1 = (
+                    drafter1 + f"1st/{i + 1}.zip"
+                    if drafter1.endswith("/")
+                    else drafter1
+                )
+                d2 = (
+                    drafter2 + f"2nd/{i + 1}.zip"
+                    if drafter2.endswith("/")
+                    else drafter2
+                )
 
                 # run the match-up and get the statistics
                 wrs, mcs, chs, alts, dks, rwds = run_matchup(
-                    d1, d2, args.battler, args.games, seed, args.concurrency)
+                    d1, d2, args.battler, args.games, seed, args.concurrency
+                )
 
                 mean_win_rate += wrs[0]
                 mean_mana_curves_1p.append(mcs[0])
@@ -313,12 +356,13 @@ def run():
                 alternatives.loc[seed, :, :] = alts
 
                 # save the episodes info
-                episodes.loc[seed, :, drafter1, drafter2] = \
-                    [[datetime.now(), rwds[i]] + dks[0][i] + dks[1][i] for i in range(len(rwds))]
+                episodes.loc[seed, :, drafter1, drafter2] = [
+                    [datetime.now(), rwds[i]] + dks[0][i] + dks[1][i]
+                    for i in range(len(rwds))
+                ]
 
                 # save individual result
-                ind_results.append([drafter1, drafter2, seed,
-                                    wrs[0], datetime.now()])
+                ind_results.append([drafter1, drafter2, seed, wrs[0], datetime.now()])
 
             # get the mean win rate of the first player
             mean_win_rate /= len(args.seeds)
@@ -336,7 +380,7 @@ def run():
             agg_results.loc[drafter1][drafter2] = mean_win_rate
 
             # save mana curves and choices if they have not been saved yet
-            if np.isnan(mana_curves.loc[drafter1, '1st'][0]):
+            if np.isnan(mana_curves.loc[drafter1, "1st"][0]):
                 # get the mean mana curve for the drafter
                 mean_mana_curves_1p = np.array(mean_mana_curves_1p).mean(axis=0)
 
@@ -344,12 +388,12 @@ def run():
                 mean_mana_curves_1p *= 30
 
                 # update appropriate mana curves data frame row
-                mana_curves.loc[drafter1, '1st'] = mean_mana_curves_1p
+                mana_curves.loc[drafter1, "1st"] = mean_mana_curves_1p
 
                 # update appropriate choices data frame row
-                choices.loc[drafter1, '1st'] = choices_1p
+                choices.loc[drafter1, "1st"] = choices_1p
 
-            if np.isnan(mana_curves.loc[drafter2, '2nd'][0]):
+            if np.isnan(mana_curves.loc[drafter2, "2nd"][0]):
                 # get the mean mana curve for the drafter
                 mean_mana_curves_2p = np.array(mean_mana_curves_2p).mean(axis=0)
 
@@ -357,41 +401,44 @@ def run():
                 mean_mana_curves_2p *= 30
 
                 # update appropriate mana curves data frame row
-                mana_curves.loc[drafter2, '2nd'] = mean_mana_curves_2p
+                mana_curves.loc[drafter2, "2nd"] = mean_mana_curves_2p
 
                 # update appropriate choices data frame row
-                choices.loc[drafter2, '2nd'] = choices_2p
+                choices.loc[drafter2, "2nd"] = choices_2p
 
     # add average win rate to aggregate results
     avg_wr_as_1st_player = agg_results.mean(axis=1)
     avg_wr_as_2nd_player = 100 - agg_results.mean(axis=0)
-    agg_results['average'] = (avg_wr_as_1st_player + avg_wr_as_2nd_player) / 2
+    agg_results["average"] = (avg_wr_as_1st_player + avg_wr_as_2nd_player) / 2
 
     # transform individual results matrix into a data frame
     ind_results = np.array(ind_results)
     ind_results_index = pd.MultiIndex.from_product(
         [args.drafters, args.drafters, args.seeds],
-        names=['drafter1', 'drafter2', 'seed']
+        names=["drafter1", "drafter2", "seed"],
     )
-    ind_results = pd.DataFrame(data=ind_results[:, 3:], index=ind_results_index,
-                               columns=['win_rate', 'datetime'])
+    ind_results = pd.DataFrame(
+        data=ind_results[:, 3:],
+        index=ind_results_index,
+        columns=["win_rate", "datetime"],
+    )
 
     # save all tournament data to csv files
-    agg_results.to_csv(args.path + '/aggregate_win_rates.csv', index_label="1p \\ 2p")
-    ind_results.to_csv(args.path + '/individual_win_rates.csv')
-    mana_curves.to_csv(args.path + '/mana_curves.csv')
-    episodes.to_csv(args.path + '/episodes.csv')
-    alternatives.to_csv(args.path + '/alternatives.csv')
-    choices.T.to_csv(args.path + '/choices.csv')
+    agg_results.to_csv(args.path + "/aggregate_win_rates.csv", index_label="1p \\ 2p")
+    ind_results.to_csv(args.path + "/individual_win_rates.csv")
+    mana_curves.to_csv(args.path + "/mana_curves.csv")
+    episodes.to_csv(args.path + "/episodes.csv")
+    alternatives.to_csv(args.path + "/alternatives.csv")
+    choices.T.to_csv(args.path + "/choices.csv")
 
     # and also pickle files for easy reading
-    agg_results.to_pickle(args.path + '/aggregate_win_rates.pkl')
-    ind_results.to_pickle(args.path + '/individual_win_rates.pkl')
-    mana_curves.to_pickle(args.path + '/mana_curves.pkl')
-    alternatives.to_pickle(args.path + '/alternatives.pkl')
-    choices.to_pickle(args.path + '/choices.pkl')
-    episodes.to_pickle(args.path + '/episodes.pkl')
+    agg_results.to_pickle(args.path + "/aggregate_win_rates.pkl")
+    ind_results.to_pickle(args.path + "/individual_win_rates.pkl")
+    mana_curves.to_pickle(args.path + "/mana_curves.pkl")
+    alternatives.to_pickle(args.path + "/alternatives.pkl")
+    choices.to_pickle(args.path + "/choices.pkl")
+    episodes.to_pickle(args.path + "/episodes.pkl")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

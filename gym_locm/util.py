@@ -16,36 +16,40 @@ def encode_card(card):
     cost = card.cost / 12
     attack = card.attack / 12
     defense = max(-12, card.defense) / 12
-    keywords = list(map(int, map(card.keywords.__contains__, 'BCDGLW')))
+    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
     player_hp = card.player_hp / 12
     enemy_hp = card.enemy_hp / 12
     card_draw = card.card_draw / 2
 
-    return card_type + [cost, attack, defense, player_hp,
-                        enemy_hp, card_draw] + keywords
+    return (
+        card_type + [cost, attack, defense, player_hp, enemy_hp, card_draw] + keywords
+    )
 
 
-def encode_state_draft(state, use_history=False,
-                       use_mana_curve=False, past_choices=None):
+def encode_state_draft(
+    state, use_history=False, use_mana_curve=False, past_choices=None
+):
     card_features = 16
     current_card_choices = state.k
     state_size = card_features * current_card_choices
 
     if use_history:
         state_size += card_features * state.n
-        assert past_choices is not None, \
-            "If encoding the draft history, past_choices should not be None."
+        assert (
+            past_choices is not None
+        ), "If encoding the draft history, past_choices should not be None."
 
     if use_mana_curve:
         state_size += 13
-        assert past_choices is not None, \
-            "If encoding the mana curve, past_choices should not be None."
+        assert (
+            past_choices is not None
+        ), "If encoding the mana curve, past_choices should not be None."
 
     encoded_state = np.full((state_size,), 0, dtype=np.float32)
 
     # if draft is not over, fill current choices
     if state.is_draft():
-        card_choices = state.current_player.hand[0:state.k]
+        card_choices = state.current_player.hand[0 : state.k]
 
         for i in range(len(card_choices)):
             lo = -(state.k - i) * card_features

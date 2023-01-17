@@ -32,12 +32,20 @@ class OpponentHealthRewardFunction(RewardFunction):
 
 class PlayerBoardPresenceRewardFunction(RewardFunction):
     def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
-        return sum(creature.attack for lane in state.players[for_player].lanes for creature in lane)
+        return sum(
+            creature.attack
+            for lane in state.players[for_player].lanes
+            for creature in lane
+        )
 
 
 class OpponentBoardPresenceRewardFunction(RewardFunction):
     def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
-        return -sum(creature.attack for lane in state.players[for_player.opposing()].lanes for creature in lane)
+        return -sum(
+            creature.attack
+            for lane in state.players[for_player.opposing()].lanes
+            for creature in lane
+        )
 
 
 class CoacRewardFunction(RewardFunction):
@@ -53,7 +61,7 @@ available_rewards = {
     "opponent-health": OpponentHealthRewardFunction,
     "player-board-presence": PlayerBoardPresenceRewardFunction,
     "opponent-board-presence": OpponentBoardPresenceRewardFunction,
-    "coac": CoacRewardFunction
+    "coac": CoacRewardFunction,
 }
 
 
