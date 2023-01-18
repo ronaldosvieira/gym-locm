@@ -1,10 +1,11 @@
+import json
 import os
 import sys
 from operator import attrgetter
 
 import numpy as np
 
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from enum import Enum, IntEnum
 
 from gym.utils import seeding
@@ -342,6 +343,16 @@ def load_cards() -> List["Card"]:
 
 
 _cards = load_cards()
+
+
+def load_card_weights() -> Dict:
+    with open(os.path.dirname(__file__) + "/resources/cardWeights.json") as weights_file:
+        weights_json = json.load(weights_file)
+
+    return weights_json
+
+
+_card_weights = load_card_weights()
 
 
 class State:
