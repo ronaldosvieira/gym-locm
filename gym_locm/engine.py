@@ -44,7 +44,7 @@ class ActionType(Enum):
     PASS = 4
 
 
-class Area(Enum):
+class Area(IntEnum):
     NONE = 0
     TYPE_1 = 1
     TYPE_2 = 2
@@ -147,6 +147,7 @@ class Card:
         player_hp,
         enemy_hp,
         card_draw,
+        area,
         text,
         instance_id=None,
     ):
@@ -161,6 +162,7 @@ class Card:
         self.player_hp = player_hp
         self.enemy_hp = enemy_hp
         self.card_draw = card_draw
+        self.area = area
         self.text = text
 
     def has_ability(self, keyword: str) -> bool:
@@ -179,6 +181,7 @@ class Card:
         cloned_card.player_hp = self.player_hp
         cloned_card.enemy_hp = self.enemy_hp
         cloned_card.card_draw = self.card_draw
+        cloned_card.area = self.area
         cloned_card.text = self.text
 
         if instance_id is not None:
@@ -215,7 +218,7 @@ class Card:
 
     @staticmethod
     def mockup_card():
-        return Card(0, "", 0, 0, 0, 0, "------", 0, 0, 0, "", instance_id=None)
+        return Card(0, "", 0, 0, 0, 0, "------", 0, 0, 0, 0, "", instance_id=None)
 
 
 class Creature(Card):
@@ -343,6 +346,7 @@ def load_cards() -> List["Card"]:
                     int(player_hp),
                     int(enemy_hp),
                     int(card_draw),
+                    0,
                     text,
                 )
             )

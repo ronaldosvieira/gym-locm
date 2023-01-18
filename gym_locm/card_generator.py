@@ -285,7 +285,6 @@ def generate_card(card_id: int = None, rng: np.random.Generator = None):
         card_attack = 0
         card_defense = -max(card_defense, 0)
 
-    # todo: add area
     card = card_type(
         card_id,
         f"Card #{card_id}",
@@ -297,6 +296,7 @@ def generate_card(card_id: int = None, rng: np.random.Generator = None):
         chosen_properties["player_hp"],
         chosen_properties["enemy_hp"],
         chosen_properties["card_draw"],
+        chosen_properties["area"],
         "No text",  # todo: generate card text,
         instance_id=None,
     )
