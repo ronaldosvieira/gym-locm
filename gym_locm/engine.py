@@ -294,7 +294,7 @@ class Action:
 def load_cards() -> List["Card"]:
     cards = []
 
-    with open(os.path.dirname(__file__) + "/cardlist.txt", "r") as card_list:
+    with open(os.path.dirname(__file__) + "/resources/cardlist.txt", "r") as card_list:
         raw_cards = card_list.readlines()
         type_mapping = {
             "creature": (Creature, 0),
