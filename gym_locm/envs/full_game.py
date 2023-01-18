@@ -2,9 +2,9 @@ import gym
 import numpy as np
 
 from gym_locm.agents import RandomDraftAgent, RandomBattleAgent
-from gym_locm.engine import Phase, State, Action, PlayerOrder, MalformedActionError
+from gym_locm.engine import Phase, State, Action, PlayerOrder
 from gym_locm.envs.base_env import LOCMEnv
-from gym_locm.exceptions import GameIsEndedError
+from gym_locm.exceptions import GameIsEndedError, MalformedActionError
 
 
 class LOCMFullGameEnv(LOCMEnv):
