@@ -44,6 +44,12 @@ class ActionType(Enum):
     PASS = 4
 
 
+class Area(Enum):
+    NONE = 0
+    TYPE_1 = 1
+    TYPE_2 = 2
+
+
 class Location(IntEnum):
     PLAYER_HAND = 0
     ENEMY_HAND = 1
