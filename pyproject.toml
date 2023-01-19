@@ -28,6 +28,7 @@ experiments = [
     "pandas",
     "matplotlib",
     "scikit-learn",
+    "prince",
     "stable_baselines3",
     "sb3-contrib",
     "wandb",
