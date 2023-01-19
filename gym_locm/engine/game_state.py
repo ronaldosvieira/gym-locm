@@ -313,6 +313,10 @@ def load_cards() -> List["Card"]:
 _cards = load_cards()
 
 
+def get_locm12_card_list():
+    return _cards
+
+
 class State:
     def __init__(self, seed=None, items=True, k=3, n=30):
         assert k <= len(_cards)
