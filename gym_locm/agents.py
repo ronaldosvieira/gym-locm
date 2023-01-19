@@ -1,7 +1,9 @@
+import sys
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from typing import Type
 
+import numpy as np
 from pexpect import TIMEOUT, EOF
 
 from gym_locm.engine import *
@@ -11,7 +13,11 @@ import pexpect
 import time
 import random
 
-from gym_locm.util import is_it
+from gym_locm.util import is_it, has_enough_mana
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 
 class Agent(ABC):
