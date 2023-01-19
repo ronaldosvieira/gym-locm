@@ -50,7 +50,9 @@ def _get_card_weights() -> Dict:
             zip(
                 (Area.NONE, Area.TYPE_1, Area.TYPE_2),
                 _normalize_weights(
-                    list(map(lambda pw: pw["weight"], weights_json["areaProbabilities"]))
+                    list(
+                        map(lambda pw: pw["weight"], weights_json["areaProbabilities"])
+                    )
                 ),
             )
         )
@@ -79,7 +81,12 @@ def _get_card_weights() -> Dict:
             zip(
                 "BCDGLW",
                 _normalize_weights(
-                    list(map(lambda pw: pw["weight"], weights_json["keywordProbabilities"]))
+                    list(
+                        map(
+                            lambda pw: pw["weight"],
+                            weights_json["keywordProbabilities"],
+                        )
+                    )
                 ),
             )
         )
@@ -101,7 +108,9 @@ def _get_card_weights() -> Dict:
             zip(
                 range(5),
                 _normalize_weights(
-                    list(map(lambda pw: pw["weight"], weights_json["drawProbabilities"]))
+                    list(
+                        map(lambda pw: pw["weight"], weights_json["drawProbabilities"])
+                    )
                 ),
             )
         )
@@ -123,7 +132,12 @@ def _get_card_weights() -> Dict:
             zip(
                 range(4),
                 _normalize_weights(
-                    list(map(lambda pw: pw["weight"], weights_json["myHealthProbabilities"]))
+                    list(
+                        map(
+                            lambda pw: pw["weight"],
+                            weights_json["myHealthProbabilities"],
+                        )
+                    )
                 ),
             )
         )
@@ -145,7 +159,12 @@ def _get_card_weights() -> Dict:
             zip(
                 range(0, -4, -1),
                 _normalize_weights(
-                    list(map(lambda pw: pw["weight"], weights_json["oppHealthProbabilities"]))
+                    list(
+                        map(
+                            lambda pw: pw["weight"],
+                            weights_json["oppHealthProbabilities"],
+                        )
+                    )
                 ),
             )
         )
@@ -292,7 +311,7 @@ def generate_card(card_id: int = None, rng: np.random.Generator = None):
         card_cost,
         card_attack,
         card_defense,
-        ''.join(chosen_properties["keywords"]),
+        "".join(chosen_properties["keywords"]),
         chosen_properties["player_hp"],
         chosen_properties["enemy_hp"],
         chosen_properties["card_draw"],
