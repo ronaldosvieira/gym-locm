@@ -43,7 +43,7 @@ def get_arg_parser() -> argparse.ArgumentParser:
         "-d",
         nargs="+",
         required=True,
-        help="draft agents in the tournament " "(at least one, separated by space)",
+        help="draft agents in the tournament (at least one, separated by space)",
     )
     p.add_argument(
         "--battler",

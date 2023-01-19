@@ -742,7 +742,7 @@ class State:
             raise NotEnoughManaError()
 
         if not isinstance(origin, Creature):
-            raise MalformedActionError("Card being summoned is not a " "creature")
+            raise MalformedActionError("Card being summoned is not a creature")
 
         if not isinstance(target, Lane):
             raise MalformedActionError("Target is not a lane")
@@ -773,14 +773,14 @@ class State:
         opposing_player = self.opposing_player
 
         if not isinstance(origin, Creature):
-            raise MalformedActionError("Attacking card is not a " "creature")
+            raise MalformedActionError("Attacking card is not a creature")
 
         if origin in current_player.lanes[Lane.LEFT]:
             origin_lane = Lane.LEFT
         elif origin in current_player.lanes[Lane.RIGHT]:
             origin_lane = Lane.RIGHT
         else:
-            raise MalformedActionError("Attacking creature is not " "owned by player")
+            raise MalformedActionError("Attacking creature is not owned by player")
 
         guard_creatures = []
 
@@ -797,7 +797,7 @@ class State:
             raise MalformedActionError("Invalid target")
 
         if not origin.able_to_attack():
-            raise MalformedActionError("Attacking creature cannot " "attack")
+            raise MalformedActionError("Attacking creature cannot attack")
 
         if target is None:
             damage_dealt = opposing_player.damage(origin.attack)
@@ -822,7 +822,7 @@ class State:
             if "B" in origin.keywords and excess_damage > 0:
                 opposing_player.damage(excess_damage)
         else:
-            raise MalformedActionError("Target is not a creature or " "a player")
+            raise MalformedActionError("Target is not a creature or a player")
 
         if "D" in origin.keywords:
             current_player.health += damage_dealt
@@ -850,7 +850,7 @@ class State:
             )
 
             if target is None or not is_own_creature:
-                error = "Green items should be used on friendly " "creatures"
+                error = "Green items should be used on friendly creatures"
                 raise MalformedActionError(error)
 
             target.attack = max(0, target.attack + origin.attack)
@@ -871,7 +871,7 @@ class State:
             )
 
             if target is None or not is_opp_creature:
-                error = "Red items should be used on enemy " "creatures"
+                error = "Red items should be used on enemy creatures"
                 raise MalformedActionError(error)
 
             target.attack = max(0, target.attack + origin.attack)
@@ -897,7 +897,7 @@ class State:
 
             if target is not None and not is_opp_creature:
                 error = (
-                    "Blue items should be used on enemy " "creatures or enemy player"
+                    "Blue items should be used on enemy creatures or enemy player"
                 )
                 raise MalformedActionError(error)
 

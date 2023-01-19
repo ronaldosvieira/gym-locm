@@ -134,11 +134,11 @@ def run():
 
     if not args.p1_path and (not args.p1_draft or not args.p1_battle):
         arg_parser.error(
-            "You should use either p1-path or both " "p1-draft and p1-battle.\n"
+            "You should use either p1-path or both p1-draft and p1-battle.\n"
         )
     elif not args.p2_path and (not args.p2_draft or not args.p2_battle):
         arg_parser.error(
-            "You should use either p2-path or both " "p2-draft and p2-battle.\n"
+            "You should use either p2-path or both p2-draft and p2-battle.\n"
         )
 
     if args.p1_path is not None:
