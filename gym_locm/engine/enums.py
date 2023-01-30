@@ -53,6 +53,6 @@ class Location(IntEnum):
 
 
 class DamageSource(Enum):
-    GAME = 0,
-    SELF = 1,
+    GAME = 0
+    SELF = 1
     OPPONENT = 2
