@@ -255,6 +255,7 @@ class State:
         self.version = version
         self.turn = 1
         self.was_last_action_invalid = False
+        self.winner = None
 
         if version == "1.5":
             self.deck_building_phase = ConstructedPhase(self, self.rng, items)
@@ -290,6 +291,10 @@ class State:
     @property
     def action_mask(self):
         return self._phase.action_mask()
+
+    @property
+    def winner(self):
+        return self.battle_phase.winner
 
     def seed(self, seed=None):
         self.rng = np.random.default_rng(seed=seed)
