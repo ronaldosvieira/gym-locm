@@ -248,7 +248,14 @@ def get_locm12_card_list():
 
 
 class State:
-    def __init__(self, seed=None, version="1.5", items=True, deck_building_kwargs=None, battle_kwargs=None):
+    def __init__(
+        self,
+        seed=None,
+        version="1.5",
+        items=True,
+        deck_building_kwargs=None,
+        battle_kwargs=None,
+    ):
 
         self.rng = np.random.default_rng(seed=seed)
         self.items = items
@@ -264,13 +271,17 @@ class State:
             self.phase = Phase.CONSTRUCTED
 
         elif version == "1.2":
-            self.deck_building_phase = DraftPhase(self, self.rng, items, **deck_building_kwargs)
+            self.deck_building_phase = DraftPhase(
+                self, self.rng, items, **deck_building_kwargs
+            )
             self.battle_phase = Version12BattlePhase(self, self.rng, items)
 
             self.phase = Phase.DRAFT
 
         else:
-            raise ValueError(f"Invalid version {version}. Supported versions: \"1.5\" and \"1.2\"")
+            raise ValueError(
+                f'Invalid version {version}. Supported versions: "1.5" and "1.2"'
+            )
 
         self._phase = self.deck_building_phase
         self._current_player = PlayerOrder.FIRST
@@ -329,13 +340,9 @@ class State:
             draw = cp.last_drawn if cp == self.current_player else 1 + cp.bonus_draw
 
             if self.version == "1.5":
-                encoding += (
-                    f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {draw}\n"
-                )
+                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {draw}\n"
             elif self.version == "1.2":
-                encoding += (
-                    f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {cp.next_rune} {draw}\n"
-                )
+                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {cp.next_rune} {draw}\n"
 
         op_hand = len(o.hand) if self.phase != Phase.DECK_BUILDING else 0
         last_actions = []
