@@ -94,20 +94,10 @@ The battle phase is played. A default (configurable) policy is used in the draft
     
 </details>
 
-### Full match
-```python
-env = gym.make("LOCM-v0")
-```
-
-A full match is played. The draft phase happens in the first 30 turns, with the battle phase taking place on the subsequent turns.
-
-States and actions are the same as listed above, changing according to the current phase.
-
 ### Two-player variations
  ```python
 env = gym.make("LOCM-draft-2p-v0")
 env = gym.make("LOCM-battle-2p-v0")
-env = gym.make("LOCM-2p-v0")
 ```
 
 Both players are controlled alternately. A reward of *1* is given if the first player wins, and *-1* otherwise. 
