@@ -768,6 +768,8 @@ class BattlePhase(Phase, ABC):
         current_player.last_drawn = amount_to_draw
 
 
+Version15BattlePhase = BattlePhase
+
 class Version12BattlePhase(BattlePhase):
     def __init__(self, state, rng, items=True):
         super().__init__(state, rng, items)
