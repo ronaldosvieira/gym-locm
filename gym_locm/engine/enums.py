@@ -48,3 +48,9 @@ class Location(IntEnum):
     ENEMY_BOARD = 20
     ENEMY_LEFT_LANE = 20
     ENEMY_RIGHT_LANE = 21
+
+
+class DamageSource(Enum):
+    GAME = 0,
+    SELF = 1,
+    OPPONENT = 2
