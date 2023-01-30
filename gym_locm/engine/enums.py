@@ -19,6 +19,9 @@ class Lane(IntEnum):
     LEFT = 0
     RIGHT = 1
 
+    def opposing(self):
+        return Lane((self + 1) % 2)
+
 
 class ActionType(Enum):
     PICK = 0
