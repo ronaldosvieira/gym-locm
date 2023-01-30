@@ -64,13 +64,13 @@ class LOCMEnv(gym.Env, ABC):
         """
         if self._seed is None:
             # recover random state from current state obj
-            random_state = self.state.np_random
+            rng = self.state.np_random
 
             # start a brand new game
             self.state = State(items=self.items)
 
             # apply random state
-            self.state.np_random = random_state
+            self.state.rng = rng
         else:
             # start a brand new game with next seed
             self._seed += 1
