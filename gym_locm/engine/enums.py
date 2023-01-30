@@ -2,7 +2,9 @@ from enum import IntEnum, Enum
 
 
 class Phase(IntEnum):
+    DECK_BUILDING = 0
     DRAFT = 0
+    CONSTRUCTED = 0
     BATTLE = 1
     ENDED = 2
 
