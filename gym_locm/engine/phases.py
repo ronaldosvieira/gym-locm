@@ -10,10 +10,25 @@ from gym_locm.engine import (
     Action,
     ActionType,
     PlayerOrder,
-    get_locm12_card_list, Lane, GreenItem, RedItem, BlueItem, Location,
+    get_locm12_card_list,
+    Lane,
+    GreenItem,
+    RedItem,
+    BlueItem,
+    Location,
+    Player,
+    Area,
 )
-from gym_locm.exceptions import FullHandError, EmptyDeckError, NotEnoughManaError, MalformedActionError, FullLaneError, \
-    InvalidCardError, WardShieldError
+from gym_locm.engine.enums import DamageSource
+from gym_locm.exceptions import (
+    FullHandError,
+    EmptyDeckError,
+    NotEnoughManaError,
+    MalformedActionError,
+    FullLaneError,
+    InvalidCardError,
+    WardShieldError,
+)
 from gym_locm.util import is_it, has_enough_mana
 
 
@@ -171,16 +186,12 @@ class BattlePhase(Phase, ABC):
 
         self.instance_counter = 0
         self.summon_counter = 0
+        self.damage_counter = 0, 0
 
     def _next_instance_id(self):
         self.instance_counter += 1
 
         return self.instance_counter
-
-
-class Version12BattlePhase(BattlePhase):
-    def __init__(self, state, rng, items=True):
-        super().__init__(state, rng, items)
 
     def available_actions(self) -> Tuple[Action]:
         if self.__available_actions is None:
@@ -363,7 +374,7 @@ class Version12BattlePhase(BattlePhase):
         origin, target = action.origin, action.target
 
         if isinstance(action.origin, int):
-            origin = self._find_card(origin)
+            origin, _ = self._find_card(origin)
 
         if action.type == ActionType.SUMMON:
             if isinstance(action.target, int):
@@ -372,12 +383,12 @@ class Version12BattlePhase(BattlePhase):
             self._do_summon(origin, target)
         elif action.type == ActionType.ATTACK:
             if isinstance(action.target, int):
-                target = self._find_card(target)
+                target, _ = self._find_card(target)
 
             self._do_attack(origin, target)
         elif action.type == ActionType.USE:
             if isinstance(action.target, int):
-                target = self._find_card(target)
+                target, _ = self._find_card(target)
 
             self._do_use(origin, target)
         elif action.type == ActionType.PASS:
@@ -398,14 +409,39 @@ class Version12BattlePhase(BattlePhase):
                     if creature.is_dead:
                         lane.remove(creature)
 
-        if players[PlayerOrder.FIRST].health <= 0:
+        self._check_win_conditions()
+
+    def _check_win_conditions(self):
+        if self.state.players[PlayerOrder.FIRST].health <= 0:
             self.ended = True
             self.winner = PlayerOrder.SECOND
-        elif players[PlayerOrder.SECOND].health <= 0:
+        elif self.state.players[PlayerOrder.SECOND].health <= 0:
             self.ended = True
             self.winner = PlayerOrder.FIRST
 
-    def _find_card(self, instance_id: int) -> Card:
+    def _damage_player(self, player: Player, amount: int, source: DamageSource) -> int:
+        player.health -= amount
+
+        if amount > 0 and source == DamageSource.OPPONENT:
+            self.damage_counter[player.id] += amount
+
+            while self.damage_counter[player.id] >= 5:
+                self.damage_counter[player.id] -= 5
+                player.bonus_draw += 1
+
+        return amount
+
+    def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
+        self._damage_player(
+            self.state.current_player, amount=10, source=DamageSource.GAME
+        )
+
+    def _handle_turn_50_or_greater(self):
+        self._damage_player(
+            self.state.current_player, amount=10, source=DamageSource.GAME
+        )
+
+    def _find_card(self, instance_id: int) -> Tuple[Card, Location]:
         # todo: use an instance_id -> card mapping like in the original engine
         c = self.state.players[self._current_player]
         o = self.state.players[self._current_player.opposing()]
@@ -422,7 +458,7 @@ class Version12BattlePhase(BattlePhase):
         for location, cards in location_mapping.items():
             for card in cards:
                 if card.instance_id == instance_id:
-                    return card
+                    return card, location
 
         raise InvalidCardError(instance_id)
 
@@ -455,8 +491,43 @@ class Version12BattlePhase(BattlePhase):
         current_player.lanes[target].append(origin)
 
         current_player.bonus_draw += origin.card_draw
-        current_player.damage(-origin.player_hp)
-        opposing_player.damage(-origin.enemy_hp)
+        self._damage_player(
+            current_player, amount=-origin.player_hp, source=DamageSource.SELF
+        )
+        self._damage_player(
+            opposing_player, amount=-origin.enemy_hp, source=DamageSource.OPPONENT
+        )
+
+        if origin.area != Area.NONE:
+
+            if origin.area == Area.TYPE_1:
+                target_copy = target
+            elif origin.area == Area.TYPE_2:
+                target_copy = target.opposing()
+            else:
+                raise InvalidCardError(message=f"Invalid area value: {origin.area}")
+
+            if len(current_player.lanes[target_copy]) < 3:
+                origin_copy = copy.deepcopy(origin)
+
+                origin_copy.instance_id = self._next_instance_id()
+
+                origin_copy.summon_counter = self.summon_counter
+                self.summon_counter += 1
+
+                current_player.lanes[target_copy].append(origin_copy)
+
+                current_player.bonus_draw += origin_copy.card_draw
+                self._damage_player(
+                    current_player,
+                    amount=-origin_copy.player_hp,
+                    source=DamageSource.SELF,
+                )
+                self._damage_player(
+                    opposing_player,
+                    amount=-origin_copy.enemy_hp,
+                    source=DamageSource.OPPONENT,
+                )
 
         current_player.mana -= origin.cost
 
@@ -492,7 +563,9 @@ class Version12BattlePhase(BattlePhase):
             raise MalformedActionError("Attacking creature cannot attack")
 
         if target is None:
-            damage_dealt = opposing_player.damage(origin.attack)
+            damage_dealt = self._damage_player(
+                opposing_player, amount=origin.attack, source=DamageSource.OPPONENT
+            )
 
         elif isinstance(target, Creature):
             target_defense = target.defense
@@ -512,7 +585,9 @@ class Version12BattlePhase(BattlePhase):
             excess_damage = damage_dealt - target_defense
 
             if "B" in origin.keywords and excess_damage > 0:
-                opposing_player.damage(excess_damage)
+                self._damage_player(
+                    opposing_player, amount=excess_damage, source=DamageSource.OPPONENT
+                )
         else:
             raise MalformedActionError("Target is not a creature or a player")
 
@@ -520,6 +595,75 @@ class Version12BattlePhase(BattlePhase):
             current_player.health += damage_dealt
 
         origin.has_attacked_this_turn = True
+
+    def _do_use_green(self, origin, target):
+        is_own_creature = (
+            target in self.state.current_player.lanes[Lane.LEFT]
+            or target in self.state.current_player.lanes[Lane.RIGHT]
+        )
+
+        if target is None or not is_own_creature:
+            error = "Green items should be used on friendly creatures"
+            raise MalformedActionError(error)
+
+        target.attack = max(0, target.attack + origin.attack)
+        target.defense += origin.defense
+        target.keywords = target.keywords.union(origin.keywords)
+
+        if target.defense <= 0:
+            target.is_dead = True
+
+    def _do_use_red(self, origin, target):
+        is_opp_creature = (
+            target in self.state.opposing_player.lanes[Lane.LEFT]
+            or target in self.state.opposing_player.lanes[Lane.RIGHT]
+        )
+
+        if target is None or not is_opp_creature:
+            error = "Red items should be used on enemy creatures"
+            raise MalformedActionError(error)
+
+        target.attack = max(0, target.attack + origin.attack)
+        target.keywords = target.keywords.difference(origin.keywords)
+
+        try:
+            target.damage(-origin.defense)
+        except WardShieldError:
+            pass
+
+        if target.defense <= 0:
+            target.is_dead = True
+
+    def _do_use_blue(self, origin, target):
+        is_opp_creature = (
+            target in self.state.opposing_player.lanes[Lane.LEFT]
+            or target in self.state.opposing_player.lanes[Lane.RIGHT]
+        )
+
+        if target is not None and not is_opp_creature:
+            error = "Blue items should be used on enemy creatures or enemy player"
+            raise MalformedActionError(error)
+
+        if isinstance(target, Creature):
+            target.attack = max(0, target.attack + origin.attack)
+            target.keywords = target.keywords.difference(origin.keywords)
+
+            try:
+                target.damage(-origin.defense)
+            except WardShieldError:
+                pass
+
+            if target.defense <= 0:
+                target.is_dead = True
+
+        elif target is None:
+            self._damage_player(
+                self.state.opposing_player,
+                amount=-origin.defense,
+                source=DamageSource.OPPONENT,
+            )
+        else:
+            raise MalformedActionError("Invalid target")
 
     def _do_use(self, origin, target):
         current_player = self.state.players[self._current_player]
@@ -535,88 +679,41 @@ class Version12BattlePhase(BattlePhase):
         if origin not in current_player.hand:
             raise MalformedActionError("Card is not in player's hand")
 
-        if isinstance(origin, GreenItem):
-            is_own_creature = (
-                    target in current_player.lanes[Lane.LEFT]
-                    or target in current_player.lanes[Lane.RIGHT]
-            )
+        if origin.area != Area.NONE and target is not None:
+            targets = []
 
-            if target is None or not is_own_creature:
-                error = "Green items should be used on friendly creatures"
-                raise MalformedActionError(error)
+            _, location = self._find_card(target.instance_id)
 
-            target.attack = max(0, target.attack + origin.attack)
-            target.defense += origin.defense
-            target.keywords = target.keywords.union(origin.keywords)
+            # note: see the Location, PlayerOrder and Lane classes for more details on this arithmetic
+            target_owner = PlayerOrder(location // 10)
+            target_lane = Lane(location % 10)
 
-            if target.defense <= 0:
-                target.is_dead = True
+            targets.extend(self.state.players[target_owner].lanes[target_lane])
 
-            current_player.bonus_draw += origin.card_draw
-            current_player.damage(-origin.player_hp)
-            opposing_player.damage(-origin.enemy_hp)
-
-        elif isinstance(origin, RedItem):
-            is_opp_creature = (
-                    target in opposing_player.lanes[Lane.LEFT]
-                    or target in opposing_player.lanes[Lane.RIGHT]
-            )
-
-            if target is None or not is_opp_creature:
-                error = "Red items should be used on enemy creatures"
-                raise MalformedActionError(error)
-
-            target.attack = max(0, target.attack + origin.attack)
-            target.keywords = target.keywords.difference(origin.keywords)
-
-            try:
-                target.damage(-origin.defense)
-            except WardShieldError:
-                pass
-
-            if target.defense <= 0:
-                target.is_dead = True
-
-            current_player.bonus_draw += origin.card_draw
-            current_player.damage(-origin.player_hp)
-            opposing_player.damage(-origin.enemy_hp)
-
-        elif isinstance(origin, BlueItem):
-            is_opp_creature = (
-                    target in opposing_player.lanes[Lane.LEFT]
-                    or target in opposing_player.lanes[Lane.RIGHT]
-            )
-
-            if target is not None and not is_opp_creature:
-                error = (
-                    "Blue items should be used on enemy creatures or enemy player"
+            if origin.area == Area.TYPE_2:
+                targets.extend(
+                    self.state.players[target_owner].lanes[target_lane.opposing()]
                 )
-                raise MalformedActionError(error)
+        else:
+            targets = [target]
 
-            if isinstance(target, Creature):
-                target.attack = max(0, target.attack + origin.attack)
-                target.keywords = target.keywords.difference(origin.keywords)
-
-                try:
-                    target.damage(-origin.defense)
-                except WardShieldError:
-                    pass
-
-                if target.defense <= 0:
-                    target.is_dead = True
-
-            elif target is None:
-                opposing_player.damage(-origin.defense)
+        for target in targets:
+            if isinstance(origin, GreenItem):
+                self._do_use_green(origin, target)
+            elif isinstance(origin, RedItem):
+                self._do_use_red(origin, target)
+            elif isinstance(origin, BlueItem):
+                self._do_use_blue(origin, target)
             else:
-                raise MalformedActionError("Invalid target")
+                raise MalformedActionError("Card being used is not an item")
 
             current_player.bonus_draw += origin.card_draw
-            current_player.damage(-origin.player_hp)
-            opposing_player.damage(-origin.enemy_hp)
-
-        else:
-            error = "Card being used is not an item"
-            raise MalformedActionError(error)
+            self._damage_player(
+                current_player, amount=-origin.player_hp, source=DamageSource.SELF
+            )
+            self._damage_player(
+                opposing_player, amount=-origin.enemy_hp, source=DamageSource.OPPONENT
+            )
 
         current_player.hand.remove(origin)
         current_player.mana -= origin.cost
@@ -625,6 +722,9 @@ class Version12BattlePhase(BattlePhase):
         # invalidate cached action list and masks
         self.__available_actions = None
         self.__action_mask = None
+
+        # reset damage counters
+        self.damage_counter = 0, 0
 
         # handle turn change
         if self._current_player == PlayerOrder.FIRST:
@@ -655,16 +755,38 @@ class Version12BattlePhase(BattlePhase):
         amount_to_draw = 1 + current_player.bonus_draw
 
         if self.turn > 50:
-            current_player.deck = []
+            self._handle_turn_50_or_greater()
 
         try:
             current_player.draw(amount_to_draw)
         except FullHandError:
             pass
         except EmptyDeckError as e:
-            for _ in range(e.remaining_draws):
-                deck_burn = current_player.health - current_player.next_rune
-                current_player.damage(deck_burn)
+            self._handle_draw_from_empty_deck(e.remaining_draws)
 
         current_player.bonus_draw = 0
         current_player.last_drawn = amount_to_draw
+
+
+class Version12BattlePhase(BattlePhase):
+    def __init__(self, state, rng, items=True):
+        super().__init__(state, rng, items)
+
+    def _damage_player(self, player: Player, amount: int, source: DamageSource) -> int:
+        player.health -= amount
+
+        while player.health <= player.next_rune and player.next_rune > 0:
+            player.next_rune -= 5
+            player.bonus_draw += 1
+
+        return amount
+
+    def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
+        cp = self.state.current_player
+
+        for _ in range(remaining_draws):
+            deck_burn = cp.health - cp.next_rune
+            self._damage_player(cp, amount=deck_burn, source=DamageSource.GAME)
+
+    def _handle_turn_50_or_greater(self):
+        self.state.current_player.deck = []
