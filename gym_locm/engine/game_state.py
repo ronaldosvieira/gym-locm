@@ -41,47 +41,6 @@ class Player:
 
             self.hand.append(self.deck.pop())
 
-    def damage(self, amount: int) -> int:
-        self.health -= amount
-
-        while self.health <= self.next_rune and self.next_rune > 0:
-            self.next_rune -= 5
-            self.bonus_draw += 1
-
-        return amount
-
-    def clone(self):
-        cloned_player = Player.empty_copy()
-
-        cloned_player.id = self.id
-        cloned_player.health = self.health
-        cloned_player.base_mana = self.base_mana
-        cloned_player.bonus_mana = self.bonus_mana
-        cloned_player.mana = self.mana
-        cloned_player.next_rune = self.next_rune
-        cloned_player.bonus_draw = self.bonus_draw
-
-        cloned_player.deck = [card.make_copy(card.instance_id) for card in self.deck]
-        cloned_player.hand = [card.make_copy(card.instance_id) for card in self.hand]
-        cloned_player.lanes = tuple(
-            [[card.make_copy(card.instance_id) for card in lane] for lane in self.lanes]
-        )
-
-        cloned_player.actions = list(self.actions)
-
-        return cloned_player
-
-    @staticmethod
-    def empty_copy():
-        class Empty(Player):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = Player
-
-        return new_copy
-
 
 class Card:
     def __init__(
@@ -118,20 +77,7 @@ class Card:
         return keyword in self.keywords
 
     def make_copy(self, instance_id=None) -> "Card":
-        cloned_card = Card.empty_copy(self)
-
-        cloned_card.id = self.id
-        cloned_card.name = self.name
-        cloned_card.type = self.type
-        cloned_card.cost = self.cost
-        cloned_card.attack = self.attack
-        cloned_card.defense = self.defense
-        cloned_card.keywords = set(self.keywords)
-        cloned_card.player_hp = self.player_hp
-        cloned_card.enemy_hp = self.enemy_hp
-        cloned_card.card_draw = self.card_draw
-        cloned_card.area = self.area
-        cloned_card.text = self.text
+        cloned_card = copy.deepcopy(self)
 
         if instance_id is not None:
             cloned_card.instance_id = instance_id
@@ -153,17 +99,6 @@ class Card:
             return f"({self.instance_id}: {self.name})"
         else:
             return f"({self.instance_id})"
-
-    @staticmethod
-    def empty_copy(card):
-        class Empty(Card):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = type(card)
-
-        return new_copy
 
     @staticmethod
     def mockup_card():
