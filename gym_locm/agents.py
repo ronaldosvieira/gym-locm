@@ -578,7 +578,7 @@ class NativeBattleAgent(NativeAgent):
         super().__init__(*args, **kwargs)
 
     def fake_draft(self, state):
-        fake_state = State()
+        fake_state = State(version="1.2")
 
         play_first = state.current_player.id == 0
         deck = state.current_player.deck + state.current_player.hand

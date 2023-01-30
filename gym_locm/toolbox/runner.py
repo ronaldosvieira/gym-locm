@@ -81,7 +81,7 @@ def evaluate(params):
     draft_bots = (player_1[0], player_2[0])
     battle_bots = (player_1[1], player_2[1])
 
-    game = engine.Game(seed=seed + game_id)
+    game = engine.Game(seed=seed + game_id, version="1.2")
 
     for bot in draft_bots + battle_bots:
         bot.reset()

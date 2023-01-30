@@ -50,7 +50,7 @@ class LOCMEnv(gym.Env, ABC):
 
         self.reward_range = (-sum(reward_weights), sum(reward_weights))
 
-        self.state = State(seed=seed, items=items, k=k, n=n)
+        self.state = State(seed=seed, items=items, version="1.2", deck_building_kwargs=dict(k=k, n=n))
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
@@ -64,10 +64,10 @@ class LOCMEnv(gym.Env, ABC):
         """
         if self._seed is None:
             # recover random state from current state obj
-            rng = self.state.np_random
+            rng = self.state.rng
 
             # start a brand new game
-            self.state = State(items=self.items)
+            self.state = State(items=self.items, version="1.2", deck_building_kwargs=dict(k=self.k, n=self.n))
 
             # apply random state
             self.state.rng = rng
@@ -75,7 +75,7 @@ class LOCMEnv(gym.Env, ABC):
             # start a brand new game with next seed
             self._seed += 1
 
-            self.state = State(seed=self._seed, items=self.items)
+            self.state = State(seed=self._seed, items=self.items, version="1.2", deck_building_kwargs=dict(k=self.k, n=self.n))
 
         self.episodes += 1
         self.last_player_rewards = [None, None]
