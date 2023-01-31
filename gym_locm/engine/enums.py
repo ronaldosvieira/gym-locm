@@ -27,10 +27,11 @@ class Lane(IntEnum):
 
 class ActionType(Enum):
     PICK = 0
-    SUMMON = 1
-    ATTACK = 2
-    USE = 3
-    PASS = 4
+    CHOOSE = 1
+    SUMMON = 2
+    ATTACK = 3
+    USE = 4
+    PASS = 5
 
 
 class Area(IntEnum):
