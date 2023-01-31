@@ -19,6 +19,7 @@ from gym_locm.engine import (
     Player,
     Area,
 )
+from gym_locm.engine.card_generator import generate_card
 from gym_locm.engine.enums import DamageSource
 from gym_locm.exceptions import (
     FullHandError,
@@ -166,20 +167,91 @@ class DraftPhase(DeckBuildingPhase):
 
 
 class ConstructedPhase(DeckBuildingPhase):
+    def __init__(self, state, rng, k=120, n=30, max_copies=2, items=True):
+        super().__init__(state, rng, items)
+
+        self.k, self.n = k, n
+        self.max_copies = max_copies
+
+        self._constructed_cards = None
+        self.__action_mask = [True] * self.k, [True] * self.k
+        self.__choices = [0] * self.k, [0] * self.k
+
     def available_actions(self) -> Tuple[Action]:
-        pass
+        return tuple(
+            Action(ActionType.CHOOSE, i)
+            for i, can_be_chosen in enumerate(self.action_mask())
+            if can_be_chosen
+        )
 
     def action_mask(self) -> Tuple[bool]:
-        pass
+        return tuple(self.__action_mask[self._current_player])
 
     def prepare(self):
-        pass
+        # initialize current player pointer
+        self._current_player = PlayerOrder.FIRST
+
+        # initialize random constructed cards
+        self._constructed_cards = self._new_constructed()
+
+        # initialize the players' hands
+        for player in self.state.players:
+            player.hand = self._constructed_cards
+
+    def _new_constructed(self):
+        card_pool = [generate_card(i + 1, self.rng, self.items) for i in range(self.k)]
+
+        return card_pool
 
     def act(self, action: Action):
-        pass
+        # get chosen card
+        chosen_card_id = action.origin if action.origin is not None else 0
+        chosen_card_index = chosen_card_id - 1
+
+        # validate choice
+        if 0 >= chosen_card_index >= self.k:
+            raise MalformedActionError(f"Invalid card ID: {chosen_card_id}")
+
+        player_choices = self.__choices[self._current_player]
+
+        if not self.action_mask()[chosen_card_index]:
+            raise MalformedActionError(
+                f"Can't choose more copies of card {chosen_card_id}"
+            )
+
+        # increase times chosen
+        player_choices[chosen_card_index] += 1
+
+        # update action mask, if needed
+        if player_choices[chosen_card_index] >= self.max_copies:
+            self.__action_mask[self._current_player][chosen_card_index] = False
+
+        # add chosen card to player's deck
+        card = self._constructed_cards[chosen_card_index]
+        self.decks[self._current_player].append(card)
+
+        # trigger next turn
+        self._next_turn()
 
     def _next_turn(self):
-        pass
+        # handle turn change
+        if self._current_player == PlayerOrder.FIRST:
+            self._current_player = PlayerOrder.SECOND
+        else:
+            if self.turn < self.n:
+                self._current_player = PlayerOrder.FIRST
+
+                self.turn += 1
+
+                for player in self.state.players:
+                    player.hand = [
+                        self._constructed_cards[i]
+                        for i, can_be_chosen in enumerate(self.__action_mask[player.id])
+                        if can_be_chosen
+                    ]
+            else:
+                self._current_player = None
+                self.ended = True
 
 
 class BattlePhase(Phase, ABC):
