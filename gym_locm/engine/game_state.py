@@ -262,7 +262,6 @@ class State:
         self.version = version
         self.turn = 1
         self.was_last_action_invalid = False
-        self.winner = None
 
         if version == "1.5":
             self.deck_building_phase = ConstructedPhase(self, self.rng, items)
