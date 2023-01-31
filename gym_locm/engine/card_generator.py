@@ -42,6 +42,13 @@ def _get_card_weights() -> Dict:
             )
         )
 
+        _card_weights["type_no_items"] = dict(
+            zip(
+                (Creature, GreenItem, RedItem, BlueItem),
+                [1.0, 0.0, 0.0, 0.0],
+            )
+        )
+
         _card_weights["cost"] = dict(
             zip(range(13), _normalize_weights(weights_json["manaCurve"].values()))
         )
@@ -208,15 +215,24 @@ def _get_rng() -> np.random.Generator:
     return _rng
 
 
-def generate_card(card_id: int = None, rng: np.random.Generator = None):
+def generate_card(
+    card_id: int = None, rng: np.random.Generator = None, items: bool = True
+):
     if rng is None:
         rng = _get_rng()
 
     card_weights = _get_card_weights()
 
-    card_type = rng.choice(
-        list(card_weights["type"].keys()), p=list(card_weights["type"].values())
-    )
+    if items:
+        card_type = rng.choice(
+            list(card_weights["type"].keys()), p=list(card_weights["type"].values())
+        )
+    else:
+        card_type = rng.choice(
+            list(card_weights["type_no_items"].keys()),
+            p=list(card_weights["type_no_items"].values()),
+        )
+
     card_cost = rng.choice(
         list(card_weights["cost"].keys()), p=list(card_weights["cost"].values())
     )
