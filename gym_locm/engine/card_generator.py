@@ -5,7 +5,8 @@ from typing import Dict, List, Iterable
 
 import numpy as np
 
-from gym_locm.engine import Creature, GreenItem, RedItem, BlueItem, Area
+from gym_locm.engine.card import Creature, GreenItem, RedItem, BlueItem
+from gym_locm.engine.enums import Area
 
 _card_weights = None
 _rng = None

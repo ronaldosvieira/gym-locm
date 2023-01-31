@@ -6,13 +6,23 @@ from typing import Type
 import numpy as np
 from pexpect import TIMEOUT, EOF
 
-from gym_locm.engine import *
 from gym_locm.algorithms import MCTS
 
 import pexpect
 import time
 import random
 
+from gym_locm.engine import (
+    Action,
+    ActionType,
+    Lane,
+    Creature,
+    GreenItem,
+    RedItem,
+    BlueItem,
+    State,
+    PlayerOrder,
+)
 from gym_locm.util import is_it, has_enough_mana
 
 
