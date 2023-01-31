@@ -283,6 +283,8 @@ class State:
             )
 
         self._phase = self.deck_building_phase
+        self._phase.prepare()
+
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
 
     @property
@@ -321,8 +323,9 @@ class State:
 
         if self._phase.ended:
             if self.phase == Phase.DECK_BUILDING:
-                self._phase = self.battle_phase
                 self.phase = Phase.BATTLE
+                self._phase = self.battle_phase
+                self._phase.prepare()
 
             elif self.phase == Phase.BATTLE:
                 self.phase = Phase.ENDED
