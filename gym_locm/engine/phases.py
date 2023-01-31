@@ -103,6 +103,10 @@ class DraftPhase(DeckBuildingPhase):
         # initialize random draft cards
         self._draft_cards = self._new_draft()
 
+        # initialize the players' hands
+        for player in self.state.players:
+            player.hand = self.current_choices
+
     def _new_draft(self):
         # retrieve card list
         cards = list(get_locm12_card_list())
@@ -769,6 +773,7 @@ class BattlePhase(Phase, ABC):
 
 
 Version15BattlePhase = BattlePhase
+
 
 class Version12BattlePhase(BattlePhase):
     def __init__(self, state, rng, items=True):
