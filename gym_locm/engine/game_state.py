@@ -283,8 +283,11 @@ class State:
             )
 
         self._phase = self.deck_building_phase
-        self._current_player = PlayerOrder.FIRST
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
+
+    @property
+    def _current_player(self) -> PlayerOrder:
+        return self._phase._current_player
 
     @property
     def current_player(self) -> Player:
