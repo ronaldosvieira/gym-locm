@@ -255,6 +255,9 @@ class State:
 
     @staticmethod
     def from_native_input(game_input):
+        if isinstance(game_input, str):
+            game_input = game_input.split("\n")
+
         game_input = iter(game_input)
 
         player_data = list(map(int, next(game_input).split()))
