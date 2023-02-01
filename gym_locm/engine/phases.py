@@ -669,6 +669,12 @@ class BattlePhase(Phase, ABC):
                     source=DamageSource.OPPONENT,
                 )
 
+        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+        origin.player_hp = 0
+        origin.enemy_hp = 0
+        origin.card_draw = 0
+        origin.area = 0
+
         current_player.mana -= origin.cost
 
     def _do_attack(self, origin, target):
