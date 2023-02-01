@@ -491,6 +491,10 @@ class BattlePhase(Phase, ABC):
 
         self._check_win_conditions()
 
+        # invalidate cached action list and masks
+        self._available_actions = None
+        self._action_mask = None
+
     def _check_win_conditions(self):
         if self.state.players[PlayerOrder.FIRST].health <= 0:
             self.ended = True
@@ -799,10 +803,6 @@ class BattlePhase(Phase, ABC):
         current_player.mana -= origin.cost
 
     def _next_turn(self):
-        # invalidate cached action list and masks
-        self._available_actions = None
-        self._action_mask = None
-
         # reset damage counters
         self.damage_counter = 0, 0
 
