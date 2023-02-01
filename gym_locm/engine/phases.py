@@ -422,6 +422,8 @@ class BattlePhase(Phase, ABC):
 
     def prepare(self):
         """Prepare all game components for a battle phase"""
+        self._current_player = PlayerOrder.FIRST
+
         players = self.state.players
 
         for player in players:
