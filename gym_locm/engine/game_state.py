@@ -301,7 +301,7 @@ class State:
             state.phase = Phase.BATTLE
             state._phase = state.battle_phase
         else:
-            state.turn = deck + 1
+            state._phase.turn = deck + 1
 
         opp_hand, opp_actions = map(int, next(game_input).split())
 
