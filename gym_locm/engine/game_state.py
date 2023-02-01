@@ -105,8 +105,29 @@ class State:
             elif self.phase == Phase.ENDED:
                 raise GameIsEndedError
 
-    def clone(self) -> "State":
-        return copy.deepcopy(self)
+    def clone(self) -> 'State':
+        cloned_state = State.empty_copy()
+
+        cloned_state.rng = np.random.default_rng()
+
+        cloned_state.rng.bit_generator.state = self.rng.bit_generator.state.copy()
+
+        cloned_state.items = self.items
+        cloned_state.version = self.version
+        cloned_state.turn = self.turn
+        cloned_state.was_last_action_invalid = self.was_last_action_invalid
+
+        cloned_state.players = tuple([player.clone() for player in self.players])
+
+        cloned_state.deck_building_phase = self.deck_building_phase.clone(cloned_state)
+        cloned_state.battle_phase = self.battle_phase.clone(cloned_state)
+
+        if self.phase == Phase.BATTLE:
+            cloned_state._phase = cloned_state.battle_phase
+        elif self.phase == Phase.DECK_BUILDING:
+            cloned_state._phase = cloned_state.deck_building_phase
+
+        return cloned_state
 
     def __str__(self) -> str:
         encoding = ""
@@ -210,6 +231,17 @@ class State:
 
     def is_ended(self):
         return self.phase == Phase.ENDED
+
+    @staticmethod
+    def empty_copy():
+        class Empty(State):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = State
+
+        return new_copy
 
     @staticmethod
     def from_native_input(game_input):

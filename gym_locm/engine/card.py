@@ -1,4 +1,3 @@
-import copy
 import os
 from typing import List
 
@@ -39,16 +38,6 @@ class Card:
     def has_ability(self, keyword: str) -> bool:
         return keyword in self.keywords
 
-    def make_copy(self, instance_id=None) -> "Card":
-        cloned_card = copy.deepcopy(self)
-
-        if instance_id is not None:
-            cloned_card.instance_id = instance_id
-        else:
-            cloned_card.instance_id = None
-
-        return cloned_card
-
     def __eq__(self, other):
         return (
             other is not None
@@ -62,6 +51,40 @@ class Card:
             return f"({self.instance_id}: {self.name})"
         else:
             return f"({self.instance_id})"
+
+    def make_copy(self, instance_id=None) -> 'Card':
+        cloned_card = Card.empty_copy(self)
+
+        cloned_card.id = self.id
+        cloned_card.name = self.name
+        cloned_card.type = self.type
+        cloned_card.cost = self.cost
+        cloned_card.attack = self.attack
+        cloned_card.defense = self.defense
+        cloned_card.keywords = set(self.keywords)
+        cloned_card.player_hp = self.player_hp
+        cloned_card.enemy_hp = self.enemy_hp
+        cloned_card.card_draw = self.card_draw
+        cloned_card.area = self.area
+        cloned_card.text = self.text
+
+        if instance_id is not None:
+            cloned_card.instance_id = instance_id
+        else:
+            cloned_card.instance_id = None
+
+        return cloned_card
+
+    @staticmethod
+    def empty_copy(card):
+        class Empty(Card):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = type(card)
+
+        return new_copy
 
     @staticmethod
     def mockup_card():

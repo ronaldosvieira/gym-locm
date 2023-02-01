@@ -68,8 +68,30 @@ class Phase(ABC):
     def _next_turn(self):
         pass
 
-    def clone(self):
-        return copy.deepcopy(self)
+    def clone(self, cloned_state):
+        cloned_phase = Phase.empty_copy()
+
+        cloned_phase.state = cloned_state
+        cloned_phase.rng = cloned_state.rng
+
+        cloned_phase.items = self.items
+        cloned_phase.turn = self.turn
+        cloned_phase.ended = self.ended
+
+        cloned_phase._current_player = self._current_player
+        cloned_phase._available_actions = self._available_actions
+        cloned_phase._action_mask = self._action_mask
+
+    @staticmethod
+    def empty_copy():
+        class Empty(Phase):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = Phase
+
+        return new_copy
 
 
 class DeckBuildingPhase(Phase, ABC):
@@ -78,6 +100,13 @@ class DeckBuildingPhase(Phase, ABC):
 
         # get references of the players' deck
         self.decks = state.players[0].deck, state.players[1].deck
+
+    def clone(self, cloned_state):
+        cloned_phase = super().clone(cloned_state)
+
+        cloned_phase.decks = cloned_state.players[0].deck, cloned_state.players[1].deck
+
+        return cloned_phase
 
 
 class DraftPhase(DeckBuildingPhase):
@@ -167,6 +196,19 @@ class DraftPhase(DeckBuildingPhase):
         except IndexError:
             return []
 
+    def clone(self, cloned_state):
+        cloned_phase = super().clone(cloned_state)
+
+        cloned_phase.__class__ = DraftPhase
+
+        cloned_phase.k = self.k
+        cloned_phase.n = self.n
+        cloned_phase._draft_cards = self._draft_cards
+        cloned_phase._available_actions = self._available_actions
+        cloned_phase._action_mask = self._action_mask
+
+        return cloned_phase
+
 
 class ConstructedPhase(DeckBuildingPhase):
     def __init__(self, state, rng, *, items=True, k=120, n=30, max_copies=2):
@@ -254,6 +296,20 @@ class ConstructedPhase(DeckBuildingPhase):
             else:
                 self._current_player = None
                 self.ended = True
+
+    def clone(self, cloned_state):
+        cloned_phase = super().clone(cloned_state)
+
+        cloned_phase.__class__ = ConstructedPhase
+
+        cloned_phase.k = self.k
+        cloned_phase.n = self.n
+        cloned_phase.max_copies = self.max_copies
+        cloned_phase._constructed_cards = self._constructed_cards
+        cloned_phase._action_mask = list(self._action_mask[0]), list(self._action_mask[1])
+        cloned_phase._choices = list(self._choices[0]), list(self._choices[1])
+
+        return cloned_phase
 
 
 class BattlePhase(Phase, ABC):
@@ -847,6 +903,18 @@ class BattlePhase(Phase, ABC):
         current_player.bonus_draw = 0
         current_player.last_drawn = amount_to_draw
 
+    def clone(self, cloned_state):
+        cloned_phase = super().clone(cloned_state)
+
+        cloned_phase.__class__ = BattlePhase
+
+        cloned_phase.winner = self.winner
+        cloned_phase.instance_counter = self.instance_counter
+        cloned_phase.summon_counter = self.summon_counter
+        cloned_phase.damage_counter = tuple(self.damage_counter)
+
+        return cloned_phase
+
 
 Version15BattlePhase = BattlePhase
 
@@ -873,3 +941,10 @@ class Version12BattlePhase(BattlePhase):
 
     def _handle_turn_50_or_greater(self):
         self.state.current_player.deck = []
+
+    def clone(self, cloned_state):
+        cloned_phase = super().clone(cloned_state)
+
+        cloned_phase.__class__ = Version15BattlePhase
+
+        return cloned_phase
