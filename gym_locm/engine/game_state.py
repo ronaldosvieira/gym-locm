@@ -26,6 +26,11 @@ class State:
         deck_building_kwargs=None,
         battle_kwargs=None,
     ):
+        if deck_building_kwargs is None:
+            deck_building_kwargs = dict()
+
+        if battle_kwargs is None:
+            battle_kwargs = dict()
 
         self.rng = np.random.default_rng(seed=seed)
         self.items = items
