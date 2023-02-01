@@ -287,38 +287,36 @@ class LOCMEnv(gym.Env, ABC):
         """
         try:
             if self.state.phase == Phase.DRAFT:
-                return self.decode_draft_action(self.state, action_number)
+                return self.decode_draft_action(action_number)
             elif self.state.phase == Phase.BATTLE:
-                return self.decode_battle_action(self.state, action_number)
+                return self.decode_battle_action(action_number)
             else:
                 return None
         except MalformedActionError:
             return None
 
-    @staticmethod
-    def decode_draft_action(state, action_number):
+    def decode_draft_action(self, action_number):
         """
         Decodes an action number (0-2) from draft phase into the
         corresponding action object, if possible. Raises
         MalformedActionError otherwise.
         """
 
-        if action_number < 0 or action_number >= state.k:
+        if action_number < 0 or action_number >= self.k:
             raise MalformedActionError("Invalid action number")
 
         return Action(ActionType.PICK, action_number)
 
-    @staticmethod
-    def decode_battle_action(state, action_number):
+    def decode_battle_action(self, action_number):
         """
         Decodes an action number (0-144) from battle phase into
         the corresponding action object, if possible. Raises
         MalformedActionError otherwise.
         """
-        player = state.current_player
-        opponent = state.opposing_player
+        player = self.state.current_player
+        opponent = self.state.opposing_player
 
-        if not state.items and action_number > 16:
+        if not self.items and action_number > 16:
             action_number += 104
 
         try:
