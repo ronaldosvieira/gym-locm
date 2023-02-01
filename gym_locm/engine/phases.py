@@ -45,8 +45,8 @@ class Phase(ABC):
         self.ended = False
 
         self._current_player = None
-        self.__available_actions = None
-        self.__action_mask = None
+        self._available_actions = None
+        self._action_mask = None
 
     @abstractmethod
     def available_actions(self) -> Tuple[Action]:
@@ -88,16 +88,16 @@ class DraftPhase(DeckBuildingPhase):
 
         self._draft_cards = None
 
-        self.__available_actions = self.__available_actions = tuple(
+        self._available_actions = self._available_actions = tuple(
             [Action(ActionType.PICK, i) for i in range(self.k)]
         )
-        self.__action_mask = tuple([True] * self.k)
+        self._action_mask = tuple([True] * self.k)
 
     def available_actions(self) -> Tuple[Action]:
-        return self.__available_actions if not self.ended else ()
+        return self._available_actions if not self.ended else ()
 
     def action_mask(self) -> Tuple[bool]:
-        return self.__action_mask if not self.ended else ()
+        return self._action_mask if not self.ended else ()
 
     def prepare(self):
         # initialize current player pointer
@@ -176,8 +176,8 @@ class ConstructedPhase(DeckBuildingPhase):
         self.max_copies = max_copies
 
         self._constructed_cards = None
-        self.__action_mask = [True] * self.k, [True] * self.k
-        self.__choices = [0] * self.k, [0] * self.k
+        self._action_mask = [True] * self.k, [True] * self.k
+        self._choices = [0] * self.k, [0] * self.k
 
     def available_actions(self) -> Tuple[Action]:
         return tuple(
@@ -187,7 +187,7 @@ class ConstructedPhase(DeckBuildingPhase):
         )
 
     def action_mask(self) -> Tuple[bool]:
-        return tuple(self.__action_mask[self._current_player])
+        return tuple(self._action_mask[self._current_player])
 
     def prepare(self):
         # initialize current player pointer
@@ -214,7 +214,7 @@ class ConstructedPhase(DeckBuildingPhase):
         if 0 >= chosen_card_index >= self.k:
             raise MalformedActionError(f"Invalid card ID: {chosen_card_id}")
 
-        player_choices = self.__choices[self._current_player]
+        player_choices = self._choices[self._current_player]
 
         if not self.action_mask()[chosen_card_index]:
             raise MalformedActionError(
@@ -226,7 +226,7 @@ class ConstructedPhase(DeckBuildingPhase):
 
         # update action mask, if needed
         if player_choices[chosen_card_index] >= self.max_copies:
-            self.__action_mask[self._current_player][chosen_card_index] = False
+            self._action_mask[self._current_player][chosen_card_index] = False
 
         # add chosen card to player's deck
         card = self._constructed_cards[chosen_card_index]
@@ -248,7 +248,7 @@ class ConstructedPhase(DeckBuildingPhase):
                 for player in self.state.players:
                     player.hand = [
                         self._constructed_cards[i]
-                        for i, can_be_chosen in enumerate(self.__action_mask[player.id])
+                        for i, can_be_chosen in enumerate(self._action_mask[player.id])
                         if can_be_chosen
                     ]
             else:
@@ -272,7 +272,7 @@ class BattlePhase(Phase, ABC):
         return self.instance_counter
 
     def available_actions(self) -> Tuple[Action]:
-        if self.__available_actions is None:
+        if self._available_actions is None:
             current_player = self.state.players[self._current_player]
             opposing_player = self.state.players[self._current_player.opposing()]
 
@@ -336,12 +336,12 @@ class BattlePhase(Phase, ABC):
 
             available_actions = [Action(ActionType.PASS)] + summon + use + attack
 
-            self.__available_actions = tuple(available_actions)
+            self._available_actions = tuple(available_actions)
 
-        return self.__available_actions
+        return self._available_actions
 
     def action_mask(self) -> Tuple[bool]:
-        if self.__action_mask is None:
+        if self._action_mask is None:
             action_mask = [False] * 145
 
             # pass is always allowed
@@ -416,9 +416,9 @@ class BattlePhase(Phase, ABC):
             if not self.items:
                 action_mask = action_mask[:17] + action_mask[-24:]
 
-            self.__action_mask = action_mask
+            self._action_mask = action_mask
 
-        return self.__action_mask
+        return self._action_mask
 
     def prepare(self):
         """Prepare all game components for a battle phase"""
@@ -800,8 +800,8 @@ class BattlePhase(Phase, ABC):
 
     def _next_turn(self):
         # invalidate cached action list and masks
-        self.__available_actions = None
-        self.__action_mask = None
+        self._available_actions = None
+        self._action_mask = None
 
         # reset damage counters
         self.damage_counter = 0, 0
