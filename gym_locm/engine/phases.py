@@ -36,7 +36,7 @@ from gym_locm.util import is_it, has_enough_mana
 
 
 class Phase(ABC):
-    def __init__(self, state, rng: np.random.Generator, items=True):
+    def __init__(self, state, rng: np.random.Generator, *, items=True):
         self.state = state
         self.rng = rng
         self.items = items
@@ -73,16 +73,16 @@ class Phase(ABC):
 
 
 class DeckBuildingPhase(Phase, ABC):
-    def __init__(self, state, rng, items=True):
-        super().__init__(state, rng, items)
+    def __init__(self, state, rng, *, items=True):
+        super().__init__(state, rng, items=items)
 
         # get references of the players' deck
         self.decks = state.players[0].deck, state.players[1].deck
 
 
 class DraftPhase(DeckBuildingPhase):
-    def __init__(self, state, rng, k=3, n=30, items=True):
-        super().__init__(state, rng, items)
+    def __init__(self, state, rng, *, items=True, k=3, n=30):
+        super().__init__(state, rng, items=items)
 
         self.k, self.n = k, n
 
@@ -169,8 +169,8 @@ class DraftPhase(DeckBuildingPhase):
 
 
 class ConstructedPhase(DeckBuildingPhase):
-    def __init__(self, state, rng, k=120, n=30, max_copies=2, items=True):
-        super().__init__(state, rng, items)
+    def __init__(self, state, rng, *, items=True, k=120, n=30, max_copies=2):
+        super().__init__(state, rng, items=items)
 
         self.k, self.n = k, n
         self.max_copies = max_copies
@@ -257,8 +257,8 @@ class ConstructedPhase(DeckBuildingPhase):
 
 
 class BattlePhase(Phase, ABC):
-    def __init__(self, state, rng, items=True):
-        super().__init__(state, rng, items)
+    def __init__(self, state, rng, *, items=True):
+        super().__init__(state, rng, items=items)
 
         self.winner = None
 
@@ -850,8 +850,8 @@ Version15BattlePhase = BattlePhase
 
 
 class Version12BattlePhase(BattlePhase):
-    def __init__(self, state, rng, items=True):
-        super().__init__(state, rng, items)
+    def __init__(self, state, rng, *, items=True):
+        super().__init__(state, rng, items=items)
 
     def _damage_player(self, player: Player, amount: int, source: DamageSource) -> int:
         player.health -= amount

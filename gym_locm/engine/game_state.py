@@ -34,16 +34,18 @@ class State:
         self.was_last_action_invalid = False
 
         if version == "1.5":
-            self.deck_building_phase = ConstructedPhase(self, self.rng, items)
-            self.battle_phase = Version15BattlePhase(self, self.rng, items)
+            self.deck_building_phase = ConstructedPhase(
+                self, self.rng, items=items, **deck_building_kwargs
+            )
+            self.battle_phase = Version15BattlePhase(self, self.rng, items=items)
 
             self.phase = Phase.CONSTRUCTED
 
         elif version == "1.2":
             self.deck_building_phase = DraftPhase(
-                self, self.rng, items, **deck_building_kwargs
+                self, self.rng, items=items, **deck_building_kwargs
             )
-            self.battle_phase = Version12BattlePhase(self, self.rng, items)
+            self.battle_phase = Version12BattlePhase(self, self.rng, items=items)
 
             self.phase = Phase.DRAFT
 
