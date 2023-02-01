@@ -33,6 +33,8 @@ class State:
         self.turn = 1
         self.was_last_action_invalid = False
 
+        self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
+
         if version == "1.5":
             self.deck_building_phase = ConstructedPhase(
                 self, self.rng, items=items, **deck_building_kwargs
@@ -56,8 +58,6 @@ class State:
 
         self._phase = self.deck_building_phase
         self._phase.prepare()
-
-        self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
 
     @property
     def _current_player(self) -> PlayerOrder:
