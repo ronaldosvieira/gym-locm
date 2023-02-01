@@ -35,7 +35,6 @@ class State:
         self.rng = np.random.default_rng(seed=seed)
         self.items = items
         self.version = version
-        self.turn = 1
         self.was_last_action_invalid = False
 
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
@@ -88,6 +87,10 @@ class State:
     def winner(self):
         return self.battle_phase.winner
 
+    @property
+    def turn(self):
+        return self._phase.turn
+
     def seed(self, seed=None):
         self.rng = np.random.default_rng(seed=seed)
 
@@ -119,7 +122,6 @@ class State:
 
         cloned_state.items = self.items
         cloned_state.version = self.version
-        cloned_state.turn = self.turn
         cloned_state.was_last_action_invalid = self.was_last_action_invalid
 
         cloned_state.players = tuple([player.clone() for player in self.players])
