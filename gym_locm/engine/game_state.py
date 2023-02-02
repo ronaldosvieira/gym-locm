@@ -28,7 +28,7 @@ from gym_locm.util import has_enough_mana, is_it
 
 
 class State:
-    def __init__(self, seed=None, items=True, k=3, n=30):
+    def __init__(self, seed=None, items=True, k=3, n=30, version=None):
         self._cards = get_locm12_card_list()
 
         assert k <= len(self._cards)
