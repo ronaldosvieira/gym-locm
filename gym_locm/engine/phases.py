@@ -669,12 +669,6 @@ class BattlePhase(Phase, ABC):
                     source=DamageSource.OPPONENT,
                 )
 
-        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-        origin.player_hp = 0
-        origin.enemy_hp = 0
-        origin.card_draw = 0
-        origin.area = 0
-
         current_player.mana -= origin.cost
 
     def _do_attack(self, origin, target):
@@ -708,6 +702,12 @@ class BattlePhase(Phase, ABC):
         if not origin.able_to_attack():
             raise MalformedActionError("Attacking creature cannot attack")
 
+        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+        origin.player_hp = 0
+        origin.enemy_hp = 0
+        origin.card_draw = 0
+        origin.area = 0
+
         if target is None:
             damage_dealt = self._damage_player(
                 opposing_player, amount=origin.attack, source=DamageSource.OPPONENT
@@ -734,6 +734,12 @@ class BattlePhase(Phase, ABC):
                 self._damage_player(
                     opposing_player, amount=excess_damage, source=DamageSource.OPPONENT
                 )
+
+            # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+            target.player_hp = 0
+            target.enemy_hp = 0
+            target.card_draw = 0
+            target.area = 0
         else:
             raise MalformedActionError("Target is not a creature or a player")
 
@@ -860,6 +866,13 @@ class BattlePhase(Phase, ABC):
             self._damage_player(
                 opposing_player, amount=-origin.enemy_hp, source=DamageSource.OPPONENT
             )
+
+            if isinstance(target, Creature):
+                # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+                target.player_hp = 0
+                target.enemy_hp = 0
+                target.card_draw = 0
+                target.area = 0
 
         current_player.hand.remove(origin)
         current_player.mana -= origin.cost

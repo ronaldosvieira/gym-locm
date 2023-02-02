@@ -511,6 +511,12 @@ class State:
         if not origin.able_to_attack():
             raise MalformedActionError("Attacking creature cannot attack")
 
+        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+        origin.player_hp = 0
+        origin.enemy_hp = 0
+        origin.card_draw = 0
+        origin.area = 0
+
         if target is None:
             damage_dealt = opposing_player.damage(origin.attack)
 
@@ -533,6 +539,12 @@ class State:
 
             if "B" in origin.keywords and excess_damage > 0:
                 opposing_player.damage(excess_damage)
+
+            # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+            target.player_hp = 0
+            target.enemy_hp = 0
+            target.card_draw = 0
+            target.area = 0
         else:
             raise MalformedActionError("Target is not a creature or a player")
 
@@ -637,6 +649,13 @@ class State:
         else:
             error = "Card being used is not an item"
             raise MalformedActionError(error)
+
+        if isinstance(target, Creature):
+            # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+            target.player_hp = 0
+            target.enemy_hp = 0
+            target.card_draw = 0
+            target.area = 0
 
         current_player.hand.remove(origin)
         current_player.mana -= origin.cost
