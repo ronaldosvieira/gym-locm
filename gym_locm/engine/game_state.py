@@ -866,6 +866,7 @@ class State:
                 int(player_hp),
                 int(opp_hp),
                 int(card_draw),
+                0,  # area
                 "",
                 instance_id=int(instance_id),
             )
