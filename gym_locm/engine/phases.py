@@ -45,7 +45,7 @@ class Phase(ABC):
         self.prepared = False
         self.ended = False
 
-        self._current_player = None
+        self._current_player = PlayerOrder.FIRST
         self._available_actions = None
         self._action_mask = None
 
