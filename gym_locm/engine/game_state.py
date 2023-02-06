@@ -1,20 +1,11 @@
-import copy
 from operator import attrgetter
-from typing import Tuple, List
+from typing import Tuple
 
 import numpy as np
-from gym.utils import seeding
 
 from gym_locm.engine.player import Player
 from gym_locm.engine.action import Action
-from gym_locm.engine.card import (
-    Card,
-    Creature,
-    GreenItem,
-    RedItem,
-    BlueItem,
-    get_locm12_card_list,
-)
+from gym_locm.engine.card import Card, Creature, GreenItem, RedItem, BlueItem, get_locm12_card_list
 from gym_locm.engine.enums import *
 from gym_locm.engine.phases import (
     Version12BattlePhase,
@@ -22,41 +13,58 @@ from gym_locm.engine.phases import (
     Version15BattlePhase,
     ConstructedPhase,
 )
-from gym_locm.exceptions import GameIsEndedError, FullHandError, EmptyDeckError, InvalidCardError, MalformedActionError, \
-    NotEnoughManaError, FullLaneError, WardShieldError
-from gym_locm.util import has_enough_mana, is_it
+from gym_locm.exceptions import GameIsEndedError
 
 
 class State:
-    def __init__(self, seed=None, items=True, k=3, n=30, version=None):
-        self._cards = get_locm12_card_list()
+    def __init__(
+        self,
+        seed=None,
+        version="1.5",
+        items=True,
+        deck_building_kwargs=None,
+        battle_kwargs=None,
+    ):
+        if deck_building_kwargs is None:
+            deck_building_kwargs = dict()
 
-        assert k <= len(self._cards)
+        if battle_kwargs is None:
+            battle_kwargs = dict()
 
-        self.instance_counter = 0
-        self.summon_counter = 0
-
-        self.np_random = None
-        self.seed(seed)
+        self.rng = np.random.default_rng(seed=seed)
         self.items = items
-        self.k, self.n = k, n
-
-        self.phase = Phase.DRAFT
-        self.turn = 1
+        self.version = version
         self.was_last_action_invalid = False
+
         self.players = (Player(PlayerOrder.FIRST), Player(PlayerOrder.SECOND))
-        self._current_player = PlayerOrder.FIRST
-        self.__available_actions = None
-        self.__action_mask = None
 
-        self.winner = None
+        if version == "1.5":
+            self.deck_building_phase = ConstructedPhase(
+                self, self.rng, items=items, **deck_building_kwargs
+            )
+            self.battle_phase = Version15BattlePhase(self, self.rng, items=items)
 
-        self._draft_cards = self._new_draft()
+            self.phase = Phase.CONSTRUCTED
 
-        current_draft_choices = self._draft_cards[self.turn - 1]
+        elif version == "1.2":
+            self.deck_building_phase = DraftPhase(
+                self, self.rng, items=items, **deck_building_kwargs
+            )
+            self.battle_phase = Version12BattlePhase(self, self.rng, items=items)
 
-        for player in self.players:
-            player.hand = current_draft_choices
+            self.phase = Phase.DRAFT
+
+        else:
+            raise ValueError(
+                f'Invalid version {version}. Supported versions: "1.5" and "1.2"'
+            )
+
+        self._phase = self.deck_building_phase
+        self._phase.prepare()
+
+    @property
+    def _current_player(self) -> PlayerOrder:
+        return self._phase._current_player
 
     @property
     def current_player(self) -> Player:
@@ -68,624 +76,64 @@ class State:
 
     @property
     def available_actions(self) -> Tuple[Action]:
-        if self.__available_actions is not None:
-            return self.__available_actions
-
-        if self.phase == Phase.DRAFT:
-            self.__available_actions = tuple(
-                [Action(ActionType.PICK, i) for i in range(self.k)]
-            )
-        elif self.phase == Phase.ENDED:
-            self.__available_actions = ()
-        else:
-            summon, attack, use = [], [], []
-
-            c_hand = self.current_player.hand
-            c_lanes = self.current_player.lanes
-            o_lanes = self.opposing_player.lanes
-
-            for card in filter(has_enough_mana(self.current_player.mana), c_hand):
-                origin = card.instance_id
-
-                if isinstance(card, Creature):
-                    for lane in Lane:
-                        if len(c_lanes[lane]) < 3:
-                            summon.append(Action(ActionType.SUMMON, origin, lane))
-
-                elif isinstance(card, GreenItem):
-                    for lane in Lane:
-                        for friendly_creature in c_lanes[lane]:
-                            target = friendly_creature.instance_id
-
-                            use.append(Action(ActionType.USE, origin, target))
-
-                elif isinstance(card, RedItem):
-                    for lane in Lane:
-                        for enemy_creature in o_lanes[lane]:
-                            target = enemy_creature.instance_id
-
-                            use.append(Action(ActionType.USE, origin, target))
-
-                elif isinstance(card, BlueItem):
-                    for lane in Lane:
-                        for enemy_creature in o_lanes[lane]:
-                            target = enemy_creature.instance_id
-
-                            use.append(Action(ActionType.USE, origin, target))
-
-                    use.append(Action(ActionType.USE, origin, None))
-
-            for lane in Lane:
-                guard_creatures = []
-
-                for enemy_creature in o_lanes[lane]:
-                    if enemy_creature.has_ability("G"):
-                        guard_creatures.append(enemy_creature)
-
-                if not guard_creatures:
-                    valid_targets = o_lanes[lane] + [None]
-                else:
-                    valid_targets = guard_creatures
-
-                for friendly_creature in filter(Creature.able_to_attack, c_lanes[lane]):
-                    origin = friendly_creature.instance_id
-
-                    for valid_target in valid_targets:
-                        if valid_target is not None:
-                            valid_target = valid_target.instance_id
-
-                        attack.append(Action(ActionType.ATTACK, origin, valid_target))
-
-            available_actions = [Action(ActionType.PASS)] + summon + use + attack
-
-            self.__available_actions = tuple(available_actions)
-
-        return self.__available_actions
+        return self._phase.available_actions()
 
     @property
     def action_mask(self):
-        if self.__action_mask is not None:
-            return self.__action_mask
+        return self._phase.action_mask()
 
-        if self.phase == Phase.DRAFT:
-            return [True] * self.k
-        elif self.phase == Phase.ENDED:
-            return [False] * (145 if self.items else 41)
+    @property
+    def winner(self):
+        return self.battle_phase.winner
 
-        action_mask = [False] * 145
-
-        # pass is always allowed
-        action_mask[0] = True
-
-        # shortcuts
-        cp, op = self.current_player, self.opposing_player
-        cp_has_enough_mana = has_enough_mana(cp.mana)
-        left_lane_not_full = len(cp.lanes[0]) < 3
-        right_lane_not_full = len(cp.lanes[1]) < 3
-
-        def validate_creature(index):
-            if left_lane_not_full:
-                action_mask[1 + index * 2] = True
-
-            if right_lane_not_full:
-                action_mask[1 + index * 2 + 1] = True
-
-        def validate_green_item(index):
-            for i in range(len(cp.lanes[0])):
-                action_mask[17 + index * 13 + 1 + i] = True
-
-            for i in range(len(cp.lanes[1])):
-                action_mask[17 + index * 13 + 4 + i] = True
-
-        def validate_red_item(index):
-            for i in range(len(op.lanes[0])):
-                action_mask[17 + index * 13 + 7 + i] = True
-
-            for i in range(len(op.lanes[1])):
-                action_mask[17 + index * 13 + 10 + i] = True
-
-        def validate_blue_item(index):
-            validate_red_item(index)
-
-            action_mask[17 + index * 13] = True
-
-        check_playability = {
-            Creature: validate_creature,
-            GreenItem: validate_green_item,
-            RedItem: validate_red_item,
-            BlueItem: validate_blue_item,
-        }
-
-        # for each card in hand, check valid actions
-        for i, card in enumerate(cp.hand):
-            if cp_has_enough_mana(card):
-                check_playability[type(card)](i)
-
-        # for each card in the board, check valid actions
-        for offset, lane_id in zip((0, 3), (0, 1)):
-            for i, creature in enumerate(cp.lanes[lane_id]):
-                i += offset
-
-                if creature.able_to_attack():
-                    guards = []
-
-                    for j, enemy_creature in enumerate(op.lanes[lane_id]):
-                        if enemy_creature.has_ability("G"):
-                            guards.append(j)
-
-                    if guards:
-                        for j in guards:
-                            action_mask[121 + i * 4 + 1 + j] = True
-                    else:
-                        action_mask[121 + i * 4] = True
-
-                        for j in range(len(op.lanes[lane_id])):
-                            action_mask[121 + i * 4 + 1 + j] = True
-
-        if not self.items:
-            action_mask = action_mask[:17] + action_mask[-24:]
-
-        self.__action_mask = action_mask
-
-        return self.__action_mask
+    @property
+    def turn(self):
+        return self._phase.turn
 
     def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
+        self.rng = np.random.default_rng(seed=seed)
 
         return [seed]
 
     def act(self, action: Action):
         self.was_last_action_invalid = False
 
-        if self.phase == Phase.DRAFT:
-            self._act_on_draft(action)
+        self._phase.act(action)
 
-            self._next_turn()
-
-            if self.phase == Phase.DRAFT:
-                self._new_draft_turn()
-            elif self.phase == Phase.BATTLE:
-                self._prepare_for_battle()
-
-                self._new_battle_turn()
-
-        elif self.phase == Phase.BATTLE:
-            self._act_on_battle(action)
-
-            if action.type == ActionType.PASS:
-                self._next_turn()
-
-                self._new_battle_turn()
-
-        self.__available_actions = None
-        self.__action_mask = None
-
-    def _next_instance_id(self):
-        self.instance_counter += 1
-
-        return self.instance_counter
-
-    def _new_draft(self) -> List[List[Card]]:
-        cards = list(self._cards)
-
-        if not self.items:
-            cards = list(filter(is_it(Creature), cards))
-
-        self.np_random.shuffle(cards)
-
-        pool = cards[:60]
-        draft = []
-
-        for _ in range(self.n):
-            self.np_random.shuffle(pool)
-
-            draft.append(pool[: self.k])
-
-        return draft
-
-    def _prepare_for_battle(self):
-        """Prepare all game components for a battle phase"""
-        for player in self.players:
-            player.hand = []
-            player.lanes = ([], [])
-
-            self.np_random.shuffle(player.deck)
-
-        d1, d2 = [], []
-
-        for card1, card2 in zip(*(p.deck for p in self.players)):
-            d1.append(card1.make_copy(self._next_instance_id()))
-            d2.append(card2.make_copy(self._next_instance_id()))
-
-        self.players[0].deck = list(reversed(d1))
-        self.players[1].deck = list(reversed(d2))
-
-        for player in self.players:
-            player.draw(4)
-            player.base_mana = 0
-
-        second_player = self.players[PlayerOrder.SECOND]
-        second_player.draw()
-        second_player.bonus_mana = 1
-
-    def _next_turn(self) -> bool:
-        if self._current_player == PlayerOrder.FIRST:
-            self._current_player = PlayerOrder.SECOND
-
-            return False
-        else:
-            self._current_player = PlayerOrder.FIRST
-            self.turn += 1
-
-            if self.turn > self.n and self.phase == Phase.DRAFT:
+        if self._phase.ended:
+            if self.phase == Phase.DECK_BUILDING:
                 self.phase = Phase.BATTLE
-                self.turn = 1
+                self._phase = self.battle_phase
+                self._phase.prepare()
 
-            return True
+            elif self.phase == Phase.BATTLE:
+                self.phase = Phase.ENDED
 
-    def _new_draft_turn(self):
-        """Initialize a draft turn"""
-        current_draft_choices = self._draft_cards[self.turn - 1]
+            elif self.phase == Phase.ENDED:
+                raise GameIsEndedError
 
-        for player in self.players:
-            player.hand = current_draft_choices
-
-    def _new_battle_turn(self):
-        """Initialize a battle turn"""
-        current_player = self.current_player
-
-        for creature in current_player.lanes[Lane.LEFT]:
-            creature.can_attack = True
-            creature.has_attacked_this_turn = False
-
-        for creature in current_player.lanes[Lane.RIGHT]:
-            creature.can_attack = True
-            creature.has_attacked_this_turn = False
-
-        if current_player.base_mana > 0 and current_player.mana == 0:
-            current_player.bonus_mana = 0
-
-        if current_player.base_mana < 12:
-            current_player.base_mana += 1
-
-        current_player.mana = current_player.base_mana + current_player.bonus_mana
-
-        amount_to_draw = 1 + current_player.bonus_draw
-
-        if self.turn > 50:
-            current_player.deck = []
-
-        try:
-            current_player.draw(amount_to_draw)
-        except FullHandError:
-            pass
-        except EmptyDeckError as e:
-            for _ in range(e.remaining_draws):
-                deck_burn = current_player.health - current_player.next_rune
-                current_player.damage(deck_burn)
-
-        current_player.bonus_draw = 0
-        current_player.last_drawn = amount_to_draw
-
-    def _find_card(self, instance_id: int) -> Card:
-        c, o = self.current_player, self.opposing_player
-
-        location_mapping = {
-            Location.PLAYER_HAND: c.hand,
-            Location.ENEMY_HAND: o.hand,
-            Location.PLAYER_LEFT_LANE: c.lanes[0],
-            Location.PLAYER_RIGHT_LANE: c.lanes[1],
-            Location.ENEMY_LEFT_LANE: o.lanes[0],
-            Location.ENEMY_RIGHT_LANE: o.lanes[1],
-        }
-
-        for location, cards in location_mapping.items():
-            for card in cards:
-                if card.instance_id == instance_id:
-                    return card
-
-        raise InvalidCardError(instance_id)
-
-    def _act_on_draft(self, action: Action):
-        """Execute the action intended by the player in this draft turn"""
-        chosen_index = action.origin if action.origin is not None else 0
-        card = self.current_player.hand[chosen_index]
-
-        self.current_player.deck.append(card)
-
-    def _act_on_battle(self, action: Action):
-        """Execute the actions intended by the player in this battle turn"""
-        try:
-            origin, target = action.origin, action.target
-
-            if isinstance(action.origin, int):
-                origin = self._find_card(origin)
-
-            if action.type == ActionType.SUMMON:
-                if isinstance(action.target, int):
-                    target = Lane(target)
-
-                self._do_summon(origin, target)
-            elif action.type == ActionType.ATTACK:
-                if isinstance(action.target, int):
-                    target = self._find_card(target)
-
-                self._do_attack(origin, target)
-            elif action.type == ActionType.USE:
-                if isinstance(action.target, int):
-                    target = self._find_card(target)
-
-                self._do_use(origin, target)
-            elif action.type == ActionType.PASS:
-                pass
-            else:
-                raise MalformedActionError("Invalid action type")
-
-            action.resolved_origin = origin
-            action.resolved_target = target
-
-            self.current_player.actions.append(action)
-        except (
-            NotEnoughManaError,
-            MalformedActionError,
-            FullLaneError,
-            InvalidCardError,
-        ):
-            self.was_last_action_invalid = True
-
-        for player in self.players:
-            for lane in player.lanes:
-                for creature in lane:
-                    if creature.is_dead:
-                        lane.remove(creature)
-
-        if self.players[PlayerOrder.FIRST].health <= 0:
-            self.phase = Phase.ENDED
-            self.winner = PlayerOrder.SECOND
-        elif self.players[PlayerOrder.SECOND].health <= 0:
-            self.phase = Phase.ENDED
-            self.winner = PlayerOrder.FIRST
-
-    def _do_summon(self, origin, target):
-        current_player = self.current_player
-        opposing_player = self.opposing_player
-
-        if origin.cost > current_player.mana:
-            raise NotEnoughManaError()
-
-        if not isinstance(origin, Creature):
-            raise MalformedActionError("Card being summoned is not a creature")
-
-        if not isinstance(target, Lane):
-            raise MalformedActionError("Target is not a lane")
-
-        if len(current_player.lanes[target]) >= 3:
-            raise FullLaneError()
-
-        try:
-            current_player.hand.remove(origin)
-        except ValueError:
-            raise MalformedActionError("Card is not in player's hand")
-
-        origin.can_attack = False
-        origin.summon_counter = self.summon_counter
-
-        self.summon_counter += 1
-
-        current_player.lanes[target].append(origin)
-
-        current_player.bonus_draw += origin.card_draw
-        current_player.damage(-origin.player_hp)
-        opposing_player.damage(-origin.enemy_hp)
-
-        current_player.mana -= origin.cost
-
-    def _do_attack(self, origin, target):
-        current_player = self.current_player
-        opposing_player = self.opposing_player
-
-        if not isinstance(origin, Creature):
-            raise MalformedActionError("Attacking card is not a creature")
-
-        if origin in current_player.lanes[Lane.LEFT]:
-            origin_lane = Lane.LEFT
-        elif origin in current_player.lanes[Lane.RIGHT]:
-            origin_lane = Lane.RIGHT
-        else:
-            raise MalformedActionError("Attacking creature is not owned by player")
-
-        guard_creatures = []
-
-        for creature in opposing_player.lanes[origin_lane]:
-            if creature.has_ability("G"):
-                guard_creatures.append(creature)
-
-        if len(guard_creatures) > 0:
-            valid_targets = guard_creatures
-        else:
-            valid_targets = [None] + opposing_player.lanes[origin_lane]
-
-        if target not in valid_targets:
-            raise MalformedActionError("Invalid target")
-
-        if not origin.able_to_attack():
-            raise MalformedActionError("Attacking creature cannot attack")
-
-        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-        origin.player_hp = 0
-        origin.enemy_hp = 0
-        origin.card_draw = 0
-        origin.area = 0
-
-        if target is None:
-            damage_dealt = opposing_player.damage(origin.attack)
-
-        elif isinstance(target, Creature):
-            target_defense = target.defense
-
-            try:
-                damage_dealt = target.damage(
-                    origin.attack, lethal=origin.has_ability("L")
-                )
-            except WardShieldError:
-                damage_dealt = 0
-
-            try:
-                origin.damage(target.attack, lethal=target.has_ability("L"))
-            except WardShieldError:
-                pass
-
-            excess_damage = damage_dealt - target_defense
-
-            if "B" in origin.keywords and excess_damage > 0:
-                opposing_player.damage(excess_damage)
-
-            # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-            target.player_hp = 0
-            target.enemy_hp = 0
-            target.card_draw = 0
-            target.area = 0
-        else:
-            raise MalformedActionError("Target is not a creature or a player")
-
-        if "D" in origin.keywords:
-            current_player.health += damage_dealt
-
-        origin.has_attacked_this_turn = True
-
-    def _do_use(self, origin, target):
-        current_player = self.current_player
-        opposing_player = self.opposing_player
-
-        if origin.cost > current_player.mana:
-            raise NotEnoughManaError()
-
-        if target is not None and not isinstance(target, Creature):
-            error = "Target is not a creature or a player"
-            raise MalformedActionError(error)
-
-        if origin not in current_player.hand:
-            raise MalformedActionError("Card is not in player's hand")
-
-        if isinstance(origin, GreenItem):
-            is_own_creature = (
-                target in current_player.lanes[Lane.LEFT]
-                or target in current_player.lanes[Lane.RIGHT]
-            )
-
-            if target is None or not is_own_creature:
-                error = "Green items should be used on friendly creatures"
-                raise MalformedActionError(error)
-
-            target.attack = max(0, target.attack + origin.attack)
-            target.defense += origin.defense
-            target.keywords = target.keywords.union(origin.keywords)
-
-            if target.defense <= 0:
-                target.is_dead = True
-
-            current_player.bonus_draw += origin.card_draw
-            current_player.damage(-origin.player_hp)
-            opposing_player.damage(-origin.enemy_hp)
-
-        elif isinstance(origin, RedItem):
-            is_opp_creature = (
-                target in opposing_player.lanes[Lane.LEFT]
-                or target in opposing_player.lanes[Lane.RIGHT]
-            )
-
-            if target is None or not is_opp_creature:
-                error = "Red items should be used on enemy creatures"
-                raise MalformedActionError(error)
-
-            target.attack = max(0, target.attack + origin.attack)
-            target.keywords = target.keywords.difference(origin.keywords)
-
-            try:
-                target.damage(-origin.defense)
-            except WardShieldError:
-                pass
-
-            if target.defense <= 0:
-                target.is_dead = True
-
-            current_player.bonus_draw += origin.card_draw
-            current_player.damage(-origin.player_hp)
-            opposing_player.damage(-origin.enemy_hp)
-
-        elif isinstance(origin, BlueItem):
-            is_opp_creature = (
-                target in opposing_player.lanes[Lane.LEFT]
-                or target in opposing_player.lanes[Lane.RIGHT]
-            )
-
-            if target is not None and not is_opp_creature:
-                error = (
-                    "Blue items should be used on enemy creatures or enemy player"
-                )
-                raise MalformedActionError(error)
-
-            if isinstance(target, Creature):
-                target.attack = max(0, target.attack + origin.attack)
-                target.keywords = target.keywords.difference(origin.keywords)
-
-                try:
-                    target.damage(-origin.defense)
-                except WardShieldError:
-                    pass
-
-                if target.defense <= 0:
-                    target.is_dead = True
-
-            elif target is None:
-                opposing_player.damage(-origin.defense)
-            else:
-                raise MalformedActionError("Invalid target")
-
-            current_player.bonus_draw += origin.card_draw
-            current_player.damage(-origin.player_hp)
-            opposing_player.damage(-origin.enemy_hp)
-
-        else:
-            error = "Card being used is not an item"
-            raise MalformedActionError(error)
-
-        if isinstance(target, Creature):
-            # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-            target.player_hp = 0
-            target.enemy_hp = 0
-            target.card_draw = 0
-            target.area = 0
-
-        current_player.hand.remove(origin)
-        current_player.mana -= origin.cost
-
-    def clone(self) -> "State":
+    def clone(self) -> 'State':
         cloned_state = State.empty_copy()
 
-        cloned_state.np_random = np.random.RandomState()
+        cloned_state.rng = np.random.default_rng()
 
-        try:
-            cloned_state.np_random.set_state(self.np_random.get_state())
-        except ValueError:
-            pass
+        cloned_state.rng.bit_generator.state = self.rng.bit_generator.state.copy()
 
-        cloned_state.instance_counter = self.instance_counter
-        cloned_state.summon_counter = self.summon_counter
         cloned_state.items = self.items
-        cloned_state.phase = self.phase
-        cloned_state.turn = self.turn
-        cloned_state.k = self.k
-        cloned_state.n = self.n
-        cloned_state._current_player = self._current_player
-        cloned_state.__available_actions = self.__available_actions
-        cloned_state.winner = self.winner
-        cloned_state._draft_cards = self._draft_cards
+        cloned_state.version = self.version
+        cloned_state.was_last_action_invalid = self.was_last_action_invalid
+
         cloned_state.players = tuple([player.clone() for player in self.players])
 
-        return cloned_state
+        cloned_state.deck_building_phase = self.deck_building_phase.clone(cloned_state)
+        cloned_state.battle_phase = self.battle_phase.clone(cloned_state)
 
-        # return pickle.loads(pickle.dumps(self, -1))
+        if self.phase == Phase.BATTLE:
+            cloned_state._phase = cloned_state.battle_phase
+        elif self.phase == Phase.DECK_BUILDING:
+            cloned_state._phase = cloned_state.deck_building_phase
+
+        return cloned_state
 
     def __str__(self) -> str:
         encoding = ""
@@ -694,13 +142,14 @@ class State:
 
         for cp in p, o:
             draw = cp.last_drawn if cp == self.current_player else 1 + cp.bonus_draw
+            draw = 0 if self.is_deck_building() else draw
 
-            encoding += (
-                f"{cp.health} {cp.base_mana + cp.bonus_mana} "
-                f"{len(cp.deck)} {cp.next_rune} {draw}\n"
-            )
+            if self.version == "1.5":
+                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {draw}\n"
+            elif self.version == "1.2":
+                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {cp.next_rune} {draw}\n"
 
-        op_hand = len(o.hand) if self.phase != Phase.DRAFT else 0
+        op_hand = len(o.hand) if self.phase != Phase.DECK_BUILDING else 0
         last_actions = []
 
         for action in reversed(o.actions[:-1]):
@@ -761,32 +210,31 @@ class State:
 
             c.instance_id = -1 if c.instance_id is None else c.instance_id
 
-        for i, c in enumerate(cards):
-            encoding += (
-                f"{c.id} {c.instance_id} {c.location} {c.cardType} "
-                f"{c.cost} {c.attack} {c.defense} {c.abilities} "
-                f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane} \n"
-            )
+        if self.version == "1.5":
+            for i, c in enumerate(cards):
+                encoding += (
+                    f"{c.id} {c.instance_id} {c.location} {c.cardType} "
+                    f"{c.cost} {c.attack} {c.defense} {c.abilities} "
+                    f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.area} {c.lane} \n"
+                )
+        elif self.version == "1.2":
+            for i, c in enumerate(cards):
+                encoding += (
+                    f"{c.id} {c.instance_id} {c.location} {c.cardType} "
+                    f"{c.cost} {c.attack} {c.defense} {c.abilities} "
+                    f"{c.player_hp} {c.enemy_hp} {c.card_draw} {c.lane} \n"
+                )
 
         return encoding
 
-    def can_play(self, card):
-        p, op = self.current_player, self.opposing_player
-
-        if card.cost > p.mana:
-            return False
-
-        if isinstance(card, Creature):
-            return sum(map(len, p.lanes)) < 6
-        elif isinstance(card, GreenItem):
-            return sum(map(len, p.lanes)) > 0
-        elif isinstance(card, RedItem):
-            return sum(map(len, op.lanes)) > 0
-        else:
-            return True
+    def is_deck_building(self):
+        return self.phase == Phase.DECK_BUILDING
 
     def is_draft(self):
         return self.phase == Phase.DRAFT
+
+    def is_constructed(self):
+        return self.phase == Phase.CONSTRUCTED
 
     def is_battle(self):
         return self.phase == Phase.BATTLE
@@ -807,33 +255,65 @@ class State:
 
     @staticmethod
     def from_native_input(game_input, deck_orders=((), ())):
-        state = State()
-
         _cards = get_locm12_card_list()
 
         if isinstance(game_input, str):
-            game_input = game_input.split('\n')
+            game_input = game_input.split("\n")
 
         game_input = iter(game_input)
 
         deck_sizes = [-1, -1]
 
-        for i, player in enumerate(state.players):
-            health, mana, deck, rune, draw = map(int, next(game_input).split())
+        player_data = list(map(int, next(game_input).split()))
 
-            # set player's attributes
-            player.health = health
-            player.mana = mana
-            player.base_mana = mana
-            player.next_rune = rune
-            player.bonus_draw = 0 if i == 0 else draw - 1
-            player.last_drawn = draw if i == 0 else 1
+        if len(player_data) == 4:
+            version = "1.5"
 
-            player.hand = []
+            health, mana, deck, draw = player_data
+            rune = None
+        else:
+            version = "1.2"
 
-            deck_sizes[i] = deck
+            health, mana, deck, rune, draw = player_data
 
-        state.phase = Phase.DRAFT if mana == 0 else Phase.BATTLE
+        state = State(version=version)
+        cp, op = state.players
+
+        cp.health = health
+        cp.mana = mana
+        cp.base_mana = mana
+        cp.next_rune = rune
+        cp.bonus_draw = 0
+        cp.last_drawn = draw
+
+        cp.hand = []
+        deck_sizes[0] = deck
+        # cp.deck = [Card.mockup_card() for _ in range(deck)]
+
+        player_data = list(map(int, next(game_input).split()))
+
+        if version == "1.5":
+            health, mana, deck, draw = player_data
+            rune = None
+        else:
+            health, mana, deck, rune, draw = player_data
+
+        op.health = health
+        op.mana = mana
+        op.base_mana = mana
+        op.next_rune = rune
+        op.bonus_draw = draw - 1
+        op.last_drawn = 1
+
+        op.hand = []
+        deck_sizes[1] = deck
+        # op.deck = [Card.mockup_card() for _ in range(deck)]
+
+        if mana != 0:
+            state.phase = Phase.BATTLE
+            state._phase = state.battle_phase
+        else:
+            state._phase.turn = deck + 1
 
         opp_hand, opp_actions = map(int, next(game_input).split())
 
@@ -853,20 +333,39 @@ class State:
         card_count = int(next(game_input))
 
         for _ in range(card_count):
-            (
-                card_id,
-                instance_id,
-                location,
-                card_type,
-                cost,
-                attack,
-                defense,
-                keywords,
-                player_hp,
-                opp_hp,
-                card_draw,
-                lane,
-            ) = next(game_input).split()
+            if version == "1.5":
+                (
+                    card_id,
+                    instance_id,
+                    location,
+                    card_type,
+                    cost,
+                    attack,
+                    defense,
+                    keywords,
+                    player_hp,
+                    opp_hp,
+                    card_draw,
+                    area,
+                    lane,
+                ) = next(game_input).split()
+            else:
+                (
+                    card_id,
+                    instance_id,
+                    location,
+                    card_type,
+                    cost,
+                    attack,
+                    defense,
+                    keywords,
+                    player_hp,
+                    opp_hp,
+                    card_draw,
+                    lane,
+                ) = next(game_input).split()
+
+                area = 0
 
             card_type = int(card_type)
 
@@ -885,7 +384,7 @@ class State:
                 int(player_hp),
                 int(opp_hp),
                 int(card_draw),
-                0,  # area
+                int(area),
                 "",
                 instance_id=int(instance_id),
             )
@@ -920,6 +419,9 @@ class State:
 
             # since we draw with player.deck.pop(), reverse the deck list
             player.deck = list(reversed(player.deck))
+
+        if state.phase == Phase.DECK_BUILDING:
+            state.opposing_player.hand = list(state.current_player.hand)
 
         return state
 
