@@ -125,6 +125,7 @@ class State:
 
         cloned_state.players = tuple([player.clone() for player in self.players])
 
+        cloned_state.phase = self.phase
         cloned_state.deck_building_phase = self.deck_building_phase.clone(cloned_state)
         cloned_state.battle_phase = self.battle_phase.clone(cloned_state)
 
