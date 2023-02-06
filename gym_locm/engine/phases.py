@@ -71,7 +71,7 @@ class Phase(ABC):
         pass
 
     def clone(self, cloned_state):
-        cloned_phase = Phase.empty_copy()
+        cloned_phase = self.empty_copy()
 
         cloned_phase.state = cloned_state
         cloned_phase.rng = cloned_state.rng
@@ -84,16 +84,12 @@ class Phase(ABC):
         cloned_phase._available_actions = self._available_actions
         cloned_phase._action_mask = self._action_mask
 
+        return cloned_phase
+
     @staticmethod
+    @abstractmethod
     def empty_copy():
-        class Empty(Phase):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = Phase
-
-        return new_copy
+        pass
 
 
 class DeckBuildingPhase(Phase, ABC):
@@ -193,8 +189,6 @@ class DraftPhase(DeckBuildingPhase):
     def clone(self, cloned_state):
         cloned_phase = super().clone(cloned_state)
 
-        cloned_phase.__class__ = DraftPhase
-
         cloned_phase.k = self.k
         cloned_phase.n = self.n
         cloned_phase._draft_cards = self._draft_cards
@@ -202,6 +196,17 @@ class DraftPhase(DeckBuildingPhase):
         cloned_phase._action_mask = self._action_mask
 
         return cloned_phase
+
+    @staticmethod
+    def empty_copy():
+        class Empty(DraftPhase):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = Phase
+
+        return new_copy
 
 
 class ConstructedPhase(DeckBuildingPhase):
@@ -296,8 +301,6 @@ class ConstructedPhase(DeckBuildingPhase):
     def clone(self, cloned_state):
         cloned_phase = super().clone(cloned_state)
 
-        cloned_phase.__class__ = ConstructedPhase
-
         cloned_phase.k = self.k
         cloned_phase.n = self.n
         cloned_phase.max_copies = self.max_copies
@@ -307,8 +310,19 @@ class ConstructedPhase(DeckBuildingPhase):
 
         return cloned_phase
 
+    @staticmethod
+    def empty_copy():
+        class Empty(ConstructedPhase):
+            def __init__(self):
+                pass
 
-class BattlePhase(Phase, ABC):
+        new_copy = Empty()
+        new_copy.__class__ = Phase
+
+        return new_copy
+
+
+class BattlePhase(Phase):
     def __init__(self, state, rng, *, items=True):
         super().__init__(state, rng, items=items)
 
@@ -931,14 +945,23 @@ class BattlePhase(Phase, ABC):
     def clone(self, cloned_state):
         cloned_phase = super().clone(cloned_state)
 
-        cloned_phase.__class__ = BattlePhase
-
         cloned_phase.winner = self.winner
         cloned_phase.instance_counter = self.instance_counter
         cloned_phase.summon_counter = self.summon_counter
         cloned_phase.damage_counter = tuple(self.damage_counter)
 
         return cloned_phase
+
+    @staticmethod
+    def empty_copy():
+        class Empty(BattlePhase):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = Phase
+
+        return new_copy
 
 
 Version15BattlePhase = BattlePhase
@@ -973,3 +996,14 @@ class Version12BattlePhase(BattlePhase):
         cloned_phase.__class__ = Version15BattlePhase
 
         return cloned_phase
+
+    @staticmethod
+    def empty_copy():
+        class Empty(Version12BattlePhase):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = Phase
+
+        return new_copy
