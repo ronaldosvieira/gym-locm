@@ -536,7 +536,7 @@ class BattlePhase(Phase, ABC):
 
             self._do_use(origin, target)
         elif action.type == ActionType.PASS:
-            self._next_turn()
+            pass
         else:
             raise MalformedActionError("Invalid action type")
 
@@ -552,6 +552,9 @@ class BattlePhase(Phase, ABC):
                 for creature in lane:
                     if creature.is_dead:
                         lane.remove(creature)
+
+        if action.type == ActionType.PASS:
+            self._next_turn()
 
         self._check_win_conditions()
 
