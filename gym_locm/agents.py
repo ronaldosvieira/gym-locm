@@ -459,10 +459,11 @@ class CoacBattleAgent(Agent):
 class NativeAgent(Agent):
     action_buffer = []
 
-    def __init__(self, cmd, stateful=True, verbose=False):
+    def __init__(self, cmd, stateful=True, verbose=False, timeout=2):
         self.cmd = cmd
         self.stateful = stateful
         self.verbose = verbose
+        self.timeout = timeout
         self.initialized = False
         self.action_buffer = []
 
@@ -556,7 +557,7 @@ class NativeAgent(Agent):
         actions = []
 
         try:
-            raw_output = self._process.read_nonblocking(size=2048, timeout=2)
+            raw_output = self._process.read_nonblocking(size=2048, timeout=self.timeout)
 
             self.raw_actions = raw_output.strip()
 
@@ -604,7 +605,7 @@ class NativeBattleAgent(NativeAgent):
             self._process.write(str(fake_state))
 
             try:
-                raw_output = self._process.read_nonblocking(size=2048, timeout=2)
+                raw_output = self._process.read_nonblocking(size=2048, timeout=self.timeout)
 
                 if self.verbose:
                     eprint(raw_output, end="")
@@ -616,7 +617,7 @@ class NativeBattleAgent(NativeAgent):
             fake_state.act(Action(ActionType.PASS))
 
         try:
-            raw_output = self._process.read_nonblocking(size=2048, timeout=0.1)
+            raw_output = self._process.read_nonblocking(size=2048, timeout=self.timeout)
 
             if self.verbose:
                 eprint(raw_output, end="")
