@@ -561,10 +561,10 @@ class NativeAgent(Agent):
 
             self.raw_actions = raw_output.strip()
 
-            actions = self.decode_actions(raw_output)
-
             if self.verbose:
                 eprint(raw_output, end="")
+
+            actions = self.decode_actions(raw_output)
         except TIMEOUT:
             print("WARNING: timeout")
         except EOF:
