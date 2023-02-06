@@ -100,16 +100,6 @@ class DeckBuildingPhase(Phase, ABC):
     def __init__(self, state, rng, *, items=True):
         super().__init__(state, rng, items=items)
 
-        # get references of the players' deck
-        self.decks = state.players[0].deck, state.players[1].deck
-
-    def clone(self, cloned_state):
-        cloned_phase = super().clone(cloned_state)
-
-        cloned_phase.decks = cloned_state.players[0].deck, cloned_state.players[1].deck
-
-        return cloned_phase
-
 
 class DraftPhase(DeckBuildingPhase):
     def __init__(self, state, rng, *, items=True, k=3, n=30):
@@ -172,7 +162,7 @@ class DraftPhase(DeckBuildingPhase):
         card = self.current_choices[chosen_index]
 
         # add chosen card to player's deck
-        self.decks[self._current_player].append(card)
+        self.state.players[self._current_player].deck.append(card)
 
         # trigger next turn
         self._next_turn()
@@ -278,7 +268,7 @@ class ConstructedPhase(DeckBuildingPhase):
 
         # add chosen card to player's deck
         card = self._constructed_cards[chosen_card_index]
-        self.decks[self._current_player].append(card)
+        self.state.players[self._current_player].deck.append(card)
 
         # trigger next turn
         self._next_turn()
