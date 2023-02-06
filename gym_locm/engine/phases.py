@@ -222,7 +222,7 @@ class ConstructedPhase(DeckBuildingPhase):
 
     def available_actions(self) -> Tuple[Action]:
         return tuple(
-            Action(ActionType.CHOOSE, i)
+            Action(ActionType.CHOOSE, i + 1)
             for i, can_be_chosen in enumerate(self.action_mask())
             if can_be_chosen
         )
