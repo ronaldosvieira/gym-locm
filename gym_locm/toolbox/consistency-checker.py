@@ -148,7 +148,7 @@ def validate_match(match_transitions, state, p1_agent, p2_agent, phase=Phase.DEC
 
 
 def run():
-    dataset_path = "gym_locm/engine/resources/consistency-dataset-1.txt"
+    dataset_path = "gym_locm/engine/resources/consistency-dataset-v1.2.txt"
 
     with open(dataset_path, "r") as dataset:
         matches = dataset.readlines()
