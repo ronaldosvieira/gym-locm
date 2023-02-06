@@ -18,5 +18,7 @@ class Action:
     def __repr__(self):
         if self.type == ActionType.PASS:
             return f"PASS"
+        elif self.type in (ActionType.PICK, ActionType.CHOOSE):
+            return f"{self.type.name} {self.origin}"
         else:
             return f"{self.type.name} {self.origin} {-1 if self.target is None else self.target}"
