@@ -503,6 +503,8 @@ class BattlePhase(Phase, ABC):
         second_player.draw()
         second_player.bonus_mana = 1
 
+        self._new_battle_turn()
+
     def act(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
         origin, target = action.origin, action.target
@@ -879,9 +881,6 @@ class BattlePhase(Phase, ABC):
         current_player.mana -= origin.cost
 
     def _next_turn(self):
-        # reset damage counters
-        self.damage_counter = 0, 0
-
         # handle turn change
         if self._current_player == PlayerOrder.FIRST:
             self._current_player = PlayerOrder.SECOND
@@ -889,6 +888,12 @@ class BattlePhase(Phase, ABC):
             self._current_player = PlayerOrder.FIRST
 
             self.turn += 1
+
+        self._new_battle_turn()
+
+    def _new_battle_turn(self):
+        # reset damage counters
+        self.damage_counter = 0, 0
 
         current_player = self.state.players[self._current_player]
 
