@@ -330,7 +330,7 @@ class BattlePhase(Phase):
 
         self.instance_counter = 0
         self.summon_counter = 0
-        self.damage_counter = 0, 0
+        self.damage_counter = [0, 0]
 
     def _next_instance_id(self):
         self.instance_counter += 1
@@ -907,7 +907,7 @@ class BattlePhase(Phase):
 
     def _new_battle_turn(self):
         # reset damage counters
-        self.damage_counter = 0, 0
+        self.damage_counter = [0, 0]
 
         current_player = self.state.players[self._current_player]
 
@@ -948,7 +948,7 @@ class BattlePhase(Phase):
         cloned_phase.winner = self.winner
         cloned_phase.instance_counter = self.instance_counter
         cloned_phase.summon_counter = self.summon_counter
-        cloned_phase.damage_counter = tuple(self.damage_counter)
+        cloned_phase.damage_counter = list(self.damage_counter)
 
         return cloned_phase
 
