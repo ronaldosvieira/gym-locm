@@ -42,6 +42,7 @@ class Phase(ABC):
         self.items = items
 
         self.turn = 1
+        self.prepared = False
         self.ended = False
 
         self._current_player = None
@@ -58,11 +59,12 @@ class Phase(ABC):
 
     @abstractmethod
     def prepare(self):
-        pass
+        self.prepared = True
 
     @abstractmethod
     def act(self, action: Action):
-        pass
+        if not self.prepared:
+            raise Exception("Must call prepare() before act()")
 
     @abstractmethod
     def _next_turn(self):
@@ -129,6 +131,8 @@ class DraftPhase(DeckBuildingPhase):
         return self._action_mask if not self.ended else ()
 
     def prepare(self):
+        super().prepare()
+
         # initialize current player pointer
         self._current_player = PlayerOrder.FIRST
 
@@ -232,6 +236,8 @@ class ConstructedPhase(DeckBuildingPhase):
         return tuple(self._action_mask[self._current_player])
 
     def prepare(self):
+        super().prepare()
+
         # initialize current player pointer
         self._current_player = PlayerOrder.FIRST
 
@@ -477,6 +483,8 @@ class BattlePhase(Phase, ABC):
         return self._action_mask
 
     def prepare(self):
+        super().prepare()
+
         """Prepare all game components for a battle phase"""
         self._current_player = PlayerOrder.FIRST
 
