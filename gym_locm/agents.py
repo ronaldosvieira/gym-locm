@@ -2,6 +2,7 @@ import sys
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from typing import Type
+from os import fpathconf
 
 import numpy as np
 from pexpect import TIMEOUT, EOF
@@ -471,7 +472,9 @@ class NativeAgent(Agent):
         self._process = None
 
     def initialize(self):
-        self._process = pexpect.spawn(self.cmd, echo=False, encoding="utf-8")
+        self._process: pexpect.pty_spawn.spawn = pexpect.spawn(
+            self.cmd, echo=False, encoding="utf-8"
+        )
         self.initialized = True
 
     def __enter__(self):
@@ -551,21 +554,45 @@ class NativeAgent(Agent):
             else:
                 return self.action_buffer.pop()
 
+        # get max send buffer size
+        n = fpathconf(0, "PC_MAX_CANON")
+
+        # get state as native string
         state_as_str = str(state)
-        bytes_sent = self._process.send(state_as_str)
+
+        # separate state string in parts of up to n bytes each
+        state_as_str_parts = [
+            state_as_str[i : i + n] for i in range(0, len(state_as_str), n)
+        ]
+
+        bytes_sent = 0
+
+        # send each part of the state to the agent
+        for state_as_str_part in state_as_str_parts:
+            bytes_sent += self._process.send(state_as_str_part)
+
+            if self.verbose:
+                eprint("Sent a total of", bytes_sent, "bytes", flush=True)
 
         if self.verbose:
-            print("State bytes:", len(state_as_str.encode("utf-8")), "Bytes sent:", bytes_sent)
+            print(
+                "State bytes:",
+                len(state_as_str.encode("utf-8")),
+                "Bytes sent:",
+                bytes_sent,
+            )
 
         actions = []
 
         try:
+            # read an action output ending with \n
             raw_output = self._process.readline()
 
+            # remove the \n
             self.raw_actions = raw_output.strip()
 
             if self.verbose:
-                eprint("Raw output:", self.raw_actions, end="")
+                eprint("Raw output:", self.raw_actions)
 
             actions = self.decode_actions(raw_output)
 
