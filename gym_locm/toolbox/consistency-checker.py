@@ -35,7 +35,7 @@ def _find_deck_order(match_transitions, player):
         for card in state.current_player.hand:
             if card.instance_id not in known_instance_ids:
                 known_instance_ids.add(card.instance_id)
-                deck_order.append((card.id, card.instance_id))
+                deck_order.append((card.id, card))
 
     return deck_order
 
@@ -73,7 +73,6 @@ def recreate_initial_state(match_transitions, draft_options, deck_orders, phase=
     else:
         state.opposing_player.base_mana -= 1
         state.opposing_player.bonus_mana += 1
-
 
     return state
 

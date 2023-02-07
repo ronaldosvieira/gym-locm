@@ -5,7 +5,13 @@ import numpy as np
 
 from gym_locm.engine.player import Player
 from gym_locm.engine.action import Action
-from gym_locm.engine.card import Card, Creature, GreenItem, RedItem, BlueItem, get_locm12_card_list
+from gym_locm.engine.card import (
+    Card,
+    Creature,
+    GreenItem,
+    RedItem,
+    BlueItem,
+)
 from gym_locm.engine.enums import *
 from gym_locm.engine.phases import (
     Version12BattlePhase,
@@ -112,7 +118,7 @@ class State:
             elif self.phase == Phase.ENDED:
                 raise GameIsEndedError
 
-    def clone(self) -> 'State':
+    def clone(self) -> "State":
         cloned_state = State.empty_copy()
 
         cloned_state.rng = np.random.default_rng()
@@ -256,7 +262,6 @@ class State:
 
     @staticmethod
     def from_native_input(game_input, deck_orders=((), ())):
-        _cards = get_locm12_card_list()
 
         if isinstance(game_input, str):
             game_input = game_input.split("\n")
@@ -289,7 +294,6 @@ class State:
 
         cp.hand = []
         deck_sizes[0] = deck
-        # cp.deck = [Card.mockup_card() for _ in range(deck)]
 
         player_data = list(map(int, next(game_input).split()))
 
@@ -308,7 +312,6 @@ class State:
 
         op.hand = []
         deck_sizes[1] = deck
-        # op.deck = [Card.mockup_card() for _ in range(deck)]
 
         if mana != 0:
             state.phase = Phase.BATTLE
@@ -319,11 +322,13 @@ class State:
         opp_hand, opp_actions = map(int, next(game_input).split())
 
         # add known cards to opponent's hand
-        state.opposing_player.hand = [_cards[card_id - 1].make_copy(instance_id=card_instance_id)
-                                      for card_id, card_instance_id in deck_orders[1][:opp_hand]]
+        state.opposing_player.hand = [card for _, card in deck_orders[1][:opp_hand]]
 
         # fill the rest of the opponent's hand with mockup cards
-        state.opposing_player.hand += [Card.mockup_card() for _ in range(opp_hand - len(state.opposing_player.hand))]
+        state.opposing_player.hand += [
+            Card.mockup_card()
+            for _ in range(opp_hand - len(state.opposing_player.hand))
+        ]
 
         # ensure we respect the current amount of cards in the opponent's hand
         state.opposing_player.hand = state.opposing_player.hand[:opp_hand]
@@ -402,8 +407,7 @@ class State:
 
         for i, player in enumerate(state.players):
             # add known cards in the deck
-            player.deck = [_cards[card_id - 1].make_copy(instance_id=card_instance_id)
-                           for card_id, card_instance_id in deck_orders[i]]
+            player.deck = [card for _, card in deck_orders[i]]
 
             # remove from the players' deck cards that are already in their hands
             for card in player.hand:
@@ -413,10 +417,12 @@ class State:
                     pass
 
             # fill the rest of the deck with mockup cards
-            player.deck += [Card.mockup_card() for _ in range(deck_sizes[i] - len(player.deck))]
+            player.deck += [
+                Card.mockup_card() for _ in range(deck_sizes[i] - len(player.deck))
+            ]
 
             # ensure we respect the correct amount of cards in the player's deck
-            player.deck = player.deck[:deck_sizes[i]]
+            player.deck = player.deck[: deck_sizes[i]]
 
             # since we draw with player.deck.pop(), reverse the deck list
             player.deck = list(reversed(player.deck))
