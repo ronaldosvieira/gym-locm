@@ -459,11 +459,10 @@ class CoacBattleAgent(Agent):
 class NativeAgent(Agent):
     action_buffer = []
 
-    def __init__(self, cmd, stateful=True, verbose=False, timeout=2):
+    def __init__(self, cmd, stateful=True, verbose=False):
         self.cmd = cmd
         self.stateful = stateful
         self.verbose = verbose
-        self.timeout = timeout
         self.initialized = False
         self.action_buffer = []
 
@@ -552,19 +551,26 @@ class NativeAgent(Agent):
             else:
                 return self.action_buffer.pop()
 
-        self._process.write(str(state))
+        state_as_str = str(state)
+        bytes_sent = self._process.send(state_as_str)
+
+        if self.verbose:
+            print("State bytes:", len(state_as_str.encode("utf-8")), "Bytes sent:", bytes_sent)
 
         actions = []
 
         try:
-            raw_output = self._process.read_nonblocking(size=2048, timeout=self.timeout)
+            raw_output = self._process.readline()
 
             self.raw_actions = raw_output.strip()
 
             if self.verbose:
-                eprint(raw_output, end="")
+                eprint("Raw output:", self.raw_actions, end="")
 
             actions = self.decode_actions(raw_output)
+
+            if self.verbose:
+                eprint("Decoded:", actions, flush=True)
         except TIMEOUT:
             print("WARNING: timeout")
         except EOF:
@@ -605,7 +611,7 @@ class NativeBattleAgent(NativeAgent):
             self._process.write(str(fake_state))
 
             try:
-                raw_output = self._process.read_nonblocking(size=2048, timeout=self.timeout)
+                raw_output = self._process.readline()
 
                 if self.verbose:
                     eprint(raw_output, end="")
@@ -617,7 +623,7 @@ class NativeBattleAgent(NativeAgent):
             fake_state.act(Action(ActionType.PASS))
 
         try:
-            raw_output = self._process.read_nonblocking(size=2048, timeout=self.timeout)
+            raw_output = self._process.read_nonblocking(size=2048, timeout=0.1)
 
             if self.verbose:
                 eprint(raw_output, end="")
