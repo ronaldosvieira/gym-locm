@@ -565,9 +565,14 @@ class BattlePhase(Phase):
 
         for player in players:
             for lane in player.lanes:
+                creatures_to_remove = []
+
                 for creature in lane:
                     if creature.is_dead:
-                        lane.remove(creature)
+                        creatures_to_remove.append(creature)
+
+                for creature in creatures_to_remove:
+                    lane.remove(creature)
 
         if action.type == ActionType.PASS:
             self._next_turn()
