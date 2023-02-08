@@ -517,6 +517,8 @@ class NativeAgent(Agent):
                 decoded_actions.append(Action(ActionType.PASS))
             elif tokens[0] == "PICK":
                 decoded_actions.append(Action(ActionType.PICK, int(tokens[1])))
+            elif tokens[0] == "CHOOSE":
+                decoded_actions.append(Action(ActionType.CHOOSE, int(tokens[1])))
             elif tokens[0] == "USE":
                 origin = int(tokens[1])
                 target = int(tokens[2])
