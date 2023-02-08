@@ -313,7 +313,9 @@ class ConstructedPhase(DeckBuildingPhase):
         cloned_phase.n = self.n
         cloned_phase.max_copies = self.max_copies
         cloned_phase._constructed_cards = self._constructed_cards
-        cloned_phase._action_mask = list(self._action_mask[0]), list(self._action_mask[1])
+        cloned_phase._action_mask = list(self._action_mask[0]), list(
+            self._action_mask[1]
+        )
         cloned_phase._choices = list(self._choices[0]), list(self._choices[1])
 
         return cloned_phase
@@ -862,15 +864,15 @@ class BattlePhase(Phase):
             _, location = self._find_card(target.instance_id)
 
             # note: see the Location, PlayerOrder and Lane classes for more details on this arithmetic
-            target_owner = PlayerOrder((location // 10) - 1)
+            opponent_is_owner = bool((location // 10) - 1)
             target_lane = Lane(location % 10)
 
-            targets.extend(self.state.players[target_owner].lanes[target_lane])
+            owner = opposing_player if opponent_is_owner else current_player
+
+            targets.extend(owner.lanes[target_lane])
 
             if origin.area == Area.TYPE_2:
-                targets.extend(
-                    self.state.players[target_owner].lanes[target_lane.opposing()]
-                )
+                targets.extend(owner.lanes[target_lane.opposing()])
         else:
             targets = [target]
 
