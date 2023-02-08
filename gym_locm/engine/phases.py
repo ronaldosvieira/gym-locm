@@ -675,9 +675,7 @@ class BattlePhase(Phase):
                 raise InvalidCardError(message=f"Invalid area value: {origin.area}")
 
             if len(current_player.lanes[target_copy]) < 3:
-                origin_copy = copy.deepcopy(origin)
-
-                origin_copy.instance_id = self._next_instance_id()
+                origin_copy = origin.make_copy(self._next_instance_id())
 
                 origin_copy.summon_counter = self.summon_counter
                 self.summon_counter += 1
