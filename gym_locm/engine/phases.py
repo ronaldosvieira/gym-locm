@@ -862,7 +862,7 @@ class BattlePhase(Phase):
             _, location = self._find_card(target.instance_id)
 
             # note: see the Location, PlayerOrder and Lane classes for more details on this arithmetic
-            target_owner = PlayerOrder(location // 10)
+            target_owner = PlayerOrder((location // 10) - 1)
             target_lane = Lane(location % 10)
 
             targets.extend(self.state.players[target_owner].lanes[target_lane])
