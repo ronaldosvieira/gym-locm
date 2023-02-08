@@ -232,17 +232,19 @@ def check_version_12():
 
         draft_options = find_draft_options(transitions)
 
-        state = recreate_initial_state(
+        state1 = recreate_initial_state(
             transitions, draft_options, deck_orders, Phase.DRAFT, version="1.2"
         )
 
-        validate_match(transitions, state, p1_agent, p2_agent, Phase.DRAFT, version="1.2")
+        validate_match(transitions, state1, p1_agent, p2_agent, Phase.DRAFT, version="1.2")
 
-        state = recreate_initial_state(
+        state2 = recreate_initial_state(
             transitions, draft_options, deck_orders, Phase.BATTLE, version="1.2"
         )
 
-        validate_match(transitions, state, p1_agent, p2_agent, Phase.BATTLE, version="1.2")
+        state2._phase.instance_counter = state1._phase.instance_counter
+
+        validate_match(transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.2")
 
     p1_agent.close()
     p2_agent.close()
@@ -258,11 +260,11 @@ def check_version_15():
 
     p1_agent = NativeAgent(
         "/home/ronaldo/.virtualenvs/gym-locm/bin/python ../../IdeaProjects/Strategy-Card-Game-AI-Competition/contest-2022-08-COG/ByteRL/locm1d5_submit.py",
-        verbose=True,
+        verbose=False,
     )
     p2_agent = NativeAgent(
         "/home/ronaldo/.virtualenvs/gym-locm/bin/python ../../IdeaProjects/Strategy-Card-Game-AI-Competition/contest-2022-08-COG/ByteRL/locm1d5_submit.py",
-        verbose=True,
+        verbose=False,
     )
 
     for i, match in enumerate(matches):
@@ -292,7 +294,7 @@ def check_version_15():
 
         constructed_options = find_constructed_options(transitions)
 
-        state = recreate_initial_state(
+        state1 = recreate_initial_state(
             transitions,
             constructed_options,
             deck_orders,
@@ -300,13 +302,15 @@ def check_version_15():
             version="1.5",
         )
 
-        validate_match(transitions, state, p1_agent, p2_agent, Phase.CONSTRUCTED, version="1.5")
+        validate_match(transitions, state1, p1_agent, p2_agent, Phase.CONSTRUCTED, version="1.5")
 
-        state = recreate_initial_state(
+        state2 = recreate_initial_state(
             transitions, constructed_options, deck_orders, Phase.BATTLE, version="1.5"
         )
 
-        validate_match(transitions, state, p1_agent, p2_agent, Phase.BATTLE, version="1.5")
+        state2._phase.instance_counter = state1._phase.instance_counter
+
+        validate_match(transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.5")
 
     p1_agent.close()
     p2_agent.close()
