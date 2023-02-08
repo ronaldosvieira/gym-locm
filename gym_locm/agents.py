@@ -28,7 +28,7 @@ from gym_locm.util import is_it, has_enough_mana
 
 
 def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
+    print(*args, file=sys.stderr, **kwargs, flush=True)
 
 
 class Agent(ABC):
@@ -572,7 +572,7 @@ class NativeAgent(Agent):
             bytes_sent += self._process.send(state_as_str_part)
 
             if self.verbose:
-                eprint("Sent a total of", bytes_sent, "bytes", flush=True)
+                eprint("Sent a total of", bytes_sent, "bytes")
 
         if self.verbose:
             print(
@@ -597,7 +597,7 @@ class NativeAgent(Agent):
             actions = self.decode_actions(raw_output)
 
             if self.verbose:
-                eprint("Decoded:", actions, flush=True)
+                eprint("Decoded:", actions)
         except TIMEOUT:
             print("WARNING: timeout")
         except EOF:
