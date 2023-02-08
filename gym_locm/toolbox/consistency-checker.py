@@ -1,9 +1,27 @@
+import argparse
 import json
 from typing import List
 
 from gym_locm.engine import State, Phase
 from gym_locm.agents import NativeAgent
 from gym_locm.exceptions import ActionError
+
+
+def get_arg_parser():
+    p = argparse.ArgumentParser(
+        description="This is runner script for agent experimentation on gym-locm.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    p.add_argument(
+        "--agent",
+        help="agent to be used to play the matches (should be Baseline2 for LOCM 1.2, and ByteRL for LOCM 1.5)",
+    )
+    p.add_argument(
+        "--version", help="version to check", choices=["1.2", "1.5"], default="1.5"
+    )
+
+    return p
 
 
 def extract_match_json(match_line):
@@ -188,7 +206,7 @@ def validate_match(
         print("Actions match!")
 
 
-def check_version_12():
+def check_version_12(agent):
     dataset_path = "gym_locm/engine/resources/consistency-dataset-v1.2.txt"
 
     with open(dataset_path, "r") as dataset:
@@ -197,11 +215,11 @@ def check_version_12():
     print(len(matches))
 
     p1_agent = NativeAgent(
-        "python3 gym_locm/engine/resources/baseline2.py",
+        agent,
         verbose=False,
     )
     p2_agent = NativeAgent(
-        "python3 gym_locm/engine/resources/baseline2.py",
+        agent,
         verbose=False,
     )
 
@@ -236,7 +254,9 @@ def check_version_12():
             transitions, draft_options, deck_orders, Phase.DRAFT, version="1.2"
         )
 
-        validate_match(transitions, state1, p1_agent, p2_agent, Phase.DRAFT, version="1.2")
+        validate_match(
+            transitions, state1, p1_agent, p2_agent, Phase.DRAFT, version="1.2"
+        )
 
         state2 = recreate_initial_state(
             transitions, draft_options, deck_orders, Phase.BATTLE, version="1.2"
@@ -244,13 +264,15 @@ def check_version_12():
 
         state2._phase.instance_counter = state1._phase.instance_counter
 
-        validate_match(transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.2")
+        validate_match(
+            transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.2"
+        )
 
     p1_agent.close()
     p2_agent.close()
 
 
-def check_version_15():
+def check_version_15(agent):
     dataset_path = "gym_locm/engine/resources/consistency-dataset-v1.5.txt"
 
     with open(dataset_path, "r") as dataset:
@@ -259,11 +281,11 @@ def check_version_15():
     print(len(matches))
 
     p1_agent = NativeAgent(
-        "/home/ronaldo/.virtualenvs/gym-locm/bin/python ../../IdeaProjects/Strategy-Card-Game-AI-Competition/contest-2022-08-COG/ByteRL/locm1d5_submit.py",
+        agent,
         verbose=False,
     )
     p2_agent = NativeAgent(
-        "/home/ronaldo/.virtualenvs/gym-locm/bin/python ../../IdeaProjects/Strategy-Card-Game-AI-Competition/contest-2022-08-COG/ByteRL/locm1d5_submit.py",
+        agent,
         verbose=False,
     )
 
@@ -302,7 +324,9 @@ def check_version_15():
             version="1.5",
         )
 
-        validate_match(transitions, state1, p1_agent, p2_agent, Phase.CONSTRUCTED, version="1.5")
+        validate_match(
+            transitions, state1, p1_agent, p2_agent, Phase.CONSTRUCTED, version="1.5"
+        )
 
         state2 = recreate_initial_state(
             transitions, constructed_options, deck_orders, Phase.BATTLE, version="1.5"
@@ -310,12 +334,25 @@ def check_version_15():
 
         state2._phase.instance_counter = state1._phase.instance_counter
 
-        validate_match(transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.5")
+        validate_match(
+            transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.5"
+        )
 
     p1_agent.close()
     p2_agent.close()
 
 
+def run():
+    arg_parser = get_arg_parser()
+    args = arg_parser.parse_args()
+
+    if args.version == "1.5":
+        check_version_15(args.agent)
+    elif args.version == "1.2":
+        check_version_12(args.agent)
+    else:
+        raise Exception("Invalid version:", args.version)
+
+
 if __name__ == "__main__":
-    check_version_12()
-    check_version_15()
+    run()
