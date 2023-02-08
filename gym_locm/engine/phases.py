@@ -732,12 +732,6 @@ class BattlePhase(Phase):
         if not origin.able_to_attack():
             raise MalformedActionError("Attacking creature cannot attack")
 
-        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-        origin.player_hp = 0
-        origin.enemy_hp = 0
-        origin.card_draw = 0
-        origin.area = 0
-
         if target is None:
             damage_dealt = self._damage_player(
                 opposing_player, amount=origin.attack, source=DamageSource.OPPONENT
@@ -764,12 +758,6 @@ class BattlePhase(Phase):
                 self._damage_player(
                     opposing_player, amount=excess_damage, source=DamageSource.OPPONENT
                 )
-
-            # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-            target.player_hp = 0
-            target.enemy_hp = 0
-            target.card_draw = 0
-            target.area = 0
         else:
             raise MalformedActionError("Target is not a creature or a player")
 
@@ -897,13 +885,6 @@ class BattlePhase(Phase):
                 opposing_player, amount=-origin.enemy_hp, source=DamageSource.OPPONENT
             )
 
-            if isinstance(target, Creature):
-                # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-                target.player_hp = 0
-                target.enemy_hp = 0
-                target.card_draw = 0
-                target.area = 0
-
         current_player.hand.remove(origin)
         current_player.mana -= origin.cost
 
@@ -992,6 +973,30 @@ class Version12BattlePhase(BattlePhase):
             player.bonus_draw += 1
 
         return amount
+
+    def _do_use(self, origin, target):
+        super()._do_use(origin, target)
+
+        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+        target.player_hp = 0
+        target.enemy_hp = 0
+        target.card_draw = 0
+        target.area = 0
+
+    def _do_attack(self, origin, target):
+        super()._do_attack(origin, target)
+
+        # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
+        origin.player_hp = 0
+        origin.enemy_hp = 0
+        origin.card_draw = 0
+        origin.area = 0
+
+        if isinstance(target, Creature):
+            target.player_hp = 0
+            target.enemy_hp = 0
+            target.card_draw = 0
+            target.area = 0
 
     def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
         cp = self.state.current_player
