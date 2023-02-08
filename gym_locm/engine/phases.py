@@ -281,22 +281,30 @@ class ConstructedPhase(DeckBuildingPhase):
     def _next_turn(self):
         # handle turn change
         if self._current_player == PlayerOrder.FIRST:
-            self._current_player = PlayerOrder.SECOND
+            if self.turn < self.n:
+                self.turn += 1
+            else:
+                self._current_player = PlayerOrder.SECOND
+
+                self.turn = 1
         else:
             if self.turn < self.n:
-                self._current_player = PlayerOrder.FIRST
-
                 self.turn += 1
-
-                for player in self.state.players:
-                    player.hand = [
-                        self._constructed_cards[i]
-                        for i, can_be_chosen in enumerate(self._action_mask[player.id])
-                        if can_be_chosen
-                    ]
             else:
                 self._current_player = None
                 self.ended = True
+
+        # populate players' hands
+        if not self.ended:
+            for player in self.state.players:
+                player.hand = [
+                    self._constructed_cards[i]
+                    for i, can_be_chosen in enumerate(self._action_mask[player.id])
+                    if can_be_chosen
+                ]
+        else:
+            for player in self.state.players:
+                player.hand = []
 
     def clone(self, cloned_state):
         cloned_phase = super().clone(cloned_state)
