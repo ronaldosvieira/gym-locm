@@ -605,7 +605,7 @@ class BattlePhase(Phase):
 
     def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
         self._damage_player(
-            self.state.current_player, amount=10, source=DamageSource.GAME
+            self.state.current_player, amount=10 * remaining_draws, source=DamageSource.GAME
         )
 
     def _handle_turn_50_or_greater(self):
