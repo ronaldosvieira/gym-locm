@@ -978,10 +978,11 @@ class Version12BattlePhase(BattlePhase):
         super()._do_use(origin, target)
 
         # see: https://github.com/acatai/Strategy-Card-Game-AI-Competition/issues/7
-        target.player_hp = 0
-        target.enemy_hp = 0
-        target.card_draw = 0
-        target.area = 0
+        if isinstance(target, Creature):
+            target.player_hp = 0
+            target.enemy_hp = 0
+            target.card_draw = 0
+            target.area = 0
 
     def _do_attack(self, origin, target):
         super()._do_attack(origin, target)
