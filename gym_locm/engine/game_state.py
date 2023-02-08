@@ -152,7 +152,9 @@ class State:
             draw = 0 if self.is_deck_building() else draw
 
             if self.version == "1.5":
-                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {draw}\n"
+                deck_length = 0 if self.is_deck_building() else len(cp.deck)
+
+                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {deck_length} {draw}\n"
             elif self.version == "1.2":
                 encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {cp.next_rune} {draw}\n"
 
