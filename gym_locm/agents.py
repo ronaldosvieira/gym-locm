@@ -454,7 +454,9 @@ class NativeDraftAgent(NativeAgent):
 
 
 PassDraftAgent = PassBattleAgent
+PassConstructedAgent = PassBattleAgent
 RandomDraftAgent = RandomBattleAgent
+RandomConstructedAgent = RandomBattleAgent
 
 
 class RuleBasedDraftAgent(Agent):
@@ -2786,6 +2788,11 @@ draft_agents = {
     "tabular-rl": TabularRLDraftAgent,
 }
 
+constructed_agents = {
+    "pass": PassConstructedAgent,
+    "random": RandomConstructedAgent
+}
+
 battle_agents = {
     "pass": PassBattleAgent,
     "random": RandomBattleAgent,
@@ -2801,6 +2808,10 @@ battle_agents = {
 
 def parse_draft_agent(agent_name: str) -> Type:
     return draft_agents[agent_name.lower().replace(" ", "-")]
+
+
+def parse_constructed_agent(agent_name: str) -> Type:
+    return constructed_agents[agent_name.lower().replace(" ", "-")]
 
 
 def parse_battle_agent(agent_name: str) -> Type:
