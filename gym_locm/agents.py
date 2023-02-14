@@ -7,10 +7,7 @@ from os import fpathconf
 import numpy as np
 from pexpect import TIMEOUT, EOF
 
-from gym_locm.algorithms import MCTS
-
 import pexpect
-import time
 import random
 
 from gym_locm.engine import (
@@ -238,41 +235,6 @@ class MaxAttackBattleAgent(Agent):
             pass
 
         return Action(ActionType.PASS)
-
-
-class MCTSBattleAgent(Agent):
-    def __init__(self, agents=(RandomBattleAgent(), RandomBattleAgent())):
-        self.agents = agents
-
-    def seed(self, seed):
-        for agent in self.agents:
-            agent.seed(seed)
-
-    def reset(self):
-        pass
-
-    def act(self, state, time_limit_ms=200, multiple=False):
-        searcher = MCTS(agents=self.agents)
-
-        if len(state.available_actions) == 1:
-            return state.available_actions[0]
-
-        start_time = int(time.time() * 1000.0)
-
-        while True:
-            current_time = int(time.time() * 1000.0)
-
-            if current_time - start_time > time_limit_ms:
-                break
-
-            searcher.do_rollout(state)
-
-        if multiple:
-            action = searcher.choose_until_pass(state)
-        else:
-            action = searcher.choose(state)
-
-        return action
 
 
 class NativeAgent(Agent):
@@ -2834,7 +2796,6 @@ battle_agents = {
     "baseline1": RuleBasedBattleAgent,
     "baseline2": MaxAttackBattleAgent,
     "ma": MaxAttackBattleAgent,
-    "mcts": MCTSBattleAgent,
 }
 
 
