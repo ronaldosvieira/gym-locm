@@ -24,7 +24,6 @@ experiments = [
     "numpy",
     "scipy",
     "hyperopt",
-    "mplcursors",
     "pandas",
     "matplotlib",
     "scikit-learn",
