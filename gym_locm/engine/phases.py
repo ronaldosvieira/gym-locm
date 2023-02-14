@@ -614,7 +614,7 @@ class BattlePhase(Phase):
             self.state.current_player, amount=10 * remaining_draws, source=DamageSource.GAME
         )
 
-    def _handle_turn_50_or_greater(self):
+    def _handle_turn_51_or_greater(self):
         self._damage_player(
             self.state.current_player, amount=10, source=DamageSource.GAME
         )
@@ -930,7 +930,7 @@ class BattlePhase(Phase):
         amount_to_draw = 1 + current_player.bonus_draw
 
         if self.turn > 50:
-            self._handle_turn_50_or_greater()
+            self._handle_turn_51_or_greater()
 
         try:
             current_player.draw(amount_to_draw)
@@ -1012,7 +1012,7 @@ class Version12BattlePhase(BattlePhase):
             deck_burn = cp.health - cp.next_rune
             self._damage_player(cp, amount=deck_burn, source=DamageSource.GAME)
 
-    def _handle_turn_50_or_greater(self):
+    def _handle_turn_51_or_greater(self):
         self.state.current_player.deck = []
 
     def clone(self, cloned_state):
