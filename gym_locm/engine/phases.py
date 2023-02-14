@@ -71,7 +71,7 @@ class Phase(ABC):
         pass
 
     def clone(self, cloned_state):
-        cloned_phase = self.empty_copy()
+        cloned_phase = self.empty_copy(type(self))
 
         cloned_phase.state = cloned_state
         cloned_phase.rng = cloned_state.rng
@@ -87,9 +87,15 @@ class Phase(ABC):
         return cloned_phase
 
     @staticmethod
-    @abstractmethod
-    def empty_copy():
-        pass
+    def empty_copy(of_class):
+        class Empty(of_class):
+            def __init__(self):
+                pass
+
+        new_copy = Empty()
+        new_copy.__class__ = of_class
+
+        return new_copy
 
 
 class DeckBuildingPhase(Phase, ABC):
@@ -196,17 +202,6 @@ class DraftPhase(DeckBuildingPhase):
         cloned_phase._action_mask = self._action_mask
 
         return cloned_phase
-
-    @staticmethod
-    def empty_copy():
-        class Empty(DraftPhase):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = Phase
-
-        return new_copy
 
 
 class ConstructedPhase(DeckBuildingPhase):
@@ -325,17 +320,6 @@ class ConstructedPhase(DeckBuildingPhase):
         cloned_phase._choices = list(self._choices[0]), list(self._choices[1])
 
         return cloned_phase
-
-    @staticmethod
-    def empty_copy():
-        class Empty(ConstructedPhase):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = Phase
-
-        return new_copy
 
 
 class BattlePhase(Phase):
@@ -965,17 +949,6 @@ class BattlePhase(Phase):
 
         return cloned_phase
 
-    @staticmethod
-    def empty_copy():
-        class Empty(BattlePhase):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = Phase
-
-        return new_copy
-
 
 Version15BattlePhase = BattlePhase
 
@@ -1047,14 +1020,3 @@ class Version12BattlePhase(BattlePhase):
         cloned_phase.__class__ = Version15BattlePhase
 
         return cloned_phase
-
-    @staticmethod
-    def empty_copy():
-        class Empty(Version12BattlePhase):
-            def __init__(self):
-                pass
-
-        new_copy = Empty()
-        new_copy.__class__ = Phase
-
-        return new_copy
