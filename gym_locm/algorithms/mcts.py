@@ -215,7 +215,7 @@ class MCTS:
         new_state.opposing_player.deck = new_deck
         new_state.opposing_player.hand = []
 
-        new_state.opposing_player.draw(amount=amount_hand)
+        new_state._phase._draw(amount=amount_hand, player=new_state.opposing_player)
 
         for player in new_state.players:
             random.shuffle(player.deck)

@@ -526,11 +526,11 @@ class BattlePhase(Phase):
         players[1].deck = list(reversed(d2))
 
         for player in players:
-            player.draw(4)
+            self._draw(4, player=player)
             player.base_mana = 0
 
         second_player = players[PlayerOrder.SECOND]
-        second_player.draw()
+        self._draw(player=second_player)
         second_player.bonus_mana = 1
 
         self._new_battle_turn()
@@ -608,6 +608,19 @@ class BattlePhase(Phase):
                 player.bonus_draw += 1
 
         return amount
+
+    def _draw(self, amount: int = 1, player: Player = None):
+        if player is None:
+            player = self.state.current_player
+
+        for i in range(amount):
+            if len(player.hand) >= 8:
+                raise FullHandError()
+
+            if len(player.deck) == 0:
+                raise EmptyDeckError(amount - i)
+
+            player.hand.append(player.deck.pop())
 
     def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
         self._damage_player(
@@ -933,7 +946,7 @@ class BattlePhase(Phase):
             self._handle_turn_51_or_greater()
 
         try:
-            current_player.draw(amount_to_draw)
+            self._draw(amount_to_draw, player=current_player)
         except FullHandError:
             pass
         except EmptyDeckError as e:
@@ -979,6 +992,19 @@ class Version12BattlePhase(BattlePhase):
             player.bonus_draw += 1
 
         return amount
+
+    def _draw(self, amount: int = 1, player: Player = None):
+        if player is None:
+            player = self.state.current_player
+
+        for i in range(amount):
+            if len(player.deck) == 0:
+                raise EmptyDeckError(amount - i)
+
+            if len(player.hand) >= 8:
+                raise FullHandError()
+
+            player.hand.append(player.deck.pop())
 
     def _do_use(self, origin, target):
         super()._do_use(origin, target)

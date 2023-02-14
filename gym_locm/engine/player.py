@@ -20,16 +20,6 @@ class Player:
 
         self.actions = []
 
-    def draw(self, amount: int = 1):
-        for i in range(amount):
-            if len(self.hand) >= 8:
-                raise FullHandError()
-
-            if len(self.deck) == 0:
-                raise EmptyDeckError(amount - i)
-
-            self.hand.append(self.deck.pop())
-
     def damage(self, amount: int) -> int:
         self.health -= amount
 
