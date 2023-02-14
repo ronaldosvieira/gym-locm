@@ -20,15 +20,6 @@ class Player:
 
         self.actions = []
 
-    def damage(self, amount: int) -> int:
-        self.health -= amount
-
-        while self.health <= self.next_rune and self.next_rune > 0:
-            self.next_rune -= 5
-            self.bonus_draw += 1
-
-        return amount
-
     def clone(self):
         cloned_player = Player.empty_copy()
 
