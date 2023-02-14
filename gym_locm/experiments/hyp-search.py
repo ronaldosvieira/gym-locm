@@ -115,7 +115,7 @@ def load_run(path):
         with open(path + "/rstate.p", "rb") as random_state_file:
             random_state = pickle.load(random_state_file)
     except FileNotFoundError:
-        random_state = np.random.RandomState(args.seed)
+        random_state = np.random.default_rng(seed=args.seed)
 
     return trials, random_state
 
@@ -191,6 +191,7 @@ if __name__ == "__main__":
         trial_id = _counter
 
         trainer = AsymmetricSelfPlay(
+            "draft",
             model_builder,
             model_params,
             env_params,
