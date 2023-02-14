@@ -250,7 +250,13 @@ class ConstructedPhase(DeckBuildingPhase):
 
     def act(self, action: Action):
         # get chosen card
-        chosen_card_id = action.origin if action.origin is not None else 0
+        if action.type == ActionType.CHOOSE:
+            chosen_card_id = action.origin
+        elif action.type == ActionType.PASS:
+            chosen_card_id = self.action_mask().index(True)  # get first choose-able card
+        else:
+            raise MalformedActionError(f"Actions in constructed should be of types CHOOSE or PASS, not {action.type}")
+
         chosen_card_index = chosen_card_id - 1
 
         # validate choice
