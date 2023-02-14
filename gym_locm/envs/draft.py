@@ -349,20 +349,3 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
     def get_episode_rewards(self):
         return self.rewards_single_player
 
-
-class LOCMDraftSingleTabularEnv(LOCMDraftSingleEnv):
-    def __init__(self, draft_agent=RandomDraftAgent(), play_first=True, **kwargs):
-        super(LOCMDraftSingleTabularEnv, self).__init__(
-            draft_agent, play_first, **kwargs
-        )
-
-        self.observation_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(self.k,), dtype=np.int
-        )
-
-        self.observation_space = gym.spaces.MultiDiscrete((160, 160, 160))
-
-    def _encode_state_draft(self):
-        return (
-            np.array(sorted(map(attrgetter("id"), self.state.current_player.hand))) - 1
-        )
