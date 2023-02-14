@@ -7,10 +7,10 @@ name = "gym_locm"
 version = "1.3.0"
 description = "OpenAI Gym environments for Legends of Code and Magic, a collectible card game designed for AI research"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
 requires-python = ">=3.6"
 keywords = ["reinforcement-learning", "collectible-card-games", "gym-environment", "legends-of-code-and-magic"]
-authors = [{name = "Ronaldo e Silva Vieira", email = "ronaldo.vieira@dcc.ufmg.br"}]
+authors = [{ name = "Ronaldo e Silva Vieira", email = "ronaldo.vieira@dcc.ufmg.br" }]
 dependencies = [
     "gym",
     "numpy",
@@ -33,6 +33,15 @@ experiments = [
     "wandb",
     "tensorboard",
     "torch",
+]
+legacy-experiments = [
+    "numpy",
+    "scipy",
+    "stable_baselines",
+    "hyperopt",
+    "pandas",
+    "matplotlib",
+    "scikit-learn",
 ]
 
 [project.urls]

@@ -8,6 +8,13 @@ described as follows.
 
 ### How to reproduce the paper/thesis experiments
 
+#### Prerequisites
+
+First of all, install `gym-locm`'s legacy experiments dependencies:
+```bash
+pip install -e .['legacy-experiments']
+```
+
 #### Section 5.3 or IV.D: Hyperparameter tuning
 
 To perform a hyperparameter tuning, simply execute the [hyp-search.py](hyp-search.py) script:
