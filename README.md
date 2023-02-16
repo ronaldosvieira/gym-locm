@@ -215,20 +215,20 @@ Usage: `env = gym.make('LOCM-XXX-vX', k=5)`, default: `3`
 We provide a command-line interface (CLI) to run LOCM matches. It is available as soon as the
 repository is installed. Some basic use cases are listed below.
 
-1. Run 1000 matches in parallel with 4 processes of the Icebox draft agent versus the Coac
+1. Run 1000 matches of LOCM 1.2 in parallel with 4 processes of the Icebox draft agent versus the Coac
 draft agent, using random actions in the battle:
     ```bash
     locm-runner --p1-draft icebox --p1-battle random \
                 --p2-draft coac --p2-battle random \
-                --games 1000 --processes 4
+                --games 1000 --version=1.2 --processes 4
     ```
 
-2. Run 1000 matches of a fully random player against a player developed for the original 
+2. Run 1000 matches of LOCM 1.5 of a fully random player against a player developed for the original 
 engine, and with a specific random seed:
     ```bash
     locm-runner --p1-draft random --p1-battle random \
                 --p2-path "python /path/to/agent.py" \
-                --games 1000 --seed 42
+                --games 1000 --version=1.5 --seed 42
     ```
    
 Use `locm-runner -h` to see all the available parameters.
