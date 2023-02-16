@@ -344,19 +344,15 @@ class SelfPlay(TrainingSession):
         )
 
         # set adversary models as adversary policies of the self-play envs
-        def make_adversary_policy(model, env):
-            def adversary_policy(obs):
-                actions, _ = model.adversary.predict(
-                    obs, action_masks=env.env_method("action_masks")[0]
-                )
+        def make_adversary_policy(model):
+            def adversary_policy(obs, action_mask):
+                actions, _ = model.adversary.predict(obs, action_masks=action_mask)
 
                 return actions
 
             return adversary_policy
 
-        self.env.set_attr(
-            "adversary_policy", make_adversary_policy(self.model, self.env)
-        )
+        self.env.set_attr("adversary_policy", make_adversary_policy(self.model))
 
         # create necessary folders
         os.makedirs(self.path, exist_ok=True)
@@ -628,22 +624,16 @@ class AsymmetricSelfPlay(TrainingSession):
         )
 
         # set adversary models as adversary policies of the self-play envs
-        def make_adversary_policy(model, env):
-            def adversary_policy(obs):
-                actions, _ = model.adversary.predict(
-                    obs, action_masks=env.env_method("action_masks")[0]
-                )
+        def make_adversary_policy(model):
+            def adversary_policy(obs, action_mask):
+                actions, _ = model.adversary.predict(obs, action_masks=action_mask)
 
                 return actions
 
             return adversary_policy
 
-        self.env1.set_attr(
-            "adversary_policy", make_adversary_policy(self.model1, self.env1)
-        )
-        self.env2.set_attr(
-            "adversary_policy", make_adversary_policy(self.model2, self.env2)
-        )
+        self.env1.set_attr("adversary_policy", make_adversary_policy(self.model1))
+        self.env2.set_attr("adversary_policy", make_adversary_policy(self.model2))
 
         # create necessary folders
         os.makedirs(self.path + "/role0", exist_ok=True)

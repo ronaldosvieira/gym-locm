@@ -328,7 +328,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         if not self.play_first:
             while self.state.current_player.id != PlayerOrder.SECOND:
                 state = self.encode_state()
-                action = self.adversary_policy(state)
+                action = self.adversary_policy(state, self.action_mask)
 
                 state, reward, done, info = super().step(action)
 
@@ -352,7 +352,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
             state = self.encode_state()
-            action = self.adversary_policy(state)
+            action = self.adversary_policy(state, self.action_mask)
 
             state, reward, done, info = super().step(action)
 
