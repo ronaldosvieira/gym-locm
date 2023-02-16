@@ -171,6 +171,9 @@ def run():
             parse_battle_agent(args.p1_battle)(),
         )
 
+    player_1[0].seed(args.seed)
+    player_1[1].seed(args.seed)
+
     if args.p2_path is not None:
         player_2 = agents.NativeAgent(args.p2_path)
         player_2 = (player_2, player_2)
@@ -179,6 +182,9 @@ def run():
             parse_deck_building_agent(args.p2_deck_building)(),
             parse_battle_agent(args.p2_battle)(),
         )
+
+    player_2[0].seed(args.seed)
+    player_2[1].seed(args.seed)
 
     if args.profile:
         profiler = cProfile.Profile()
