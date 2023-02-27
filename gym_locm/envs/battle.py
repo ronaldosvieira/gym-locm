@@ -23,6 +23,7 @@ class LOCMBattleEnv(LOCMEnv):
     ):
         super().__init__(
             seed=seed,
+            version="1.2",
             items=items,
             k=k,
             n=n,

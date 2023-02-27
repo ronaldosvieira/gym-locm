@@ -26,6 +26,7 @@ class LOCMEnv(gym.Env, ABC):
     def __init__(
         self,
         seed=None,
+        version="1.5",
         items=True,
         k=3,
         n=30,
@@ -33,6 +34,7 @@ class LOCMEnv(gym.Env, ABC):
         reward_weights=(1.0,),
     ):
         self._seed = seed
+        self.version = version
         self.episodes = 0
         self.items = items
         self.k, self.n = k, n
@@ -50,7 +52,7 @@ class LOCMEnv(gym.Env, ABC):
 
         self.reward_range = (-sum(reward_weights), sum(reward_weights))
 
-        self.state = State(seed=seed, items=items, version="1.2", deck_building_kwargs=dict(k=k, n=n))
+        self.state = State(seed=seed, items=items, version=version, deck_building_kwargs=dict(k=k, n=n))
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
