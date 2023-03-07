@@ -248,9 +248,12 @@ class ConstructedPhase(DeckBuildingPhase):
         if action.type == ActionType.CHOOSE:
             chosen_card_id = action.origin
         elif action.type == ActionType.PASS:
-            chosen_card_id = self.action_mask().index(True)  # get first choose-able card
+            # get first choose-able card
+            chosen_card_id = self.action_mask().index(True)
         else:
-            raise MalformedActionError(f"Actions in constructed should be of types CHOOSE or PASS, not {action.type}")
+            raise MalformedActionError(
+                f"Actions in constructed should be of types CHOOSE or PASS, not {action.type}"
+            )
 
         chosen_card_index = chosen_card_id - 1
 
@@ -331,6 +334,7 @@ class BattlePhase(Phase):
         self.instance_counter = 0
         self.summon_counter = 0
         self.damage_counter = [0, 0]
+        self.card_dict = dict()
 
     def _next_instance_id(self):
         self.instance_counter += 1
@@ -517,7 +521,25 @@ class BattlePhase(Phase):
         self._draw(player=second_player)
         second_player.bonus_mana = 1
 
+        self._initialize_card_dict()
+
         self._new_battle_turn()
+
+    def _initialize_card_dict(self):
+        self.card_dict = dict()
+
+        players = self.state.players
+
+        for i in range(len(players)):
+            for card in players[i].deck:
+                self.card_dict[card.instance_id] = card, f"P{i}DECK"
+
+            for card in players[i].hand:
+                self.card_dict[card.instance_id] = card, f"P{i}HAND"
+
+            for lane_id in Lane:
+                for card in players[i].lanes[lane_id]:
+                    self.card_dict[card.instance_id] = card, f"P{i}LANE{lane_id}"
 
     def act(self, action: Action):
         """Execute the actions intended by the player in this battle turn"""
@@ -564,6 +586,8 @@ class BattlePhase(Phase):
                 for creature in creatures_to_remove:
                     lane.remove(creature)
 
+                    del self.card_dict[creature.instance_id]
+
         if action.type == ActionType.PASS:
             self._next_turn()
 
@@ -604,11 +628,16 @@ class BattlePhase(Phase):
             if len(player.deck) == 0:
                 raise EmptyDeckError(amount - i)
 
-            player.hand.append(player.deck.pop())
+            drawn_card = player.deck.pop()
+
+            player.hand.append(drawn_card)
+            self.card_dict[drawn_card.instance_id] = drawn_card, f"P{player.id}HAND"
 
     def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
         self._damage_player(
-            self.state.current_player, amount=10 * remaining_draws, source=DamageSource.GAME
+            self.state.current_player,
+            amount=10 * remaining_draws,
+            source=DamageSource.GAME,
         )
 
     def _handle_turn_51_or_greater(self):
@@ -617,25 +646,24 @@ class BattlePhase(Phase):
         )
 
     def _find_card(self, instance_id: int) -> Tuple[Card, Location]:
-        # todo: use an instance_id -> card mapping like in the original engine
-        c = self.state.players[self._current_player]
-        o = self.state.players[self._current_player.opposing()]
+        c = self._current_player
+        o = self._current_player.opposing()
 
         location_mapping = {
-            Location.PLAYER_HAND: c.hand,
-            Location.ENEMY_HAND: o.hand,
-            Location.PLAYER_LEFT_LANE: c.lanes[0],
-            Location.PLAYER_RIGHT_LANE: c.lanes[1],
-            Location.ENEMY_LEFT_LANE: o.lanes[0],
-            Location.ENEMY_RIGHT_LANE: o.lanes[1],
+            f"P{c}HAND": Location.PLAYER_HAND,
+            f"P{o}HAND": Location.ENEMY_HAND,
+            f"P{c}LANE0": Location.PLAYER_LEFT_LANE,
+            f"P{c}LANE1": Location.PLAYER_RIGHT_LANE,
+            f"P{o}LANE0": Location.ENEMY_LEFT_LANE,
+            f"P{o}LANE1": Location.ENEMY_RIGHT_LANE,
         }
 
-        for location, cards in location_mapping.items():
-            for card in cards:
-                if card.instance_id == instance_id:
-                    return card, location
+        if instance_id not in self.card_dict:
+            raise InvalidCardError(instance_id)
 
-        raise InvalidCardError(instance_id)
+        card, location = self.card_dict[instance_id]
+
+        return card, location_mapping[location]
 
     def _do_summon(self, origin, target):
         current_player = self.state.players[self._current_player]
@@ -664,6 +692,7 @@ class BattlePhase(Phase):
         self.summon_counter += 1
 
         current_player.lanes[target].append(origin)
+        self.card_dict[origin.instance_id] = origin, f"P{current_player.id}LANE{target}"
 
         current_player.bonus_draw += origin.card_draw
         self._damage_player(
@@ -689,6 +718,10 @@ class BattlePhase(Phase):
                 self.summon_counter += 1
 
                 current_player.lanes[target_copy].append(origin_copy)
+                self.card_dict[origin_copy.instance_id] = (
+                    origin_copy,
+                    f"P{current_player.id}LANE{target_copy}",
+                )
 
                 current_player.bonus_draw += origin_copy.card_draw
                 self._damage_player(
@@ -889,6 +922,7 @@ class BattlePhase(Phase):
             )
 
         current_player.hand.remove(origin)
+        del self.card_dict[origin.instance_id]
         current_player.mana -= origin.cost
 
     def _next_turn(self):
@@ -977,7 +1011,10 @@ class Version12BattlePhase(BattlePhase):
             if len(player.hand) >= 8:
                 raise FullHandError()
 
-            player.hand.append(player.deck.pop())
+            drawn_card = player.deck.pop()
+
+            player.hand.append(drawn_card)
+            self.card_dict[drawn_card.instance_id] = drawn_card, f"P{player.id}HAND"
 
     def _do_use(self, origin, target):
         super()._do_use(origin, target)
@@ -1012,6 +1049,9 @@ class Version12BattlePhase(BattlePhase):
             self._damage_player(cp, amount=deck_burn, source=DamageSource.GAME)
 
     def _handle_turn_51_or_greater(self):
+        for card in self.state.current_player.deck:
+            del self.card_dict[card.instance_id]
+
         self.state.current_player.deck = []
 
     def clone(self, cloned_state):
