@@ -19,9 +19,11 @@ def get_arg_parser():
     battle_agents = ["max-attack", "greedy"]
     adversary = ["fixed", "self-play", "asymmetric-self-play"]
     roles = ["first", "second", "alternate"]
+    versions = ["1.5", "1.2"]
 
     p.add_argument("--task", "-t", choices=tasks, default="draft")
     p.add_argument("--approach", "-ap", choices=approach, default="immediate")
+    p.add_argument("--version", "-v", choices=versions, default="1.2")
     p.add_argument(
         "--adversary", "-ad", choices=adversary, default="asymmetric-self-play"
     )
@@ -265,6 +267,7 @@ def run():
             "deck_building_agents": (draft_agent(), draft_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
+            "version": args.version,
         }
 
         if args.adversary == "fixed":
@@ -279,6 +282,7 @@ def run():
                     "battle_agent": eval_battle_agent(),
                     "reward_functions": args.reward_functions,
                     "reward_weights": args.reward_weights,
+                    "version": args.version,
                 }
             )
 
