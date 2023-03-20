@@ -130,7 +130,7 @@ these roles, use, for instance:
 env = gym.make('LOCM-draft-XXX-vX', draft_agent=RandomDraftAgent(),
                 battle_agents=(RandomBattleAgents(), RandomBattleAgents()))
 env = gym.make('LOCM-battle-XXX-vX', battle_agent=RandomBattleAgent(),
-                draft_agents=(RandomDraftAgents(), RandomDraftAgents()))
+                deck_building_agents=(RandomDraftAgents(), RandomDraftAgents()))
 ```
 
 Trying to specify agents for roles you control will result in an error.

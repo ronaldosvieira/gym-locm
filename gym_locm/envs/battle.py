@@ -12,20 +12,21 @@ class LOCMBattleEnv(LOCMEnv):
 
     def __init__(
         self,
-        draft_agents=(RandomDraftAgent(), RandomDraftAgent()),
+        deck_building_agents=(RandomDraftAgent(), RandomDraftAgent()),
         return_action_mask=False,
         seed=None,
         items=True,
-        k=3,
+        k=None,
         n=30,
         reward_functions=("win-loss",),
         reward_weights=(1.0,),
+        version="1.5"
     ):
         super().__init__(
             seed=seed,
-            version="1.2",
+            version=version,
             items=items,
-            k=k,
+            k=k if k is not None else (120 if version == "1.5" else 3),
             n=n,
             reward_functions=reward_functions,
             reward_weights=reward_weights,
@@ -33,23 +34,26 @@ class LOCMBattleEnv(LOCMEnv):
 
         self.rewards = [0.0]
 
-        self.draft_agents = draft_agents
+        self.version = version
+        self.deck_building_agents = deck_building_agents
 
-        for draft_agent in self.draft_agents:
-            draft_agent.reset()
-            draft_agent.seed(seed)
+        for agent in self.deck_building_agents:
+            agent.reset()
+            agent.seed(seed)
 
         self.return_action_mask = return_action_mask
 
-        player_features = 4  # hp, mana, next_rune, next_draw
+        player_features = 3
         cards_in_hand = 8
-        card_features = 16 if self.items else 12
+        card_features = 17 if self.items else 13
         friendly_cards_on_board = 6
         friendly_board_card_features = 9
         enemy_cards_on_board = 6
         enemy_board_card_features = 8
 
-        # 238 features if using items else 206 features
+        player_features += 1 if version == "1.2" else 0
+        card_features -= 1 if version == "1.2" else 0
+
         self.state_shape = (
             player_features * 2
             + cards_in_hand * card_features
@@ -67,12 +71,20 @@ class LOCMBattleEnv(LOCMEnv):
             # 41 possible actions
             self.action_space = gym.spaces.Discrete(41)
 
-        # play through draft
-        while self.state.phase == Phase.DRAFT:
-            for agent in self.draft_agents:
+        self._play_through_deck_building_phase()
+
+    def _play_through_deck_building_phase(self):
+        while self.state.phase == Phase.DECK_BUILDING:
+            if self.version == "1.5":
+                agent = self.deck_building_agents[self.state.current_player.id]
                 action = agent.act(self.state)
 
                 self.state.act(action)
+            else:
+                for agent in self.deck_building_agents:
+                    action = agent.act(self.state)
+
+                    self.state.act(action)
 
     def step(self, action):
         """Makes an action in the game."""
@@ -150,14 +162,11 @@ class LOCMBattleEnv(LOCMEnv):
         super().reset()
 
         # reset all agents' internal state
-        for agent in self.draft_agents:
+        for agent in self.deck_building_agents:
             agent.reset()
             agent.seed(self._seed)
 
-        # play through draft
-        while self.state.phase == Phase.DRAFT:
-            for agent in self.draft_agents:
-                self.state.act(agent.act(self.state))
+        self._play_through_deck_building_phase()
 
         self.rewards.append(0.0)
 
@@ -179,14 +188,19 @@ class LOCMBattleEnv(LOCMEnv):
         all_cards = []
 
         # convert all cards in hand to features
-        hand = list(map(self.encode_card, p0.hand))
+        hand = list(map(lambda c: self.encode_card(c, version=self.version), p0.hand))
 
         # if not using items, clip card type features
         if not self.items:
             hand = list(map(lambda c: c[4:], hand))
 
         # add dummy cards up to the card limit
-        hand = fill_cards(hand, up_to=8, features=16 if self.items else 12)
+        card_features = 17 if self.items else 13
+
+        if self.version == "1.2":
+            card_features -= 1
+
+        hand = fill_cards(hand, up_to=8, features=card_features)
 
         # add to card list
         all_cards.extend([feature for card in hand for feature in card])
@@ -214,8 +228,10 @@ class LOCMBattleEnv(LOCMEnv):
             all_cards.extend([feature for card in location for feature in card])
 
         # players info
-        encoded_state[:8] = self.encode_players(p0, p1)
-        encoded_state[8:] = np.array(all_cards).flatten()
+        player_features = 6 if self.version == "1.5" else 8
+
+        encoded_state[:player_features] = self.encode_players(p0, p1, version=self.version)
+        encoded_state[player_features:] = np.array(all_cards).flatten()
 
         return encoded_state
 

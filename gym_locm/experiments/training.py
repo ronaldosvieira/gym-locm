@@ -262,7 +262,7 @@ def run():
         )
 
         env_params = {
-            "draft_agents": (draft_agent(), draft_agent()),
+            "deck_building_agents": (draft_agent(), draft_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
         }
@@ -275,7 +275,7 @@ def run():
         for eval_battle_agent in eval_battle_agents:
             eval_env_params.append(
                 {
-                    "draft_agents": (draft_agent(), draft_agent()),
+                    "deck_building_agents": (draft_agent(), draft_agent()),
                     "battle_agent": eval_battle_agent(),
                     "reward_functions": args.reward_functions,
                     "reward_weights": args.reward_weights,
