@@ -216,6 +216,107 @@ def _get_rng() -> np.random.Generator:
     return _rng
 
 
+def _generate_card_text(card):
+    text = ""
+
+    abilities = []
+
+    for ability in ["Breakthrough", "Charge", "Drain", "Guard", "Lethal", "Ward"]:
+        if card.has_ability(ability[0]):
+            abilities.append(ability)
+
+    etb_abilities = []
+
+    if card.player_hp < 0:
+        etb_abilities.append(f"you lose {card.player_hp} health")
+    elif card.player_hp > 0:
+        etb_abilities.append(f"you gain {card.player_hp} health")
+
+    if card.enemy_hp < 0:
+        etb_abilities.append(f"your opponent loses {-card.enemy_hp} health")
+    elif card.enemy_hp > 0:
+        etb_abilities.append(f"your opponent gains {-card.enemy_hp} health")
+
+    if card.card_draw:
+        etb_abilities.append(
+            f"you draw {card.card_draw} card{'s' if card.card_draw > 1 else ''}"
+        )
+
+    if isinstance(card, Creature):
+        text += f"{card.attack}/{card.defense} Creature."
+
+        if abilities:
+            text += " " + ", ".join(abilities) + "."
+
+        if etb_abilities:
+            if len(etb_abilities) == 1:
+                text += " Summon: " + etb_abilities[0] + "."
+            else:
+                text += (
+                    " Summon: "
+                    + ", ".join(etb_abilities[:-1])
+                    + f" and {etb_abilities[-1]}"
+                    + "."
+                )
+
+    elif isinstance(card, GreenItem):
+        text += "Green Item. Give a friendly creature "
+
+        effects = []
+
+        if card.attack or card.defense:
+            effects.append(
+                f"{'{0:+}'.format(card.attack)}/{'{0:+}'.format(card.defense)}"
+            )
+
+        effects.extend(abilities)
+        effects.extend(etb_abilities)
+
+        if len(effects) == 0:
+            text += "nothing."
+        elif len(effects) == 1:
+            text += effects[0] + "."
+        else:
+            text += ", ".join(effects[:-1]) + f" and {effects[-1]}."
+
+    elif isinstance(card, RedItem):
+        text += "Red Item. Remove from an enemy creature "
+
+        effects = []
+
+        if card.attack or card.defense:
+            effects.append(
+                f"{'{0:+}'.format(card.attack)}/{'{0:+}'.format(card.defense)}"
+            )
+
+        effects.extend(abilities)
+        effects.extend(etb_abilities)
+
+        if len(effects) == 0:
+            text += "nothing."
+        elif len(effects) == 1:
+            text += effects[0] + "."
+        else:
+            text += ", ".join(effects[:-1]) + f" and {effects[-1]}."
+
+    elif isinstance(card, BlueItem):
+        text += "Blue Item. "
+
+        if card.defense:
+            text += f"Deal {-card.defense} damage "
+
+        effects = abilities + etb_abilities
+
+        if len(effects) == 0:
+            text += "."
+        elif len(effects) == 1:
+            text += f"and {effects[0]}."
+        else:
+            text += ", " + ", ".join(effects[:-1]) + f" and {effects[-1]}."
+
+    return text
+
+
 def generate_card(
     card_id: int = None, rng: np.random.Generator = None, items: bool = True
 ):
@@ -333,8 +434,10 @@ def generate_card(
         chosen_properties["enemy_hp"],
         chosen_properties["card_draw"],
         chosen_properties["area"],
-        "No text",  # todo: generate card text,
+        "No text",
         instance_id=None,
     )
+
+    card.text = _generate_card_text(card)
 
     return card
