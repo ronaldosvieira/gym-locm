@@ -212,7 +212,7 @@ class LOCMDraftEnv(LOCMEnv):
 
             print(f"P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%")
 
-    def _encode_state_draft(self):
+    def _encode_state_deck_building(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
         chosen_cards = self.choices[self.state.current_player.id]
@@ -235,7 +235,7 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card_choices[index])
+                encoded_state[lo:hi] = self.encode_card(card_choices[index], version="1.2")
 
         if self.use_draft_history:
             if self.sort_cards:
@@ -246,7 +246,7 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card)
+                encoded_state[lo:hi] = self.encode_card(card, version="1.2")
 
         if self.use_mana_curve:
             for chosen_card in chosen_cards:

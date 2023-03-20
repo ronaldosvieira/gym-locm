@@ -163,7 +163,7 @@ class LOCMBattleEnv(LOCMEnv):
 
         return self.encode_state()
 
-    def _encode_state_draft(self):
+    def _encode_state_deck_building(self):
         pass
 
     def _encode_state_battle(self):
