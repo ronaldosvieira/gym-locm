@@ -17,7 +17,7 @@ def get_arg_parser():
     tasks = ["draft", "battle"]
     approach = ["immediate", "lstm", "history"]
     battle_agents = ["max-attack", "greedy"]
-    adversary = ["fixed", "self-play", "asymmetric-self-play"]
+    adversary = ["fixed", "self-play", "hybrid", "asymmetric-self-play"]
     roles = ["first", "second", "alternate"]
     versions = ["1.5", "1.2"]
 
@@ -228,12 +228,14 @@ def run():
 
         battle_agent = agents.parse_battle_agent(args.battle_agent)
 
-        env_params = {
+        self_play_env_params = {
             "battle_agents": (battle_agent(), battle_agent()),
             "use_draft_history": args.approach == "history",
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
         }
+
+        fixed_adversary_env_params = self_play_env_params
 
         eval_env_params = {
             "draft_agent": agents.MaxAttackDraftAgent(),
@@ -249,6 +251,7 @@ def run():
             AsymmetricSelfPlay,
             SelfPlay,
             FixedAdversary,
+            FixedAndSelfPlayHybrid,
             model_builder_mlp_masked,
         )
 
@@ -263,15 +266,20 @@ def run():
             map(agents.parse_battle_agent, args.eval_battle_agents)
         )
 
-        env_params = {
+        self_play_env_params = {
             "deck_building_agents": (draft_agent(), draft_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
             "version": args.version,
         }
 
-        if args.adversary == "fixed":
-            env_params["battle_agent"] = battle_agent()
+        fixed_adversary_env_params = {
+            "battle_agent": battle_agent(),
+            "deck_building_agents": (draft_agent(), draft_agent()),
+            "reward_functions": args.reward_functions,
+            "reward_weights": args.reward_weights,
+            "version": args.version,
+        }
 
         eval_env_params = []
 
@@ -309,25 +317,25 @@ def run():
         "gamma": args.gamma,
     }
 
-    if args.task == "battle":
-        run = wandb.init(
-            project=args.wandb_project,
-            entity=args.wandb_entity,
-            sync_tensorboard=True,
-            config=vars(args),
-        )
-
-        # enable the use of wandb sweeps
-        args = wandb.config
-    else:
-        run = None
+    # if args.task == "battle":
+    #     run = wandb.init(
+    #         project=args.wandb_project,
+    #         entity=args.wandb_entity,
+    #         sync_tensorboard=True,
+    #         config=vars(args),
+    #     )
+    #
+    #     # enable the use of wandb sweeps
+    #     args = wandb.config
+    # else:
+    run = None
 
     if args.adversary == "asymmetric-self-play":
         trainer = AsymmetricSelfPlay(
             args.task,
             model_builder,
             model_params,
-            env_params,
+            self_play_env_params,
             eval_env_params,
             args.train_episodes,
             args.eval_episodes,
@@ -343,7 +351,7 @@ def run():
             args.task,
             model_builder,
             model_params,
-            env_params,
+            self_play_env_params,
             eval_env_params,
             args.train_episodes,
             args.eval_episodes,
@@ -360,7 +368,7 @@ def run():
             args.task,
             model_builder,
             model_params,
-            env_params,
+            fixed_adversary_env_params,
             eval_env_params,
             args.train_episodes,
             args.eval_episodes,
@@ -369,6 +377,28 @@ def run():
             args.path,
             args.seed,
             args.concurrency,
+            wandb_run=run,
+        )
+    elif args.adversary == "hybrid":
+        num_fixed_adversary_envs = args.concurrency // 2
+        num_self_play_envs = args.concurrency - num_fixed_adversary_envs
+
+        trainer = FixedAndSelfPlayHybrid(
+            args.task,
+            model_builder,
+            model_params,
+            self_play_env_params,
+            fixed_adversary_env_params,
+            eval_env_params,
+            args.train_episodes,
+            args.eval_episodes,
+            args.num_evals,
+            args.role,
+            args.switch_freq,
+            args.path,
+            args.seed,
+            num_self_play_envs,
+            num_fixed_adversary_envs,
             wandb_run=run,
         )
     else:
