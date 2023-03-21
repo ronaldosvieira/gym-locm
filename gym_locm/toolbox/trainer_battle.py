@@ -1030,15 +1030,15 @@ class TrainingCallback(BaseCallback):
 
 
 def save_model_as_json(model, act_fun, path):
-    with open(path + '.json', 'w') as json_file:
+    with open(path + ".json", "w") as json_file:
         params = {}
 
         # create a parameter dictionary
-        for label, weights in model.get_parameters()['policy'].items():
+        for label, weights in model.get_parameters()["policy"].items():
             params[label] = weights.tolist()
 
         # add activation function to it
-        params['act_fun'] = act_fun
+        params["act_fun"] = act_fun
 
         # and save into the new file
         json.dump(params, json_file)
