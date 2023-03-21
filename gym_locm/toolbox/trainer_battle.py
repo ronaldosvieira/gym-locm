@@ -94,8 +94,8 @@ class FixedAdversary(TrainingSession):
         # log start time
         start_time = time.perf_counter()
 
-        # initialize parallel environments
-        self.logger.debug("Initializing training env...")
+        # initialize parallel training environments
+        self.logger.debug("Initializing training envs...")
         env = []
 
         env_class = LOCMBattleSingleEnv
@@ -140,7 +140,9 @@ class FixedAdversary(TrainingSession):
         self.model.tensorflow_log = self.path
 
         # save parameters
+        self.task = task
         self.train_episodes = train_episodes
+        self.eval_episodes = eval_episodes
         self.num_evals = num_evals
         self.eval_frequency = train_episodes / num_evals
         self.eval_adversaries = [
@@ -149,9 +151,7 @@ class FixedAdversary(TrainingSession):
         self.role = role
 
         # initialize control attributes
-        self.model.last_eval = None
-        self.model.next_eval = 0
-        self.model.role_id = 0 if role == "first" else 1
+        self.model.last_eval, self.model.next_eval = None, 0
 
         # log end time
         end_time = time.perf_counter()
@@ -162,14 +162,17 @@ class FixedAdversary(TrainingSession):
         )
 
     def _training_callback(self, _locals=None, _globals=None):
+        model = self.model
         episodes_so_far = sum(self.env.get_attr("episodes"))
 
         # if it is time to evaluate, do so
-        if episodes_so_far >= self.model.next_eval:
+        if episodes_so_far >= model.next_eval:
             # save model
             model_path = self.path + f"/{episodes_so_far}"
-            self.model.save(model_path)
-            save_model_as_json(self.model, self.params["activation"], model_path)
+
+            model.save(model_path, exclude=["adversary"])
+            save_model_as_json(model, self.params["activation"], model_path)
+
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
             # evaluate the model
@@ -177,12 +180,14 @@ class FixedAdversary(TrainingSession):
             start_time = time.perf_counter()
 
             agent_class = RLBattleAgent
-
-            agent = agent_class(self.model, deterministic=True)
+            agent = agent_class(model, deterministic=True)
 
             for evaluator, eval_adversary in zip(
                 self.evaluators, self.eval_adversaries
             ):
+                if evaluator.seed is not None:
+                    evaluator.seed = self.seed + self.train_episodes
+
                 (
                     win_rate,
                     mean_reward,
@@ -210,8 +215,8 @@ class FixedAdversary(TrainingSession):
                 self.action_histograms.append(act_hist)
 
                 # update control attributes
-                self.model.last_eval = episodes_so_far
-                self.model.next_eval += self.eval_frequency
+                model.last_eval = episodes_so_far
+                model.next_eval += self.eval_frequency
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -239,9 +244,6 @@ class FixedAdversary(TrainingSession):
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= self.train_episodes
 
-        if training_is_finished:
-            self.logger.debug(f"Training ended at {episodes_so_far} episodes")
-
         return not training_is_finished
 
     def _train(self):
@@ -255,13 +257,18 @@ class FixedAdversary(TrainingSession):
 
         try:
             # train the model
-            # note: dynamic learning or clip rates will require accurate # of timesteps
             self.model.learn(
-                total_timesteps=REALLY_BIG_INT,  # we'll stop manually
+                total_timesteps=REALLY_BIG_INT,
+                reset_num_timesteps=False,
                 callback=CallbackList(callbacks),
             )
+
         except KeyboardInterrupt:
             pass
+
+        self.logger.debug(
+            f"Training ended at {sum(self.env.get_attr('episodes'))} " f"episodes"
+        )
 
         # save and evaluate final model, if not done yet
         if len(self.win_rates) < self.num_evals:
@@ -306,13 +313,13 @@ class SelfPlay(TrainingSession):
         env_class = LOCMBattleSelfPlayEnv
 
         for i in range(num_envs):
-            # no overlap between episodes at each process
+            # no overlap between episodes at each concurrent env
             if seed is not None:
                 current_seed = seed + (train_episodes // num_envs) * i
             else:
                 current_seed = None
 
-            # create one env per process
+            # create the env
             env.append(
                 lambda: env_class(
                     seed=current_seed,
@@ -325,16 +332,16 @@ class SelfPlay(TrainingSession):
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
 
-        # initialize parallel evaluating environments
-        self.logger.debug("Initializing evaluation envs...")
+        # initialize evaluator
+        self.logger.debug("Initializing evaluator...")
         eval_seed = seed + train_episodes if seed is not None else None
         self.evaluators: List[Evaluator] = [
             Evaluator(task, e, eval_episodes, eval_seed, num_envs)
             for e in eval_env_params
         ]
 
-        # build the models
-        self.logger.debug("Building the models...")
+        # build the model
+        self.logger.debug("Building the model...")
         self.model = model_builder(self.env, seed, **model_params)
         self.model.adversary = model_builder(self.env, seed, **model_params)
 
@@ -357,7 +364,7 @@ class SelfPlay(TrainingSession):
         # create necessary folders
         os.makedirs(self.path, exist_ok=True)
 
-        # set tensorflow log dirs
+        # set tensorflow log dir
         self.model.tensorflow_log = self.path
 
         # save parameters
@@ -365,8 +372,8 @@ class SelfPlay(TrainingSession):
         self.train_episodes = train_episodes
         self.eval_episodes = eval_episodes
         self.num_evals = num_evals
-        self.switch_frequency = switch_frequency
         self.eval_frequency = train_episodes / num_evals
+        self.switch_frequency = switch_frequency
         self.num_switches = math.ceil(train_episodes / switch_frequency)
         self.eval_adversaries = [
             type(e["battle_agent"]).__name__ for e in eval_env_params
@@ -376,12 +383,6 @@ class SelfPlay(TrainingSession):
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
         self.model.last_switch, self.model.next_switch = None, self.switch_frequency
-
-        # initialize results
-        self.checkpoints = []
-        self.win_rates = []
-        self.episode_lengths = []
-        self.action_histograms = []
 
         # log end time
         end_time = time.perf_counter()
@@ -402,6 +403,7 @@ class SelfPlay(TrainingSession):
 
             model.save(model_path, exclude=["adversary"])
             save_model_as_json(model, self.params["activation"], model_path)
+
             self.logger.debug(f"Saved model at {model_path}.zip/json.")
 
             # evaluate the model
@@ -409,6 +411,7 @@ class SelfPlay(TrainingSession):
             start_time = time.perf_counter()
 
             agent_class = RLBattleAgent
+            agent = agent_class(model, deterministic=True)
 
             for evaluator, eval_adversary in zip(
                 self.evaluators, self.eval_adversaries
@@ -423,7 +426,7 @@ class SelfPlay(TrainingSession):
                     battle_length,
                     act_hist,
                 ) = evaluator.run(
-                    agent_class(model, deterministic=True),
+                    agent,
                     play_first=self.role == "first",
                     alternate_roles=self.role == "alternate",
                 )
@@ -504,8 +507,8 @@ class SelfPlay(TrainingSession):
         return not training_is_finished
 
     def _train(self):
-        # save and evaluate starting models
-        self._training_callback({"self": self.model})
+        # save and evaluate starting model
+        self._training_callback()
 
         callbacks = [TrainingCallback(self._training_callback)]
 
@@ -527,12 +530,9 @@ class SelfPlay(TrainingSession):
             f"Training ended at {sum(self.env.get_attr('episodes'))} " f"episodes"
         )
 
-        # save and evaluate final models, if not done yet
+        # save and evaluate final model, if not done yet
         if len(self.win_rates) < self.num_evals:
-            self._training_callback({"self": self.model})
-
-        if len(self.win_rates) < self.num_evals:
-            self._training_callback({"self": self.model})
+            self._training_callback()
 
         # close all envs
         self.env.close()
