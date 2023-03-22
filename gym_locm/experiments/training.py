@@ -317,18 +317,18 @@ def run():
         "gamma": args.gamma,
     }
 
-    # if args.task == "battle":
-    #     run = wandb.init(
-    #         project=args.wandb_project,
-    #         entity=args.wandb_entity,
-    #         sync_tensorboard=True,
-    #         config=vars(args),
-    #     )
-    #
-    #     # enable the use of wandb sweeps
-    #     args = wandb.config
-    # else:
-    run = None
+    if args.task == "battle":
+        run = wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            sync_tensorboard=True,
+            config=vars(args),
+        )
+
+        # enable the use of wandb sweeps
+        args = wandb.config
+    else:
+        run = None
 
     if args.adversary == "asymmetric-self-play":
         trainer = AsymmetricSelfPlay(
