@@ -217,7 +217,7 @@ class ConstructedPhase(DeckBuildingPhase):
 
     def available_actions(self) -> Tuple[Action]:
         return tuple(
-            Action(ActionType.CHOOSE, i + 1)
+            Action(ActionType.CHOOSE, i)
             for i, can_be_chosen in enumerate(self.action_mask())
             if can_be_chosen
         )
@@ -239,7 +239,7 @@ class ConstructedPhase(DeckBuildingPhase):
             player.hand = self._constructed_cards
 
     def _new_constructed(self):
-        card_pool = [generate_card(i + 1, self.rng, self.items) for i in range(self.k)]
+        card_pool = [generate_card(i, self.rng, self.items) for i in range(self.k)]
 
         return card_pool
 
@@ -252,7 +252,7 @@ class ConstructedPhase(DeckBuildingPhase):
         else:
             raise MalformedActionError(f"Actions in constructed should be of types CHOOSE or PASS, not {action.type}")
 
-        chosen_card_index = chosen_card_id - 1
+        chosen_card_index = chosen_card_id
 
         # validate choice
         if 0 >= chosen_card_index >= self.k:
