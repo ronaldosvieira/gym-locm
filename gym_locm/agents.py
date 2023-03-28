@@ -367,19 +367,28 @@ class NativeAgent(Agent):
         actions = []
 
         try:
-            # read an action output ending with \n
-            raw_output = self._process.readline()
+            i = 1
 
-            # remove the \n
-            self.raw_actions = raw_output.strip()
+            while not actions and i <= 15:
+                if self.verbose:
+                    eprint(f"Trying to decode actions... (try {i}/15)")
 
-            if self.verbose:
-                eprint("Raw output:", self.raw_actions)
+                # read an action output ending with \n
+                raw_output = self._process.readline()
 
-            actions = self.decode_actions(raw_output)
+                # remove the \n
+                self.raw_actions = raw_output.strip()
 
-            if self.verbose:
-                eprint("Decoded:", actions)
+                if self.verbose:
+                    eprint("Raw output:", self.raw_actions)
+
+                actions = self.decode_actions(raw_output)
+
+                if self.verbose:
+                    eprint("Decoded:", actions)
+
+                i += 1
+
         except TIMEOUT:
             print("WARNING: timeout")
         except EOF:
