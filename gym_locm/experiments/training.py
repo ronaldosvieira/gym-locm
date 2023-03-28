@@ -16,7 +16,6 @@ def get_arg_parser():
 
     tasks = ["draft", "battle"]
     approach = ["immediate", "lstm", "history"]
-    battle_agents = ["max-attack", "greedy"]
     adversary = ["fixed", "self-play", "hybrid", "asymmetric-self-play"]
     roles = ["first", "second", "alternate"]
     versions = ["1.5", "1.2"]
@@ -30,7 +29,7 @@ def get_arg_parser():
     p.add_argument(
         "--draft-agent",
         "-d",
-        choices=list(agents.draft_agents.keys()),
+        choices=list(agents.draft_agents.keys()) + list(agents.constructed_agents.keys()),
         default="max-attack",
     )
     p.add_argument(
@@ -122,7 +121,7 @@ def get_arg_parser():
         "--n-steps",
         type=int,
         default=270,
-        help="batch size (in timesteps, 30 timesteps = 1 episode)",
+        help="batch size (in timesteps)",
     )
     p.add_argument(
         "--nminibatches",
@@ -185,14 +184,7 @@ def get_arg_parser():
     return p
 
 
-def run():
-    if sys.version_info < (3, 0, 0):
-        sys.stderr.write("You need python 3.0 or later to run this script\n")
-        sys.exit(1)
-
-    arg_parser = get_arg_parser()
-    args = arg_parser.parse_args()
-
+def run(args):
     args.path += (
         "/"
         + args.task
@@ -256,8 +248,12 @@ def run():
         )
 
         model_builder = model_builder_mlp_masked
-        draft_agent = agents.parse_draft_agent(args.draft_agent)
         battle_agent = agents.parse_battle_agent(args.battle_agent)
+
+        try:
+            draft_agent = agents.parse_draft_agent(args.draft_agent)
+        except KeyError:
+            draft_agent = agents.parse_constructed_agent(args.draft_agent)
 
         if args.eval_battle_agents is None:
             args.eval_battle_agents = [args.battle_agent]
@@ -412,4 +408,11 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    if sys.version_info < (3, 0, 0):
+        sys.stderr.write("You need python 3.0 or later to run this script\n")
+        sys.exit(1)
+
+    arg_parser = get_arg_parser()
+    args = arg_parser.parse_args()
+
+    run(args)
