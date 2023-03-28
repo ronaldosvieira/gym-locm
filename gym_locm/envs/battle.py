@@ -4,7 +4,7 @@ import numpy as np
 from gym_locm.agents import RandomDraftAgent, RandomBattleAgent
 from gym_locm.engine import Phase, Action, PlayerOrder
 from gym_locm.envs.base_env import LOCMEnv
-from gym_locm.exceptions import GameIsEndedError, MalformedActionError
+from gym_locm.exceptions import GameIsEndedError, MalformedActionError, ActionError
 
 
 class LOCMBattleEnv(LOCMEnv):
@@ -279,9 +279,20 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
             self.battle_agent.reset()
 
         # if playing second, have first player play
+        last_opponent_action = None
+
         if not self.play_first:
             while self.state.current_player.id != PlayerOrder.SECOND:
-                super().step(self.battle_agent.act(self.state))
+                action = self.battle_agent.act(self.state)
+
+                try:
+                    super().step(action)
+                except ActionError:
+                    if action == last_opponent_action:
+                        # opponent is repeating the same invalid action, pass the turn instead
+                        super().step(0)
+
+                last_opponent_action = action
 
         self.rewards_single_player.append(0.0)
 
@@ -296,15 +307,20 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
         was_invalid = info["invalid"]
 
+        last_opponent_action = None
+
         # have opponent play until its player's turn or there's a winner
         while self.state.current_player.id != player and self.state.winner is None:
             action = self.battle_agent.act(self.state)
 
-            state, reward, done, info = super().step(action)
+            try:
+                state, reward, done, info = super().step(action)
+            except ActionError:
+                if action == last_opponent_action:
+                    # opponent is repeating the same invalid action, pass the turn instead
+                    state, reward, done, info = super().step(0)
 
-            if info["invalid"] and not done:
-                state, reward, done, info = super().step(0)
-                break
+            last_opponent_action = action
 
         info["invalid"] = was_invalid
 
@@ -347,17 +363,22 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
             self.play_first = not self.play_first
             self.deck_building_agents = (self.deck_building_agents[1], self.deck_building_agents[0])
 
+        last_opponent_action = None
+
         # if playing second, have first player play
         if not self.play_first:
             while self.state.current_player.id != PlayerOrder.SECOND:
                 state = self.encode_state()
                 action = self.adversary_policy(state, self.action_mask)
 
-                state, reward, done, info = super().step(action)
+                try:
+                    state, reward, done, info = super().step(action)
+                except ActionError:
+                    if action == last_opponent_action:
+                        # opponent is repeating the same invalid action, pass the turn instead
+                        state, reward, done, info = super().step(0)
 
-                if info["invalid"] and not done:
-                    state, reward, done, info = super().step(0)
-                    break
+                last_opponent_action = action
 
         self.rewards_single_player.append(0.0)
 
@@ -373,15 +394,20 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         was_invalid = info["invalid"]
 
         # have opponent play until its player's turn or there's a winner
+        last_opponent_action = None
+
         while self.state.current_player.id != player and self.state.winner is None:
             state = self.encode_state()
             action = self.adversary_policy(state, self.action_mask)
 
-            state, reward, done, info = super().step(action)
+            try:
+                state, reward, done, info = super().step(action)
+            except ActionError:
+                if action == last_opponent_action:
+                    # opponent is repeating the same invalid action, pass the turn instead
+                    state, reward, done, info = super().step(0)
 
-            if info["invalid"] and not done:
-                state, reward, done, info = super().step(0)
-                break
+            last_opponent_action = action
 
         info["invalid"] = was_invalid
 
