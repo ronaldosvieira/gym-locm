@@ -257,7 +257,9 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         self.rewards_single_player = []
 
         # reset the battle agent
-        self.battle_agent.reset()
+        # if it was not already reset as a deck-building agent
+        if self.battle_agent not in self.deck_building_agents:
+            self.battle_agent.reset()
 
     def reset(self) -> np.array:
         """
@@ -271,7 +273,9 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         encoded_state = super().reset()
 
         # also reset the battle agent
-        self.battle_agent.reset()
+        # if it was not already reset as a deck-building agent
+        if self.battle_agent not in self.deck_building_agents:
+            self.battle_agent.reset()
 
         # if playing second, have first player play
         if not self.play_first:
