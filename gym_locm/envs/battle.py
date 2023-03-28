@@ -268,6 +268,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         """
         if self.alternate_roles:
             self.play_first = not self.play_first
+            self.deck_building_agents = (self.deck_building_agents[1], self.deck_building_agents[0])
 
         # reset what is needed
         encoded_state = super().reset()
@@ -344,6 +345,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         if self.alternate_roles:
             self.play_first = not self.play_first
+            self.deck_building_agents = (self.deck_building_agents[1], self.deck_building_agents[0])
 
         # if playing second, have first player play
         if not self.play_first:
