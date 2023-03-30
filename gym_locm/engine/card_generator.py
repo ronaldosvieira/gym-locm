@@ -397,16 +397,12 @@ def generate_card(
 
     card_attack = int(
         card_budget
-        + rng.normal(
-            card_weights["bonus_attack"]["mean"], card_weights["bonus_attack"]["std"]
-        )
+        + (rng.random() * card_weights["bonus_attack"]["std"] + card_weights["bonus_attack"]["mean"])
     )
 
     card_defense = int(
         card_budget
-        + rng.normal(
-            card_weights["bonus_defense"]["mean"], card_weights["bonus_defense"]["std"]
-        )
+        + (rng.random() * card_weights["bonus_defense"]["std"] + card_weights["bonus_defense"]["mean"])
     )
 
     if card_type == Creature:
