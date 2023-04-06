@@ -56,16 +56,12 @@ def get_arg_parser():
     p.add_argument(
         "--reward-functions",
         "-rf",
-        nargs="+",
-        choices=list(rewards.available_rewards.keys()),
-        default=("win-loss",),
+        default="win-loss",
         help="reward functions to use",
     )
     p.add_argument(
         "--reward-weights",
         "-rw",
-        nargs="+",
-        type=float,
         default=None,
         help="weights of the reward functions",
     )
@@ -196,8 +192,12 @@ def run(args):
 
     os.makedirs(args.path, exist_ok=True)
 
+    args.reward_functions = args.reward_functions.split()
+
     if args.reward_weights is None:
         args.reward_weights = tuple([1.0 for _ in range(len(args.reward_functions))])
+    else:
+        args.reward_weights = list(map(float, args.reward_weights.split()))
 
     assert len(args.reward_weights) == len(
         args.reward_functions
