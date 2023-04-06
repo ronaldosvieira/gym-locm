@@ -583,21 +583,23 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                 current_seed = None
 
             if i < num_self_play_envs:
-                env_class = LOCMBattleSelfPlayEnv
-                env_params = self_play_env_params
-            else:
-                env_class = LOCMBattleSingleEnv
-                env_params = fixed_adversary_env_params
-
-            # create the env
-            env.append(
-                lambda: env_class(
-                    seed=current_seed,
-                    play_first=role == "first",
-                    alternate_roles=role == "alternate",
-                    **env_params,
+                env.append(
+                    lambda: LOCMBattleSelfPlayEnv(
+                        seed=current_seed,
+                        play_first=role == "first",
+                        alternate_roles=role == "alternate",
+                        **self_play_env_params,
+                    )
                 )
-            )
+            else:
+                env.append(
+                    lambda: LOCMBattleSingleEnv(
+                        seed=current_seed,
+                        play_first=role == "first",
+                        alternate_roles=role == "alternate",
+                        **fixed_adversary_env_params,
+                    )
+                )
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
