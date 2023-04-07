@@ -20,7 +20,8 @@ class LOCMBattleEnv(LOCMEnv):
         n=30,
         reward_functions=("win-loss",),
         reward_weights=(1.0,),
-        version="1.5"
+        version="1.5",
+        use_average_deck=False,
     ):
         super().__init__(
             seed=seed,
@@ -42,6 +43,7 @@ class LOCMBattleEnv(LOCMEnv):
             agent.seed(seed)
 
         self.return_action_mask = return_action_mask
+        self.use_average_deck = use_average_deck
 
         player_features = 3
         cards_in_hand = 8
@@ -59,6 +61,7 @@ class LOCMBattleEnv(LOCMEnv):
             + cards_in_hand * card_features
             + friendly_cards_on_board * friendly_board_card_features
             + enemy_cards_on_board * enemy_board_card_features
+            + card_features * int(self.use_average_deck)
         )
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
@@ -72,6 +75,12 @@ class LOCMBattleEnv(LOCMEnv):
             self.action_space = gym.spaces.Discrete(41)
 
         self._play_through_deck_building_phase()
+
+        self.player_decks = [None, None]
+
+        for player in self.state.players:
+            self.player_decks[player.id] = list(player.deck + player.hand)
+            assert len(self.player_decks[player.id]) == 30
 
     def _play_through_deck_building_phase(self):
         while self.state.phase == Phase.DECK_BUILDING:
@@ -230,8 +239,23 @@ class LOCMBattleEnv(LOCMEnv):
         # players info
         player_features = 6 if self.version == "1.5" else 8
 
-        encoded_state[:player_features] = self.encode_players(p0, p1, version=self.version)
-        encoded_state[player_features:] = np.array(all_cards).flatten()
+        encoded_state[:player_features] = self.encode_players(
+            p0, p1, version=self.version
+        )
+        if self.use_average_deck:
+            encoded_state[player_features:-card_features] = np.array(
+                all_cards
+            ).flatten()
+            encoded_state[-card_features:] = np.array(
+                list(
+                    map(
+                        lambda c: self.encode_card(c, version=self.version),
+                        self.player_decks[p0.id],
+                    )
+                )
+            ).mean(axis=0)
+        else:
+            encoded_state[player_features:] = np.array(all_cards).flatten()
 
         return encoded_state
 

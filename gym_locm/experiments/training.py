@@ -66,6 +66,12 @@ def get_arg_parser():
         help="weights of the reward functions",
     )
     p.add_argument(
+        "--use-average-deck",
+        help="whether to add an average of the player's deck to the state representation",
+        default=False,
+        action="store_true",
+    )
+    p.add_argument(
         "--path", "-p", help="path to save models and results", required=True
     )
 
@@ -266,6 +272,7 @@ def run(args):
             "deck_building_agents": (draft_agent(), draft_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
+            "use_average_deck": args.use_average_deck,
             "version": args.version,
         }
 
@@ -274,6 +281,7 @@ def run(args):
             "deck_building_agents": (draft_agent(), draft_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
+            "use_average_deck": args.use_average_deck,
             "version": args.version,
         }
 
@@ -286,6 +294,7 @@ def run(args):
                     "battle_agent": eval_battle_agent(),
                     "reward_functions": args.reward_functions,
                     "reward_weights": args.reward_weights,
+                    "use_average_deck": args.use_average_deck,
                     "version": args.version,
                 }
             )
