@@ -69,7 +69,7 @@ def get_arg_parser():
         "--use-average-deck",
         help="whether to add an average of the player's deck to the state representation",
         default=False,
-        action="store_true",
+        type=bool,
     )
     p.add_argument(
         "--path", "-p", help="path to save models and results", required=True
