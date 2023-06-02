@@ -4,6 +4,7 @@ import gym
 
 from gym_locm.agents import *
 from gym_locm.engine import Action
+from gym_locm.engine.enums import Phase
 from gym_locm.envs.base_env import LOCMEnv
 from gym_locm.envs.rewards import *
 from gym_locm.exceptions import *
@@ -234,6 +235,11 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
 
         self.rewards_single_player = []
 
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
     def reset(self) -> np.array:
         """
         Resets the environment.
@@ -247,18 +253,21 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
 
         self.rewards_single_player.append(0.0)
 
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
         return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        # act according to first and second players
-        if self.play_first:
-            super().step(action)
-            state, reward, done, info = super().step(self.constructed_agent.act(self.state))
-        else:
-            super().step(self.constructed_agent.act(self.state))
-            state, reward, done, info = super().step(action)
-            reward = -reward
+        state, reward, done, info = super().step(action)
+
+        # takes all the actions of the another agent if that's the last action of the training agent
+        if self.state.current_player.id == 1 and not self.play_first:
+            while self.state.phase != Phase.BATTLE:
+                state.act(super().step(self.constructed_agent.act(self.state)))
 
         try:
             self.rewards_single_player[-1] += reward
@@ -282,25 +291,32 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
 
         self.rewards_single_player = []
 
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
     def reset(self) -> np.array:
         encoded_state = super().reset()
 
         self.rewards_single_player.append(0.0)
 
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
         return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        obs = self.encode_state()
+        obs = self.encode_state() # todo: check if this line has to be moved
+        state, reward, done, info = super().step(action)
 
-        # act according to first and second players
-        if self.play_first:
-            super().step(action)
-            state, reward, done, info = super().step(self.adversary_policy(obs))
-        else:
-            super().step(self.adversary_policy(obs))
-            state, reward, done, info = super().step(action)
-            reward = -reward
+        # takes all the actions of the another agent if that's the last action of the training agent
+        if self.state.current_player.id == 1 and not self.play_first:
+            while self.state.phase != Phase.BATTLE:
+                state.act(super().step(self.adversary_policy(obs)))
 
         try:
             self.rewards_single_player[-1] += reward
