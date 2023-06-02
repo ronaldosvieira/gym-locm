@@ -45,7 +45,7 @@ class LOCMConstructedEnv(LOCMEnv):
         self.evaluation_battles = evaluation_battles
 
         self.cards_in_state = self.k
-        self.card_features = 16
+        self.card_features = 17 
         self.state_shape = (self.cards_in_state * self.card_features,)
 
         self.observation_space = gym.spaces.Box(
@@ -212,7 +212,7 @@ class LOCMConstructedEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card_choices[index], version="1.2")
+                encoded_state[lo:hi] = self.encode_card(card_choices[index], version="1.5")
 
         return encoded_state
 
