@@ -25,7 +25,7 @@ class LOCMConstructedEnv(LOCMEnv):
     ):
         super().__init__(
             seed=seed,
-            version="1.2",
+            version="1.5",
             items=items,
             k=k,
             n=n,
