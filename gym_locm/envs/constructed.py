@@ -258,6 +258,8 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
             while self.state.current_player.id == 0:
                 super().step(self.constructed_agent.act(self.state))
 
+        encoded_state = self.encode_state()
+
         return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
@@ -265,9 +267,10 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
         state, reward, done, info = super().step(action)
 
         # takes all the actions of the another agent if that's the last action of the training agent
-        if self.state.current_player.id == 1 and not self.play_first:
+        if self.state.current_player.id == 1 and self.play_first:
             while self.state.phase != Phase.BATTLE:
-                state.act(super().step(self.constructed_agent.act(self.state)))
+                state, reward, done, info = self.state.act(super().step(self.constructed_agent.act(self.state)))
+            reward = -reward
 
         try:
             self.rewards_single_player[-1] += reward
@@ -306,17 +309,19 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
             while self.state.current_player.id == 0:
                 super().step(self.constructed_agent.act(self.state))
 
+        encoded_state = self.encode_state()
+
         return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        obs = self.encode_state() # todo: check if this line has to be moved
         state, reward, done, info = super().step(action)
 
         # takes all the actions of the another agent if that's the last action of the training agent
-        if self.state.current_player.id == 1 and not self.play_first:
+        if self.state.current_player.id == 1 and self.play_first:
             while self.state.phase != Phase.BATTLE:
-                state.act(super().step(self.adversary_policy(obs)))
+                state, reward, done, info  = self.state.act(super().step(self.adversary_policy(state)))
+            reward = -reward
 
         try:
             self.rewards_single_player[-1] += reward
