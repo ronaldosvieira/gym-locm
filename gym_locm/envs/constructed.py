@@ -268,8 +268,8 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
 
         # takes all the actions of the another agent if that's the last action of the training agent
         if self.state.current_player.id == 1 and self.play_first:
-            while self.state.phase != Phase.BATTLE:
-                state, reward, done, info = self.state.act(super().step(self.constructed_agent.act(self.state)))
+            while not done:
+                state, reward, done, info = super().step(self.constructed_agent.act(self.state))
             reward = -reward
 
         try:
@@ -319,8 +319,8 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
 
         # takes all the actions of the another agent if that's the last action of the training agent
         if self.state.current_player.id == 1 and self.play_first:
-            while self.state.phase != Phase.BATTLE:
-                state, reward, done, info  = self.state.act(super().step(self.adversary_policy(state)))
+            while not done:
+                state, reward, done, info  = super().step(self.adversary_policy(state))
             reward = -reward
 
         try:
