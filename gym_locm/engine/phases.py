@@ -236,7 +236,7 @@ class ConstructedPhase(DeckBuildingPhase):
 
         # initialize the players' hands
         for player in self.state.players:
-            player.hand = self._constructed_cards
+            player.hand = list(self._constructed_cards)
 
     def _new_constructed(self):
         card_pool = [generate_card(i, self.rng, self.items) for i in range(self.k)]
@@ -298,11 +298,7 @@ class ConstructedPhase(DeckBuildingPhase):
         # populate players' hands
         if not self.ended:
             for player in self.state.players:
-                player.hand = [
-                    self._constructed_cards[i]
-                    for i, can_be_chosen in enumerate(self._action_mask[player.id])
-                    if can_be_chosen
-                ]
+                player.hand = self._constructed_cards
         else:
             for player in self.state.players:
                 player.hand = []
