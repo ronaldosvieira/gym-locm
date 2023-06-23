@@ -1,5 +1,5 @@
 import argparse
-from gym_locm.agents import InspiraiConstructedAgent
+from gym_locm.agents import GreedyBattleAgent, InspiraiConstructedAgent
 from gym_locm.envs.constructed import LOCMConstructedSingleEnv
 
 from sb3_contrib import MaskablePPO
@@ -7,7 +7,6 @@ from sb3_contrib.common.maskable.utils import get_action_masks
 
 import wandb
 from wandb.integration.sb3 import WandbCallback
-
 
 def get_arg_parser():
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -18,8 +17,14 @@ def get_arg_parser():
     return p
 
 def run(args):
-    agent = InspiraiConstructedAgent()
-    env = LOCMConstructedSingleEnv(constructed_agent=agent)
+    constructed_agent = InspiraiConstructedAgent()
+    battle_agent_1 = GreedyBattleAgent()
+    battle_agent_2 = GreedyBattleAgent()
+
+    env = LOCMConstructedSingleEnv(
+        constructed_agent=constructed_agent,
+        battle_agents=(battle_agent_1, battle_agent_2),
+    )
 
     wandb.init(
         sync_tensorboard=True,
