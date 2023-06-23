@@ -270,6 +270,8 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
         if self.state.current_player.id == 1 and self.play_first:
             while not done:
                 state, reward, done, info = super().step(self.constructed_agent.act(self.state))
+
+        if not self.play_first:
             reward = -reward
 
         try:
@@ -321,6 +323,8 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
         if self.state.current_player.id == 1 and self.play_first:
             while not done:
                 state, reward, done, info  = super().step(self.adversary_policy(state))
+
+        if not self.play_first:
             reward = -reward
 
         try:
