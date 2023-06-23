@@ -31,7 +31,11 @@ def run(args):
         env, 
         verbose=1, 
         tensorboard_log='.',
-        seed= 13
+        seed=13,
+        learning_rate=args.learning_rate,
+        batch_size=args.batch_size,
+        n_steps=args.n_steps,
+        n_epochs=args.n_epochs
     )
     
     model_name = f"models/{args.learning_rate}_{args.batch_size}_{args.n_steps}_{args.n_epochs}"
