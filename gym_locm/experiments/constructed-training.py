@@ -11,10 +11,10 @@ from wandb.integration.sb3 import WandbCallback
 
 def get_arg_parser():
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument("--learning_rate", help="path to draft model", default="draft.json")
-    p.add_argument("--batch_size", help="path to draft model", default="draft.json")
-    p.add_argument("--n_steps", help="path to draft model", default="draft.json")
-    p.add_argument("--n_epochs", help="path to draft model", default="draft.json")
+    p.add_argument("--learning_rate", required=True)
+    p.add_argument("--batch_size", required=True)
+    p.add_argument("--n_steps", required=True)
+    p.add_argument("--n_epochs", required=True)
     return p
 
 def run(args):
