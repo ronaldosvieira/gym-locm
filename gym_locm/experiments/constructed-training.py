@@ -11,10 +11,10 @@ from wandb.integration.sb3 import WandbCallback
 
 def get_arg_parser():
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument("--learning_rate", required=True)
-    p.add_argument("--batch_size", required=True)
-    p.add_argument("--n_steps", required=True)
-    p.add_argument("--n_epochs", required=True)
+    p.add_argument("--learning_rate", type=float, required=True)
+    p.add_argument("--batch_size", type=int, required=True)
+    p.add_argument("--n_steps", type=int, required=True)
+    p.add_argument("--n_epochs", type=int, required=True)
     return p
 
 def run(args):
