@@ -13,14 +13,14 @@ class LOCMConstructedEnv(LOCMEnv):
     metadata = {"render.modes": ["text", "native"]}
 
     def __init__(
-            self,
-            battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-            evaluation_battles=1,
-            seed=None,
-            items=True,
-            k=120,
-            n=30,
-            reward_functions=("win-loss",),
+        self,
+        battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
+        evaluation_battles=1,
+        seed=None,
+        items=True,
+        k=120,
+        n=30,
+        reward_functions=("win-loss",),
     ):
         super().__init__(
             seed=seed,
@@ -202,7 +202,7 @@ class LOCMConstructedEnv(LOCMEnv):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
         if not self._construction_is_finished:
-            card_choices = self.state.current_player.hand[0: self.k]
+            card_choices = self.state.current_player.hand[0 : self.k]
 
             self.draft_ordering = list(range(self.k))
 
@@ -212,7 +212,9 @@ class LOCMConstructedEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card_choices[index], version="1.5")
+                encoded_state[lo:hi] = self.encode_card(
+                    card_choices[index], version="1.5"
+                )
 
         return encoded_state
 
@@ -224,7 +226,9 @@ class LOCMConstructedEnv(LOCMEnv):
 
 
 class LOCMConstructedSingleEnv(LOCMConstructedEnv):
-    def __init__(self, constructed_agent=RandomConstructedAgent(), play_first=True, **kwargs):
+    def __init__(
+        self, constructed_agent=RandomConstructedAgent(), play_first=True, **kwargs
+    ):
         # init the env
         super().__init__(**kwargs)
 
@@ -268,7 +272,9 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
         # takes all the actions of the another agent if that's the last action of the training agent
         if self.state.current_player.id == 1 and self.play_first:
             while not done:
-                state, reward, done, info = super().step(self.constructed_agent.act(self.state))
+                state, reward, done, info = super().step(
+                    self.constructed_agent.act(self.state)
+                )
 
         if not self.play_first:
             reward = -reward

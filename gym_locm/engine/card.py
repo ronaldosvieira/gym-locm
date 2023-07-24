@@ -52,7 +52,7 @@ class Card:
         else:
             return f"({self.instance_id})"
 
-    def make_copy(self, instance_id=None) -> 'Card':
+    def make_copy(self, instance_id=None) -> "Card":
         cloned_card = Card.empty_copy(self)
 
         cloned_card.id = self.id

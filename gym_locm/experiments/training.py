@@ -29,7 +29,8 @@ def get_arg_parser():
     p.add_argument(
         "--draft-agent",
         "-d",
-        choices=list(agents.draft_agents.keys()) + list(agents.constructed_agents.keys()),
+        choices=list(agents.draft_agents.keys())
+        + list(agents.constructed_agents.keys()),
         default="max-attack",
     )
     p.add_argument(
@@ -210,7 +211,6 @@ def run(args):
     ), f"The amount of reward weights should be the same as those of reward functions"
 
     if args.task == "draft":
-
         from gym_locm.toolbox.trainer_draft import (
             AsymmetricSelfPlay,
             SelfPlay,
@@ -244,7 +244,6 @@ def run(args):
         }
 
     elif args.task == "battle":
-
         from gym_locm.toolbox.trainer_battle import (
             AsymmetricSelfPlay,
             SelfPlay,

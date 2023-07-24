@@ -25,14 +25,14 @@ class LOCMEnv(gym.Env, ABC):
     card_types = {Creature: 0, GreenItem: 1, RedItem: 2, BlueItem: 3}
 
     def __init__(
-            self,
-            seed=None,
-            version="1.5",
-            items=True,
-            k=None,
-            n=30,
-            reward_functions=("win-loss",),
-            reward_weights=(1.0,),
+        self,
+        seed=None,
+        version="1.5",
+        items=True,
+        k=None,
+        n=30,
+        reward_functions=("win-loss",),
+        reward_weights=(1.0,),
     ):
         self._seed = seed
         self.version = version
@@ -170,7 +170,13 @@ class LOCMEnv(gym.Env, ABC):
         for i, card in enumerate(sorted(player.hand, key=attrgetter("cost"))):
             if self.version == "1.5":
                 table.add_row(
-                    [card.instance_id, card.name, card.cost, Area(card.area).name, card.text]
+                    [
+                        card.instance_id,
+                        card.name,
+                        card.cost,
+                        Area(card.area).name,
+                        card.text,
+                    ]
                 )
             else:
                 table.add_row([card.instance_id, card.name, card.cost, card.text])
@@ -337,7 +343,10 @@ class LOCMEnv(gym.Env, ABC):
         if action_number < 0 or action_number >= self.k:
             raise MalformedActionError("Invalid action number")
 
-        return Action(ActionType.CHOOSE if self.version == "1.5" else ActionType.PICK, action_number)
+        return Action(
+            ActionType.CHOOSE if self.version == "1.5" else ActionType.PICK,
+            action_number,
+        )
 
     def decode_battle_action(self, action_number):
         """
@@ -422,9 +431,9 @@ class LOCMEnv(gym.Env, ABC):
         card_draw = card.card_draw / 2
 
         encoded_card = (
-                card_type
-                + [cost, attack, defense, player_hp, enemy_hp, card_draw]
-                + keywords
+            card_type
+            + [cost, attack, defense, player_hp, enemy_hp, card_draw]
+            + keywords
         )
 
         if version == "1.5":

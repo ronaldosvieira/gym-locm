@@ -154,7 +154,9 @@ class State:
             if self.version == "1.5":
                 deck_length = 0 if self.is_deck_building() else len(cp.deck)
 
-                encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {deck_length} {draw}\n"
+                encoding += (
+                    f"{cp.health} {cp.base_mana + cp.bonus_mana} {deck_length} {draw}\n"
+                )
             elif self.version == "1.2":
                 encoding += f"{cp.health} {cp.base_mana + cp.bonus_mana} {len(cp.deck)} {cp.next_rune} {draw}\n"
 
@@ -264,7 +266,6 @@ class State:
 
     @staticmethod
     def from_native_input(game_input, deck_orders=((), ())):
-
         if isinstance(game_input, str):
             game_input = game_input.split("\n")
 

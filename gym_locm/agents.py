@@ -109,7 +109,6 @@ class GreedyBattleAgent(Agent):
         best_action, best_score = Action(ActionType.PASS), float("-inf")
 
         for action in state.available_actions:
-
             if action.type == ActionType.PASS:
                 continue
 
@@ -2734,7 +2733,6 @@ class InspiraiConstructedAgent(Agent):
         self.selected_card_ids = []
 
     def _eval_card(self, card: Card) -> float:
-
         card_lethal = int(card.has_ability("L"))
         card_ward = int(card.has_ability("W"))
         card_guard = int(card.has_ability("G"))

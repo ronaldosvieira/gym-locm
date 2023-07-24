@@ -248,9 +248,13 @@ class ConstructedPhase(DeckBuildingPhase):
         if action.type == ActionType.CHOOSE:
             chosen_card_id = action.origin
         elif action.type == ActionType.PASS:
-            chosen_card_id = self.action_mask().index(True)  # get first choose-able card
+            chosen_card_id = self.action_mask().index(
+                True
+            )  # get first choose-able card
         else:
-            raise MalformedActionError(f"Actions in constructed should be of types CHOOSE or PASS, not {action.type}")
+            raise MalformedActionError(
+                f"Actions in constructed should be of types CHOOSE or PASS, not {action.type}"
+            )
 
         chosen_card_index = chosen_card_id
 
@@ -604,7 +608,9 @@ class BattlePhase(Phase):
 
     def _handle_draw_from_empty_deck(self, remaining_draws: int = 1):
         self._damage_player(
-            self.state.current_player, amount=10 * remaining_draws, source=DamageSource.GAME
+            self.state.current_player,
+            amount=10 * remaining_draws,
+            source=DamageSource.GAME,
         )
 
     def _handle_turn_51_or_greater(self):
@@ -670,7 +676,6 @@ class BattlePhase(Phase):
         )
 
         if origin.area != Area.NONE:
-
             if origin.area == Area.TYPE_1:
                 target_copy = target
             elif origin.area == Area.TYPE_2:

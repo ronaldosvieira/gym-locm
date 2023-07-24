@@ -235,7 +235,9 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card_choices[index], version="1.2")
+                encoded_state[lo:hi] = self.encode_card(
+                    card_choices[index], version="1.2"
+                )
 
         if self.use_draft_history:
             if self.sort_cards:
@@ -349,4 +351,3 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
 
     def get_episode_rewards(self):
         return self.rewards_single_player
-

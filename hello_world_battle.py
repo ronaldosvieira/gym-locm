@@ -6,7 +6,10 @@ from gym_locm import agents
 def hello_world():
     env = gym.make(
         "LOCM-battle-v0",
-        deck_building_agents=(agents.RandomConstructedAgent(), agents.RandomConstructedAgent()),
+        deck_building_agents=(
+            agents.RandomConstructedAgent(),
+            agents.RandomConstructedAgent(),
+        ),
         battle_agent=(agents.RandomBattleAgent()),
         reward_functions=["win-loss", "opponent-health"],
         reward_weights=[1.0, 1.0],

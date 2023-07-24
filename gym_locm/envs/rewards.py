@@ -48,7 +48,6 @@ class OpponentBoardPresenceRewardFunction(RewardFunction):
 
 
 class CoacRewardFunction(RewardFunction):
-
     @staticmethod
     def _eval_creature(creature) -> int:
         score = 0
