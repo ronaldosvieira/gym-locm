@@ -1,0 +1,161 @@
+{
+	"typeProbabilities": {
+		"creature": 0.4,
+		"itemGreen": 0.2,
+		"itemRed": 0.2,
+		"itemBlue": 0.2
+	},
+	"manaCurve": {
+		"0": 0.1,
+		"1": 0.1,
+		"2": 0.1,
+		"3": 0.1,
+		"4": 0.1,
+		"5": 0.1,
+		"6": 0.1,
+		"7": 0.1,
+		"8": 0.1,
+		"9": 0.1,
+		"10": 0.1,
+		"11": 0.1,
+		"12": 0.1
+	},
+	"areaProbabilities": [{
+			"name": "target",
+			"weight": 50,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "lane1",
+			"weight": 25,
+			"multCost": 0.7,
+			"addCost": 0
+		}, {
+			"name": "lane2",
+			"weight": 25,
+			"multCost": 0.6,
+			"addCost": 0
+		}
+	],
+	"keywordNumberProbabilities":
+	{
+		"0":10,
+		"1":5,
+		"2":3,
+		"3":2,
+		"4":1,
+		"5":1,
+		"6":1
+	},
+	"keywordProbabilities": [{
+			"name": "breakthrough",
+			"weight": 1,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "charge",
+			"weight": 1,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "drain",
+			"weight": 1,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "guard",
+			"weight": 1,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "lethal",
+			"weight": 1,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "ward",
+			"weight": 1,
+			"multCost": 1,
+			"addCost": 1
+		}
+	],
+	"drawProbabilities": [{
+			"name": "0",
+			"weight": 100,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "1",
+			"weight": 50,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "2",
+			"weight": 25,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "3",
+			"weight": 25,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "4",
+			"weight": 5,
+			"multCost": 1,
+			"addCost": 2
+		}
+	],
+	"myHealthProbabilities": [{
+			"name": "0",
+			"weight": 100,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "1",
+			"weight": 50,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "2",
+			"weight": 25,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "3",
+			"weight": 25,
+			"multCost": 1,
+			"addCost": 1
+		}
+	],
+	"oppHealthProbabilities": [{
+			"name": "0",
+			"weight": 100,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "-1",
+			"weight": 50,
+			"multCost": 1,
+			"addCost": 0
+		}, {
+			"name": "-2",
+			"weight": 25,
+			"multCost": 1,
+			"addCost": 1
+		}, {
+			"name": "-3",
+			"weight": 25,
+			"multCost": 1,
+			"addCost": 1
+		}
+	],
+	"bonusAttackDistribution": {
+		"mean": 1.0,
+		"std": 2.0
+	},
+	"bonusDefenseDistribution": {
+		"mean": 1.0,
+		"std": 2.0
+	}
+}

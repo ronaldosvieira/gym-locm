@@ -26,13 +26,17 @@ while not done:
     env.render()
 ```
 
-## Environments
+## Environments for LOCM 1.5
 
-A match of LOCM has two phases: the **draft**, where the players build their decks, and the **battle**, where the playing actually occurs.
+Coming soon!
+
+## Environments for LOCM 1.2
+
+A match of LOCM 1.2 has two phases: the **draft**, where the players build their decks, and the **battle**, where the playing actually occurs.
 
 A reward of *1* is given if the controlled player wins the battle phase, and *-1* otherwise. There are no draws. 
 
-### Draft phase only
+### Draft phase env
  ```python
 env = gym.make("LOCM-draft-v0")
 ```
@@ -43,7 +47,7 @@ The draft phase is played. A default (configurable) policy is used in the battle
 
 **Actions**: 0-2 (chooses first, second or third card).
 
-### Battle phase only
+### Battle phase env
  ```python
 env = gym.make("LOCM-battle-v0")
 ```
@@ -94,20 +98,10 @@ The battle phase is played. A default (configurable) policy is used in the draft
     
 </details>
 
-### Full match
-```python
-env = gym.make("LOCM-v0")
-```
-
-A full match is played. The draft phase happens in the first 30 turns, with the battle phase taking place on the subsequent turns.
-
-States and actions are the same as listed above, changing according to the current phase.
-
 ### Two-player variations
  ```python
 env = gym.make("LOCM-draft-2p-v0")
 env = gym.make("LOCM-battle-2p-v0")
-env = gym.make("LOCM-2p-v0")
 ```
 
 Both players are controlled alternately. A reward of *1* is given if the first player wins, and *-1* otherwise. 
@@ -136,7 +130,7 @@ these roles, use, for instance:
 env = gym.make('LOCM-draft-XXX-vX', draft_agent=RandomDraftAgent(),
                 battle_agents=(RandomBattleAgents(), RandomBattleAgents()))
 env = gym.make('LOCM-battle-XXX-vX', battle_agent=RandomBattleAgent(),
-                draft_agents=(RandomDraftAgents(), RandomDraftAgents()))
+                deck_building_agents=(RandomDraftAgents(), RandomDraftAgents()))
 ```
 
 Trying to specify agents for roles you control will result in an error.
@@ -165,9 +159,6 @@ Battle agents:
 - `RuleBasedBattleAgent`: battles like Baseline1 from the Strategy Card Game AI competition.
 - `MaxAttackBattleAgent`: battles like Baseline2 from the Strategy Card Game AI competition.
 - `GreedyBattleAgent`: battles like Greedy from Kowalski and Miernik's paper <a href="#kowalski2020">[1]</a>.
-- `MCTSBattleAgent`: battles using a MCTS algorithm (experimental). Takes a `time` 
-parameter that determines the amount of time, in milliseconds, that the agent is allowed
-to "think".
 - `NativeDraftAgent`: battles like an AI player developed for the original LOCM engine, 
 whose execution command is passed in the constructor (e.g. `NativeBattleAgent('python3 player.py')`).
 
@@ -224,26 +215,28 @@ Usage: `env = gym.make('LOCM-XXX-vX', k=5)`, default: `3`
 We provide a command-line interface (CLI) to run LOCM matches. It is available as soon as the
 repository is installed. Some basic use cases are listed below.
 
-1. Run 1000 matches in parallel with 4 processes of the Icebox draft agent versus the Coac
+1. Run 1000 matches of LOCM 1.2 in parallel with 4 processes of the Icebox draft agent versus the Coac
 draft agent, using random actions in the battle:
     ```bash
     locm-runner --p1-draft icebox --p1-battle random \
                 --p2-draft coac --p2-battle random \
-                --games 1000 --processes 4
+                --games 1000 --version=1.2 --processes 4
     ```
 
-2. Run 1000 matches of a fully random player against a player developed for the original 
+2. Run 1000 matches of LOCM 1.5 of a fully random player against a player developed for the original 
 engine, and with a specific random seed:
     ```bash
     locm-runner --p1-draft random --p1-battle random \
                 --p2-path "python /path/to/agent.py" \
-                --games 1000 --seed 42
+                --games 1000 --version=1.5 --seed 42
     ```
+   
+Use `locm-runner -h` to see all the available parameters.
 
 ### Train draft agents with deep reinforcement learning
 
-We provide scripts to train deep reinforcement learning draft agents as described in our 
-thesis <a href="#vieira2020a">[2]</a> and SBGames 2020 paper <a href="#vieira2020b">[3]</a>. 
+We provide scripts to train deep reinforcement learning draft agents as described in 
+<a href="#vieira2020a">[2]</a> and <a href="#vieira2020b">[3]</a>. 
 Further instructions are available in the README.md file in 
 the [experiments](gym_locm/experiments) 
 package.
@@ -263,8 +256,8 @@ package. The use of these draft agents with the Runner script is not implemented
 
 ### Train battle agents with deep reinforcement learning
 
-We provide scripts to train deep reinforcement learning battle agents as described in our
-SBGames 2022 paper <a href="#vieira2022a">[4]</a>. Further instructions are available
+We provide scripts to train deep reinforcement learning battle agents as described in 
+<a href="#vieira2022a">[4]</a>. Further instructions are available
 in the README.md file in the [experiments/papers/sbgames-2022](gym_locm/experiments/papers/sbgames-2022)
 package.
 

@@ -16,19 +16,20 @@ def get_arg_parser():
 
     tasks = ["draft", "battle"]
     approach = ["immediate", "lstm", "history"]
-    battle_agents = ["max-attack", "greedy"]
-    adversary = ["fixed", "self-play", "asymmetric-self-play"]
+    adversary = ["fixed", "self-play", "hybrid", "asymmetric-self-play"]
     roles = ["first", "second", "alternate"]
+    versions = ["1.5", "1.2"]
 
     p.add_argument("--task", "-t", choices=tasks, default="draft")
     p.add_argument("--approach", "-ap", choices=approach, default="immediate")
+    p.add_argument("--version", "-v", choices=versions, default="1.2")
     p.add_argument(
         "--adversary", "-ad", choices=adversary, default="asymmetric-self-play"
     )
     p.add_argument(
         "--draft-agent",
         "-d",
-        choices=list(agents.draft_agents.keys()),
+        choices=list(agents.draft_agents.keys()) + list(agents.constructed_agents.keys()),
         default="max-attack",
     )
     p.add_argument(
@@ -55,18 +56,20 @@ def get_arg_parser():
     p.add_argument(
         "--reward-functions",
         "-rf",
-        nargs="+",
-        choices=list(rewards.available_rewards.keys()),
-        default=("win-loss",),
+        default="win-loss",
         help="reward functions to use",
     )
     p.add_argument(
         "--reward-weights",
         "-rw",
-        nargs="+",
-        type=float,
         default=None,
         help="weights of the reward functions",
+    )
+    p.add_argument(
+        "--use-average-deck",
+        help="whether to add an average of the player's deck to the state representation",
+        default=False,
+        type=bool,
     )
     p.add_argument(
         "--path", "-p", help="path to save models and results", required=True
@@ -120,7 +123,7 @@ def get_arg_parser():
         "--n-steps",
         type=int,
         default=270,
-        help="batch size (in timesteps, 30 timesteps = 1 episode)",
+        help="batch size (in timesteps)",
     )
     p.add_argument(
         "--nminibatches",
@@ -183,14 +186,7 @@ def get_arg_parser():
     return p
 
 
-def run():
-    if sys.version_info < (3, 0, 0):
-        sys.stderr.write("You need python 3.0 or later to run this script\n")
-        sys.exit(1)
-
-    arg_parser = get_arg_parser()
-    args = arg_parser.parse_args()
-
+def run(args):
     args.path += (
         "/"
         + args.task
@@ -202,8 +198,12 @@ def run():
 
     os.makedirs(args.path, exist_ok=True)
 
+    args.reward_functions = args.reward_functions.split()
+
     if args.reward_weights is None:
         args.reward_weights = tuple([1.0 for _ in range(len(args.reward_functions))])
+    else:
+        args.reward_weights = list(map(float, args.reward_weights.split()))
 
     assert len(args.reward_weights) == len(
         args.reward_functions
@@ -226,12 +226,14 @@ def run():
 
         battle_agent = agents.parse_battle_agent(args.battle_agent)
 
-        env_params = {
+        self_play_env_params = {
             "battle_agents": (battle_agent(), battle_agent()),
             "use_draft_history": args.approach == "history",
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
         }
+
+        fixed_adversary_env_params = self_play_env_params
 
         eval_env_params = {
             "draft_agent": agents.MaxAttackDraftAgent(),
@@ -247,12 +249,17 @@ def run():
             AsymmetricSelfPlay,
             SelfPlay,
             FixedAdversary,
+            FixedAndSelfPlayHybrid,
             model_builder_mlp_masked,
         )
 
         model_builder = model_builder_mlp_masked
-        draft_agent = agents.parse_draft_agent(args.draft_agent)
         battle_agent = agents.parse_battle_agent(args.battle_agent)
+
+        try:
+            draft_agent = agents.parse_draft_agent(args.draft_agent)
+        except KeyError:
+            draft_agent = agents.parse_constructed_agent(args.draft_agent)
 
         if args.eval_battle_agents is None:
             args.eval_battle_agents = [args.battle_agent]
@@ -261,24 +268,34 @@ def run():
             map(agents.parse_battle_agent, args.eval_battle_agents)
         )
 
-        env_params = {
-            "draft_agents": (draft_agent(), draft_agent()),
+        self_play_env_params = {
+            "deck_building_agents": (draft_agent(), draft_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
+            "use_average_deck": args.use_average_deck,
+            "version": args.version,
         }
 
-        if args.adversary == "fixed":
-            env_params["battle_agent"] = battle_agent()
+        fixed_adversary_env_params = {
+            "battle_agent": battle_agent(),
+            "deck_building_agents": (draft_agent(), draft_agent()),
+            "reward_functions": args.reward_functions,
+            "reward_weights": args.reward_weights,
+            "use_average_deck": args.use_average_deck,
+            "version": args.version,
+        }
 
         eval_env_params = []
 
         for eval_battle_agent in eval_battle_agents:
             eval_env_params.append(
                 {
-                    "draft_agents": (draft_agent(), draft_agent()),
+                    "deck_building_agents": (draft_agent(), draft_agent()),
                     "battle_agent": eval_battle_agent(),
                     "reward_functions": args.reward_functions,
                     "reward_weights": args.reward_weights,
+                    "use_average_deck": args.use_average_deck,
+                    "version": args.version,
                 }
             )
 
@@ -323,7 +340,7 @@ def run():
             args.task,
             model_builder,
             model_params,
-            env_params,
+            self_play_env_params,
             eval_env_params,
             args.train_episodes,
             args.eval_episodes,
@@ -339,7 +356,7 @@ def run():
             args.task,
             model_builder,
             model_params,
-            env_params,
+            self_play_env_params,
             eval_env_params,
             args.train_episodes,
             args.eval_episodes,
@@ -356,7 +373,7 @@ def run():
             args.task,
             model_builder,
             model_params,
-            env_params,
+            fixed_adversary_env_params,
             eval_env_params,
             args.train_episodes,
             args.eval_episodes,
@@ -365,6 +382,28 @@ def run():
             args.path,
             args.seed,
             args.concurrency,
+            wandb_run=run,
+        )
+    elif args.adversary == "hybrid":
+        num_fixed_adversary_envs = args.concurrency // 2
+        num_self_play_envs = args.concurrency - num_fixed_adversary_envs
+
+        trainer = FixedAndSelfPlayHybrid(
+            args.task,
+            model_builder,
+            model_params,
+            self_play_env_params,
+            fixed_adversary_env_params,
+            eval_env_params,
+            args.train_episodes,
+            args.eval_episodes,
+            args.num_evals,
+            args.role,
+            args.switch_freq,
+            args.path,
+            args.seed,
+            num_self_play_envs,
+            num_fixed_adversary_envs,
             wandb_run=run,
         )
     else:
@@ -378,4 +417,11 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    if sys.version_info < (3, 0, 0):
+        sys.stderr.write("You need python 3.0 or later to run this script\n")
+        sys.exit(1)
+
+    arg_parser = get_arg_parser()
+    args = arg_parser.parse_args()
+
+    run(args)

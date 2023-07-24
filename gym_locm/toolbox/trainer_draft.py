@@ -929,7 +929,18 @@ class TrainingCallback(BaseCallback):
 
 
 def save_model_as_json(model, act_fun, path):
-    pass  # todo: reimplement this supporting stable-baselines 2 and 3
+    with open(path + '.json', 'w') as json_file:
+        params = {}
+
+        # create a parameter dictionary
+        for label, weights in model.get_parameters()['policy'].items():
+            params[label] = weights.tolist()
+
+        # add activation function to it
+        params['act_fun'] = act_fun
+
+        # and save into the new file
+        json.dump(params, json_file)
 
 
 def model_builder_mlp(

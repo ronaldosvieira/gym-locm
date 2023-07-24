@@ -3,9 +3,10 @@ from typing import Union
 import gym
 
 from gym_locm.agents import *
-from gym_locm.engine import *
+from gym_locm.engine import Action
 from gym_locm.envs.base_env import LOCMEnv
-from gym_locm.envs.rewards import WinLossRewardFunction
+from gym_locm.envs.rewards import *
+from gym_locm.exceptions import *
 
 
 class LOCMDraftEnv(LOCMEnv):
@@ -27,6 +28,7 @@ class LOCMDraftEnv(LOCMEnv):
     ):
         super().__init__(
             seed=seed,
+            version="1.2",
             items=items,
             k=k,
             n=n,
@@ -210,7 +212,7 @@ class LOCMDraftEnv(LOCMEnv):
 
             print(f"P0: {wins_by_p0}%; P1: {100 - wins_by_p0}%")
 
-    def _encode_state_draft(self):
+    def _encode_state_deck_building(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
         chosen_cards = self.choices[self.state.current_player.id]
@@ -233,7 +235,7 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card_choices[index])
+                encoded_state[lo:hi] = self.encode_card(card_choices[index], version="1.2")
 
         if self.use_draft_history:
             if self.sort_cards:
@@ -244,7 +246,7 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = lo + self.card_features
                 hi = hi if hi < 0 else None
 
-                encoded_state[lo:hi] = self.encode_card(card)
+                encoded_state[lo:hi] = self.encode_card(card, version="1.2")
 
         if self.use_mana_curve:
             for chosen_card in chosen_cards:
@@ -348,20 +350,3 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
     def get_episode_rewards(self):
         return self.rewards_single_player
 
-
-class LOCMDraftSingleTabularEnv(LOCMDraftSingleEnv):
-    def __init__(self, draft_agent=RandomDraftAgent(), play_first=True, **kwargs):
-        super(LOCMDraftSingleTabularEnv, self).__init__(
-            draft_agent, play_first, **kwargs
-        )
-
-        self.observation_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(self.k,), dtype=np.int
-        )
-
-        self.observation_space = gym.spaces.MultiDiscrete((160, 160, 160))
-
-    def _encode_state_draft(self):
-        return (
-            np.array(sorted(map(attrgetter("id"), self.state.current_player.hand))) - 1
-        )

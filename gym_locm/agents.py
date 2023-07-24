@@ -1,17 +1,32 @@
+import sys
 from abc import ABC, abstractmethod
 from operator import attrgetter
 from typing import Type
+from os import fpathconf
 
+import numpy as np
 from pexpect import TIMEOUT, EOF
 
-from gym_locm.engine import *
-from gym_locm.algorithms import MCTS
-
 import pexpect
-import time
 import random
 
-from gym_locm.util import is_it
+from gym_locm.engine import (
+    Action,
+    ActionType,
+    Lane,
+    Creature,
+    GreenItem,
+    RedItem,
+    BlueItem,
+    State,
+    PlayerOrder,
+    Card,
+)
+from gym_locm.util import is_it, has_enough_mana
+
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs, flush=True)
 
 
 class Agent(ABC):
@@ -223,223 +238,6 @@ class MaxAttackBattleAgent(Agent):
         return Action(ActionType.PASS)
 
 
-class MCTSBattleAgent(Agent):
-    def __init__(self, agents=(RandomBattleAgent(), RandomBattleAgent())):
-        self.agents = agents
-
-    def seed(self, seed):
-        for agent in self.agents:
-            agent.seed(seed)
-
-    def reset(self):
-        pass
-
-    def act(self, state, time_limit_ms=200, multiple=False):
-        searcher = MCTS(agents=self.agents)
-
-        if len(state.available_actions) == 1:
-            return state.available_actions[0]
-
-        start_time = int(time.time() * 1000.0)
-
-        while True:
-            current_time = int(time.time() * 1000.0)
-
-            if current_time - start_time > time_limit_ms:
-                break
-
-            searcher.do_rollout(state)
-
-        if multiple:
-            action = searcher.choose_until_pass(state)
-        else:
-            action = searcher.choose(state)
-
-        return action
-
-
-class CoacBattleAgent(Agent):
-    def __init__(self):
-        self.time_limit_ms = float("-inf")
-        self.start_time = None
-
-        self.player = None
-        self.leaf = 0
-
-    def seed(self, seed):
-        pass
-
-    def reset(self):
-        self.leaf = 0
-
-    @staticmethod
-    def _eval_creature(creature):
-        score = 0
-
-        if creature.attack > 0:
-            score += 20
-            score += creature.attack * 10
-            score += creature.defense * 5
-
-            if creature.has_ability("W"):
-                score += creature.attack * 5
-
-            if creature.has_ability("L"):
-                score += 20
-
-        if creature.has_ability("G"):
-            score += 9
-
-        return score
-
-    @staticmethod
-    def eval_state(state):
-        score = 0
-
-        player, enemy = state.current_player, state.opposing_player
-
-        for lane in player.lanes:
-            for creature in lane:
-                score += CoacBattleAgent._eval_creature(creature)
-
-        for lane in enemy.lanes:
-            for creature in lane:
-                score -= CoacBattleAgent._eval_creature(creature)
-
-        for card in player.hand:
-            if not isinstance(card, Creature):
-                score += 21  # todo: discover what passed means
-
-        if len(player.hand) + player.bonus_draw + 1 <= 8:
-            score += (player.bonus_draw + 1) * 5
-
-        score += player.health * 2
-        score -= enemy.health * 2
-
-        if player.health < 5:
-            score -= 100
-
-        if enemy.health <= 0:
-            score += 100000
-        elif player.health <= 0:
-            score -= 100000
-
-        return score
-
-    @staticmethod
-    def _check_lethal(state):
-        damage = 0
-        ref_dict = {}
-
-        for lane in state.current_player.lanes:
-            for creature in lane:
-                ref_dict[creature.instance_id] = creature
-
-        for action in state.available_actions:
-            if action.type == ActionType.ATTACK and action.target is None:
-                damage += ref_dict[action.origin].attack
-
-        return damage >= state.opposing_player.health
-
-    @staticmethod
-    def all_attack_enemy_player(state):
-        for action in state.available_actions:
-            if action.type == ActionType.ATTACK and action.target is None:
-                return action
-
-    def _brute_force_leaf(self, state, alpha):
-        enemy_depth = 1
-        best_action = Action(ActionType.PASS)
-
-        state.act(best_action)
-
-        if state.current_player.id != self.player:
-            _, score = self._run_brute_force(state, enemy_depth, alpha)
-
-            return best_action, score
-
-        self.leaf += 1
-
-        return best_action, -self.eval_state(state)
-
-    def _brute_force(self, state, depth, alpha):
-        state = state.clone()
-
-        if depth <= 0:
-            return self._brute_force_leaf(state, alpha)
-
-        legal_moves = state.available_actions
-
-        if legal_moves[0].type == ActionType.PASS:
-            return self._brute_force_leaf(state, alpha)
-
-        if len(state.available_actions) >= 35:
-            depth -= 1
-
-        current_time = int(time.time() * 1000.0)
-
-        if current_time - self.start_time >= self.time_limit_ms:
-            depth = 1
-
-        best_score = float("-inf")
-        best_action = Action(ActionType.PASS)
-
-        for action in state.available_actions:
-            if action.type == ActionType.PASS:
-                continue
-
-            state_copy = state.clone()
-
-            state_copy.act(action)
-
-            if state_copy.winner is not None:
-                score = 100000 if state_copy.winner == self.player else -100000
-
-                return action, score
-
-            _, score = self._brute_force(state_copy, depth - 1, alpha)
-
-            if state.current_player.id != self.player and alpha > -score:
-                return action, score
-
-            if state.current_player.id == self.player:
-                alpha = alpha if alpha > score else score
-
-            if score > best_score:
-                best_action = action
-                best_score = score
-
-        return best_action, best_score
-
-    def _run_brute_force(self, state, depth, alpha):
-        action, score = self._brute_force(state, depth, alpha)
-
-        if self._check_lethal(state):
-            action = self.all_attack_enemy_player(state)
-
-            if state.current_player.id == self.player:
-                return action, 10000
-            else:
-                return action, -100000
-
-        return action, self.eval_state(state)
-
-    def act(self, state, time_limit_ms=1000):
-        self.leaf = 0
-
-        self.start_time = int(time.time() * 1000.0)
-        self.player = state.current_player.id
-
-        if self._check_lethal(state):
-            action = self.all_attack_enemy_player(state)
-        else:
-            depth = 3
-
-            action, _ = self._run_brute_force(state, depth, float("-inf"))
-
-        return action
-
-
 class NativeAgent(Agent):
     action_buffer = []
 
@@ -455,7 +253,9 @@ class NativeAgent(Agent):
         self._process = None
 
     def initialize(self):
-        self._process = pexpect.spawn(self.cmd, echo=False, encoding="utf-8")
+        self._process: pexpect.pty_spawn.spawn = pexpect.spawn(
+            self.cmd, echo=False, encoding="utf-8"
+        )
         self.initialized = True
 
     def __enter__(self):
@@ -498,6 +298,8 @@ class NativeAgent(Agent):
                 decoded_actions.append(Action(ActionType.PASS))
             elif tokens[0] == "PICK":
                 decoded_actions.append(Action(ActionType.PICK, int(tokens[1])))
+            elif tokens[0] == "CHOOSE":
+                decoded_actions.append(Action(ActionType.CHOOSE, int(tokens[1])))
             elif tokens[0] == "USE":
                 origin = int(tokens[1])
                 target = int(tokens[2])
@@ -535,19 +337,59 @@ class NativeAgent(Agent):
             else:
                 return self.action_buffer.pop()
 
-        self._process.write(str(state))
+        # get max send buffer size
+        n = fpathconf(0, "PC_MAX_CANON")
+
+        # get state as native string
+        state_as_str = str(state)
+
+        # separate state string in parts of up to n bytes each
+        state_as_str_parts = [
+            state_as_str[i : i + n] for i in range(0, len(state_as_str), n)
+        ]
+
+        bytes_sent = 0
+
+        # send each part of the state to the agent
+        for state_as_str_part in state_as_str_parts:
+            bytes_sent += self._process.send(state_as_str_part)
+
+            if self.verbose:
+                eprint("Sent a total of", bytes_sent, "bytes")
+
+        if self.verbose:
+            print(
+                "State bytes:",
+                len(state_as_str.encode("utf-8")),
+                "Bytes sent:",
+                bytes_sent,
+            )
 
         actions = []
 
         try:
-            raw_output = self._process.read_nonblocking(size=2048, timeout=2)
+            i = 1
 
-            self.raw_actions = raw_output.strip()
+            while not actions and i <= 15:
+                if self.verbose:
+                    eprint(f"Trying to decode actions... (try {i}/15)")
 
-            actions = self.decode_actions(raw_output)
+                # read an action output ending with \n
+                raw_output = self._process.readline()
 
-            if self.verbose:
-                eprint(raw_output, end="")
+                # remove the \n
+                self.raw_actions = raw_output.strip()
+
+                if self.verbose:
+                    eprint("Raw output:", self.raw_actions)
+
+                actions = self.decode_actions(raw_output)
+
+                if self.verbose:
+                    eprint("Decoded:", actions)
+
+                i += 1
+
         except TIMEOUT:
             print("WARNING: timeout")
         except EOF:
@@ -572,7 +414,7 @@ class NativeBattleAgent(NativeAgent):
         super().__init__(*args, **kwargs)
 
     def fake_draft(self, state):
-        fake_state = State()
+        fake_state = State(version="1.2")
 
         play_first = state.current_player.id == 0
         deck = state.current_player.deck + state.current_player.hand
@@ -580,15 +422,15 @@ class NativeBattleAgent(NativeAgent):
         if not play_first:
             fake_state.act(Action(ActionType.PASS))
 
-        for turn in range(state.n):
+        for turn in range(state.deck_building_phase.n):
             chosen_card = deck[turn]
 
-            fake_state.current_player.hand = [chosen_card] * state.k
+            fake_state.current_player.hand = [chosen_card] * state.deck_building_phase.k
 
             self._process.write(str(fake_state))
 
             try:
-                raw_output = self._process.read_nonblocking(size=2048, timeout=2)
+                raw_output = self._process.readline()
 
                 if self.verbose:
                     eprint(raw_output, end="")
@@ -622,7 +464,9 @@ class NativeDraftAgent(NativeAgent):
 
 
 PassDraftAgent = PassBattleAgent
+PassConstructedAgent = PassBattleAgent
 RandomDraftAgent = RandomBattleAgent
+RandomConstructedAgent = RandomBattleAgent
 
 
 class RuleBasedDraftAgent(Agent):
@@ -2853,6 +2697,132 @@ class HistorylessDraftAgent(Agent):
         return Action(ActionType.PICK, index)
 
 
+class InspiraiConstructedAgent(Agent):
+    area = -3.779216981947414
+    cost = -3.7998646581933975
+    att_def_sum = -4.450924576381176
+    att_def_hm = 1.1914191568197516
+    monster = 1.4308790882830391
+    lethal = -3.983350714836453
+    ward = 2.1011340087179864
+    guard = 2.156171607641912
+    breakthrough = -3.1048119973463457
+    drain = 0.8286945260657275
+    red_blue = -0.23560153858421984
+    green = -0.8618647982692815
+    green_ward = 1.1256445689216639
+    monster_multi = -2.6645675460661264
+    monster_no_att = -1.0590017361786237
+    card_draw = 0.37833242963248814
+
+    min_monster = 8
+    twice = True
+
+    def __init__(self):
+        self.selected_card_ids = []
+
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        self.selected_card_ids = []
+
+    def _eval_card(self, card: Card) -> float:
+
+        card_lethal = int(card.has_ability("L"))
+        card_ward = int(card.has_ability("W"))
+        card_guard = int(card.has_ability("G"))
+        card_breakthrough = int(card.has_ability("B"))
+        card_drain = int(card.has_ability("D"))
+        card_charge = int(card.has_ability("C"))
+
+        score = 0.0
+        area = self.area if card.area != 0 else 1.0
+        score += self.cost * card.cost
+        score += (
+            self.att_def_sum
+            * area
+            * (abs(card.attack) + abs(card.defense))
+            / max(1, card.cost)
+        )
+
+        if abs(card.attack) + abs(card.defense) > 0:
+            att_def_hm = (
+                abs(card.attack)
+                * abs(card.defense)
+                / (abs(card.attack) + abs(card.defense))
+            )
+            score += self.att_def_hm * area * att_def_hm
+
+        if isinstance(card, Creature):
+            monster_score = (
+                self.monster
+                + card_lethal * self.lethal
+                + card_ward * self.ward
+                + card_guard * self.guard
+                + card_breakthrough * self.breakthrough
+                + card_drain * self.drain
+            )
+            monster_score *= area
+            score += monster_score
+
+        elif isinstance(card, GreenItem):
+            score += self.red_blue * (abs(card.attack) + abs(card.defense)) * area
+        else:
+            score += self.green + self.green_ward * card_ward * area
+
+        if (
+            isinstance(card, Creature)
+            and card_charge
+            and card_lethal
+            and card.attack > 0
+        ):
+            score += self.monster_multi * area
+
+        if isinstance(card, Creature) and card.attack == 0:
+            score += self.monster_no_att
+
+        score += self.card_draw * area * card.card_draw
+
+        return score
+
+    def _eval_state(self, state):
+        cards = [c for c in state.current_player.hand]
+        cards = sorted(cards, key=self._eval_card, reverse=True)
+
+        selected_card_ids = {}
+        min_monster = self.min_monster
+
+        for card in cards:
+            if min_monster <= 0:
+                break
+
+            if isinstance(card, Creature):
+                selected_card_ids[card.id] = 1 + self.twice
+                min_monster -= 1 + self.twice
+
+        for card in cards:
+            if sum(selected_card_ids.values()) >= 30:
+                break
+
+            if selected_card_ids.get(card.id, 0) >= 2:
+                continue
+
+            selected_card_ids[card.id] = selected_card_ids.get(card.id, 0) + (
+                1 + self.twice
+            )
+
+        selected_card_ids = sum([[k] * v for k, v in selected_card_ids.items()], [])
+
+        self.selected_card_ids = list(reversed(selected_card_ids[:30]))
+
+    def act(self, state):
+        if not self.selected_card_ids:
+            self._eval_state(state)
+
+        return Action(ActionType.CHOOSE, self.selected_card_ids.pop())
+
+
 class RLDraftAgent(Agent):
     def __init__(self, model):
         self.model = model
@@ -2904,42 +2874,13 @@ class RLBattleAgent(Agent):
         return action
 
 
-class TabularRLDraftAgent(Agent):
-    def __init__(self, policy_path="policy-3M.csv", has_header=True):
-        with open(policy_path, "r") as policy_file:
-            lines = policy_file.readlines()
-
-        self.policy = {None: 0}
-
-        for line in lines[1 if has_header else 0 :]:
-            c1, c2, c3, a = map(int, line.split(";"))
-
-            self.policy[(c1, c2, c3)] = a
-
-    def seed(self, seed):
-        pass
-
-    def reset(self):
-        pass
-
-    def act(self, state):
-        cards = tuple(
-            sorted(
-                map(
-                    lambda c_id: c_id - 1,
-                    map(attrgetter("id"), state.current_player.hand),
-                )
-            )
-        )
-
-        return Action(ActionType.PICK, self.policy[cards])
-
-
 draft_agents = {
     "pass": PassDraftAgent,
     "random": RandomDraftAgent,
     "rule-based": RuleBasedDraftAgent,
     "max-attack": MaxAttackDraftAgent,
+    "baseline1": RuleBasedDraftAgent,
+    "baseline2": MaxAttackDraftAgent,
     "icebox": IceboxDraftAgent,
     "closet-ai": ClosetAIDraftAgent,
     "uji1": UJI1DraftAgent,
@@ -2949,7 +2890,12 @@ draft_agents = {
     "chad": ChadDraftAgent,
     "historyless": HistorylessDraftAgent,
     "rl": RLDraftAgent,
-    "tabular-rl": TabularRLDraftAgent,
+}
+
+constructed_agents = {
+    "pass": PassConstructedAgent,
+    "random": RandomConstructedAgent,
+    "inspirai": InspiraiConstructedAgent,
 }
 
 battle_agents = {
@@ -2959,14 +2905,18 @@ battle_agents = {
     "osl": GreedyBattleAgent,
     "rule-based": RuleBasedBattleAgent,
     "max-attack": MaxAttackBattleAgent,
+    "baseline1": RuleBasedBattleAgent,
+    "baseline2": MaxAttackBattleAgent,
     "ma": MaxAttackBattleAgent,
-    "coac": CoacBattleAgent,
-    "mcts": MCTSBattleAgent,
 }
 
 
 def parse_draft_agent(agent_name: str) -> Type:
     return draft_agents[agent_name.lower().replace(" ", "-")]
+
+
+def parse_constructed_agent(agent_name: str) -> Type:
+    return constructed_agents[agent_name.lower().replace(" ", "-")]
 
 
 def parse_battle_agent(agent_name: str) -> Type:
