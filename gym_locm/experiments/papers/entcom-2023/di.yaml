@@ -1,0 +1,66 @@
+method: grid
+metric:
+  goal: maximize
+  name: eval_vs_GreedyBattleAgent/win_rate
+name: di
+parameters:
+  act-fun:
+    value: relu
+  adversary:
+    value: self-play
+  cliprange:
+    value: 0.2
+  concurrency:
+    value: 4
+  draft-agent:
+    value: inspirai
+  ent-coef:
+    value: 0.005
+  eval-battle-agents:
+    value: greedy
+  eval-episodes:
+    value: 250
+  gamma:
+    value: 0.99
+  layers:
+    value: 1
+  learning-rate:
+    value: 0.005838104376218821
+  n-steps:
+    value: 4096
+  neurons:
+    value: 501
+  nminibatches-divider:
+    value: 1
+  noptepochs:
+    value: 2
+  num-evals:
+    value: 100
+  path:
+    value: gym_locm/experiments/papers/entcom-2023/sweep/di
+  role:
+    value: alternate
+  seed:
+    values:
+      - 73667418
+      - 74896946
+      - 28835729
+      - 38458274
+      - 68531181
+      - 34553231
+      - 8256697
+      - 79863286
+  switch-freq:
+    value: 100
+  task:
+    value: battle
+  train-episodes:
+    value: 100000
+  use-average-deck:
+    value: true
+  version:
+    value: "1.5"
+  vf-coef:
+    value: 1
+program: gym_locm/experiments/training.py
+project: entcom-2023
