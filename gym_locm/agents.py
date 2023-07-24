@@ -454,12 +454,18 @@ class NativeBattleAgent(NativeAgent):
     def act(self, state, multiple=False):
         if not self.initialized:
             self.initialize()
+
+            # todo: support LOCM 1.5
             self.fake_draft(state)
 
         return super()._act(state, multiple)
 
 
 class NativeDraftAgent(NativeAgent):
+    pass
+
+
+class NativeConstructedAgent(NativeAgent):
     pass
 
 
