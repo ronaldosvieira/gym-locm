@@ -515,5 +515,9 @@ class LOCMEnv(gym.Env, ABC):
         return self.state.phase > Phase.DRAFT
 
     @property
+    def _construction_is_finished(self):
+        return self.state.phase > Phase.CONSTRUCTED
+
+    @property
     def _battle_is_finished(self):
         return self.state.phase > Phase.BATTLE
