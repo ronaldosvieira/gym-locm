@@ -6,7 +6,7 @@ Drafting in Collectible Card Games_." Please contact
 me at [ronaldo.vieira@dcc.ufmg.br](mailto:ronaldo.vieira@dcc.ufmg.br) in case any
 of the instructions below do not work.
 
-The game engine for LOCM 1.2 can be found at [engine.py](../../../engine.py), which is used by the OpenAI 
+The game engine for LOCM 1.2 can be found at [engine.py](../../../engine/game_state.py), which is used by the OpenAI 
 Gym environments (more info on the repository's main page). The implementation of our 
 approaches can be found in the experiment files mentioned below. The resulting agents can be found in the
 [trained_models](../../../trained_models) folder, along with instructions on how to use them.

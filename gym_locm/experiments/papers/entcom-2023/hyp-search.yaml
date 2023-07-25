@@ -1,0 +1,77 @@
+method: bayes
+metric:
+  goal: maximize
+  name: eval_vs_GreedyBattleAgent/win_rate
+name: hyp-search
+parameters:
+  act-fun:
+    value: relu
+  adversary:
+    value: self-play
+  cliprange:
+    value: 0.2
+  concurrency:
+    value: 4
+  draft-agent:
+    value: inspirai
+  ent-coef:
+    value: 0.005
+  eval-battle-agents:
+    value: greedy
+  eval-episodes:
+    value: 250
+  gamma:
+    value: 0.99
+  layers:
+    distribution: int_uniform
+    max: 7
+    min: 1
+  learning-rate:
+    distribution: uniform
+    max: 0.05
+    min: 1e-06
+  n-steps:
+    values:
+      - 64
+      - 128
+      - 256
+      - 512
+      - 1024
+      - 2048
+      - 4096
+  neurons:
+    distribution: int_uniform
+    max: 512
+    min: 32
+  nminibatches-divider:
+    values:
+      - 1
+      - 2
+      - 4
+      - 8
+      - "n"
+  noptepochs:
+    distribution: int_uniform
+    max: 5
+    min: 1
+  num-evals:
+    value: 100
+  path:
+    value: gym_locm/experiments/papers/entcom-2023/sweep/locm-1.5
+  role:
+    value: alternate
+  switch-freq:
+    values:
+      - 100
+      - 1000
+      - 10000
+  task:
+    value: battle
+  train-episodes:
+    value: 100000
+  version:
+    value: "1.5"
+  vf-coef:
+    value: 1
+program: gym_locm/experiments/training.py
+project: entcom-2023

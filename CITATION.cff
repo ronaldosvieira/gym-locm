@@ -3,7 +3,7 @@
 authors:
   -
     affiliation: "Universidade Federal de Minas Gerais"
-    family-names: Vieira
+    family-names: e Silva Vieira
     given-names: Ronaldo
   -
     affiliation: "Universidade Federal do Rio Grande do Sul"
@@ -19,5 +19,5 @@ license: MIT
 message: "If you use this software, please cite it as below."
 repository-code: "https://github.com/ronaldosvieira/gym-locm"
 title: "OpenAI Gym Environments for Legends of Code and Magic"
-version: "1.3.0"
+version: "1.4.0"
 ...

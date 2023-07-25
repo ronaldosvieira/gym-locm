@@ -1,6 +1,7 @@
 # gym-locm
 
-A collection of [OpenAI Gym](https://github.com/openai/gym) environments for the collectible card game [Legends of Code and Magic (LOCM)](https://jakubkowalski.tech/Projects/LOCM/).
+A collection of [OpenAI Gym](https://github.com/openai/gym) environments for the collectible card 
+game [Legends of Code and Magic (LOCM)](https://legendsofcodeandmagic.com/).
 
 ## Installation
 
@@ -28,27 +29,56 @@ while not done:
 
 ## Environments
 
-A match of LOCM has two phases: the **draft**, where the players build their decks, and the **battle**, where the playing actually occurs.
+A match of LOCM has two phases: the **deck-building** phase, where the players build their decks, 
+and the **battle** phase, where the playing actually occurs. In LOCM 1.2, the deck-building phase was 
+called **draft** phase. In LOCM 1.5, it was called **constructed** phase.
 
-A reward of *1* is given if the controlled player wins the battle phase, and *-1* otherwise. There are no draws. 
+In all environments, by default, a reward of *1* is given if the controlled player wins the battle 
+phase, and *-1* otherwise. There are no draws in LOCM. 
 
-### Draft phase only
+### Constructed phase env (LOCM 1.5 only)
+```python
+env = gym.make("LOCM-constructed-v0")
+```
+
+The constructed phase is played. 
+Players choose from a card from a card pool of 120 procedurally generated
+cards for a total of 30 turns. Players can pick the same card twice, and the card 
+pool is the same for both players. They don't know each other's choices.
+A default (configurable) policy is used in the battle phase.
+
+**State**: a 120 x 16 matrix (17 features from each of the 120 cards).
+
+**Actions**: 0-119 (representing the index of the card to be chosen).
+
+### Draft phase env (LOCM 1.2 only)
  ```python
 env = gym.make("LOCM-draft-v0")
 ```
 
-The draft phase is played. A default (configurable) policy is used in the battle phase.
+The draft phase is played. 
+Players alternately choose a card between three randomly sampled cards (without 
+replacement) from LOCM 1.2's card pool for a total of 30 turns. The three cards 
+from each turn are the same for both players, and they don't know each 
+other's choices.
+A default (configurable) policy is used in the battle phase.
 
 **State**: a 3 x 16 matrix (16 features from each of the 3 cards). 
 
 **Actions**: 0-2 (chooses first, second or third card).
 
-### Battle phase only
+### Battle phase env
  ```python
-env = gym.make("LOCM-battle-v0")
+env = gym.make("LOCM-battle-v0", version="1.5")
 ```
 
-The battle phase is played. A default (configurable) policy is used in the draft phase.
+```python
+env = gym.make("LOCM-battle-v0", version="1.2")
+```
+
+The battle phase is played. A default (configurable) policy is used in the draft 
+phase. The parameter `version` (default `1.5`) can be used to determine which set
+of rules will be used.
 
 **State**: a vector with 3 x 20 + 8 values (16 features from each of the 20 possible cards plus 4 features from each player).
 
@@ -94,20 +124,11 @@ The battle phase is played. A default (configurable) policy is used in the draft
     
 </details>
 
-### Full match
-```python
-env = gym.make("LOCM-v0")
-```
-
-A full match is played. The draft phase happens in the first 30 turns, with the battle phase taking place on the subsequent turns.
-
-States and actions are the same as listed above, changing according to the current phase.
-
 ### Two-player variations
  ```python
 env = gym.make("LOCM-draft-2p-v0")
+env = gym.make("LOCM-constructed-2p-v0")
 env = gym.make("LOCM-battle-2p-v0")
-env = gym.make("LOCM-2p-v0")
 ```
 
 Both players are controlled alternately. A reward of *1* is given if the first player wins, and *-1* otherwise. 
@@ -135,8 +156,18 @@ these roles, use, for instance:
 ```python
 env = gym.make('LOCM-draft-XXX-vX', draft_agent=RandomDraftAgent(),
                 battle_agents=(RandomBattleAgents(), RandomBattleAgents()))
-env = gym.make('LOCM-battle-XXX-vX', battle_agent=RandomBattleAgent(),
-                draft_agents=(RandomDraftAgents(), RandomDraftAgents()))
+```
+```python
+env = gym.make('LOCM-constructed-XXX-vX', draft_agent=RandomConstructedAgent(),
+                battle_agents=(RandomBattleAgents(), RandomBattleAgents()))
+```
+```python
+env = gym.make('LOCM-battle-XXX-vX', version="1.5", battle_agent=RandomBattleAgent(),
+                deck_building_agents=(RandomConstructedAgents(), RandomConstructedAgents()))
+```
+```python
+env = gym.make('LOCM-battle-XXX-vX', version="1.2", battle_agent=RandomBattleAgent(),
+                deck_building_agents=(RandomDraftAgents(), RandomDraftAgents()))
 ```
 
 Trying to specify agents for roles you control will result in an error.
@@ -159,19 +190,21 @@ first card).
 - `NativeDraftAgent`: drafts like an AI player developed for the original LOCM engine, 
 whose execution command is passed in the constructor (e.g. `NativeDraftAgent('python3 player.py')`).
 
+Constructed agents:
+- `PassConstructedAgent`: always passes the turn (this is equivalent to always choosing the first valid card).
+- `RandomConstructedAgent`: chooses any valid card at random.
+- `InspiraiConstructedAgent`: constructs like Inspirai from the Strategy Card Game AI competition.
+
 Battle agents:
 - `PassBattleAgent`: always passes the turn. 
 - `RandomBattleAgent`: chooses any valid action at random (including passing the turn).
 - `RuleBasedBattleAgent`: battles like Baseline1 from the Strategy Card Game AI competition.
 - `MaxAttackBattleAgent`: battles like Baseline2 from the Strategy Card Game AI competition.
 - `GreedyBattleAgent`: battles like Greedy from Kowalski and Miernik's paper <a href="#kowalski2020">[1]</a>.
-- `MCTSBattleAgent`: battles using a MCTS algorithm (experimental). Takes a `time` 
-parameter that determines the amount of time, in milliseconds, that the agent is allowed
-to "think".
 - `NativeDraftAgent`: battles like an AI player developed for the original LOCM engine, 
 whose execution command is passed in the constructor (e.g. `NativeBattleAgent('python3 player.py')`).
 
-If NativeDraftAgent and NativeBattleAgent are going to be used to represent the same player,
+If NativeDraftAgent/NativeConstructed and NativeBattleAgent are going to be used to represent the same player,
 consider using a single NativeAgent object instead, and passing it as draft and battle agent.
 </details>
 
@@ -201,21 +234,22 @@ possible permutation of three specific cards will result in a single state matri
 
 Usage: `env = gym.make('LOCM-draft-XXX-vX', sort_cards=True)`, default: `False`.
 
-#### Change draft length
+#### Change deck length
 
-This option determines the amount of draft turns that will happen, and, therefore, the size 
-of the decks built in the draft phase. If `use_draft_history` is `True`, the state representation
-in the draft phase will change to accommodate the longer or shorter history of past picks.
+This option determines the amount of draft/constructed turns that will happen, and, therefore, 
+the size of the decks built in the deck building phase. If `use_draft_history` is `True`, the 
+state representation in the draft phase will change to accommodate the longer or shorter history 
+of past picks.
 
 Usage: `env = gym.make('LOCM-XXX-vX', n=20)`, default: `30`
 
-#### Change amount of cards alternatives per draft turn
+#### Change amount of cards alternatives per deck building turn
 
-This option determines the amount of random cards that will be presented to the players on 
-every draft turn. The state representation and the set of actions in the draft phase will 
-change to accommodate the amount of cards options per turn.
+This option determines the amount of cards that will be presented to the players on 
+every draft/constructed turn. The state representation and the set of actions in the 
+draft/construct phase will change to accommodate the amount of cards options per turn.
 
-Usage: `env = gym.make('LOCM-XXX-vX', k=5)`, default: `3`
+Usage: `env = gym.make('LOCM-XXX-vX', k=5)`, default: `120` for LOCM 1.5 and `3` for LOCM 1.2
 
 ## Other resources
 
@@ -224,26 +258,28 @@ Usage: `env = gym.make('LOCM-XXX-vX', k=5)`, default: `3`
 We provide a command-line interface (CLI) to run LOCM matches. It is available as soon as the
 repository is installed. Some basic use cases are listed below.
 
-1. Run 1000 matches in parallel with 4 processes of the Icebox draft agent versus the Coac
+1. Run 1000 matches of LOCM 1.2 in parallel with 4 processes of the Icebox draft agent versus the Coac
 draft agent, using random actions in the battle:
     ```bash
-    locm-runner --p1-draft icebox --p1-battle random \
-                --p2-draft coac --p2-battle random \
-                --games 1000 --processes 4
+    locm-runner --p1-deck-building icebox --p1-battle random \
+                --p2-deck-building coac --p2-battle random \
+                --games 1000 --version=1.2 --processes 4
     ```
 
-2. Run 1000 matches of a fully random player against a player developed for the original 
+2. Run 1000 matches of LOCM 1.5 of a fully random player against a player developed for the original 
 engine, and with a specific random seed:
     ```bash
-    locm-runner --p1-draft random --p1-battle random \
+    locm-runner --p1-deck-building random --p1-battle random \
                 --p2-path "python /path/to/agent.py" \
-                --games 1000 --seed 42
+                --games 1000 --version=1.5 --seed 42
     ```
+   
+Use `locm-runner -h` to see all the available parameters.
 
 ### Train draft agents with deep reinforcement learning
 
-We provide scripts to train deep reinforcement learning draft agents as described in our 
-thesis <a href="#vieira2020a">[2]</a> and SBGames 2020 paper <a href="#vieira2020b">[3]</a>. 
+We provide scripts to train deep reinforcement learning draft agents as described in 
+<a href="#vieira2020a">[2]</a> and <a href="#vieira2020b">[3]</a>. 
 Further instructions are available in the README.md file in 
 the [experiments](gym_locm/experiments) 
 package.
@@ -251,7 +287,7 @@ package.
 To install the dependencies necessary to run the scripts, install 
 the repository with 
 ```python
-pip install -e .['experiments']
+pip install -e .['legacy-experiments']
 ```
 
 We also provide a collection of draft agents trained with deep 
@@ -263,10 +299,10 @@ package. The use of these draft agents with the Runner script is not implemented
 
 ### Train battle agents with deep reinforcement learning
 
-We provide scripts to train deep reinforcement learning battle agents as described in our
-SBGames 2022 paper <a href="#vieira2022a">[4]</a>. Further instructions are available
+We provide scripts to train deep reinforcement learning battle agents as described in 
+<a href="#vieira2022a">[4]</a> and in <a href="vieira2023">[5]</a>. Further instructions are available
 in the README.md file in the [experiments/papers/sbgames-2022](gym_locm/experiments/papers/sbgames-2022)
-package.
+and [experiments/papers/entcom-2023](gym_locm/experiments/papers/entcom-2023) packages.
 
 To install the dependencies necessary to run the scripts, install
 the repository with
@@ -286,9 +322,12 @@ of Minas Gerais, Belo Horizonte, Brazil.</span>
 Collectible Card Games via Reinforcement Learning. 19th Brazilian Symposium of Computer Games
 and Digital Entertainment (SBGames).</span>
 
-4. <span id="vieira2022a">Vieira, R., Tavares, A. R., Chaimowicz, L. (2022). Exploring Deep 
-   Reinforcement Learning for Battling in Collectible Card Games. 19th Brazilian Symposium 
-   of Computer Games and Digital Entertainment (SBGames).</span>
+4. <span id="vieira2022a">Vieira, R. e S., Tavares, A. R., Chaimowicz, L. (2022). Exploring Deep 
+Reinforcement Learning for Battling in Collectible Card Games. 19th Brazilian Symposium 
+of Computer Games and Digital Entertainment (SBGames).</span>
+
+5. <span id="vieira2023">Vieira, R. e S., Tavares, A. R., Chaimowicz, L. (2023). Towards Sample
+Efficient Deep Reinforcement Learning in Collectible Card Games. Entertainment Computing.</span>
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)

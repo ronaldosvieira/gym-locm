@@ -15,7 +15,7 @@ ranges. Having W&B installed, executing the following command on a terminal will
 create a "sweep" on W&B:
 
 ```commandline
-wandb sweep gym_locm/experiments/sbgames-2022/hyp-search.yaml
+wandb sweep gym_locm/experiments/papers/sbgames-2022/hyp-search.yaml
 ```
 
 This command will output a _sweep ID_, including the entity and project names. 

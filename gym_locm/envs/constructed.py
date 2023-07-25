@@ -9,37 +9,32 @@ from gym_locm.envs.rewards import *
 from gym_locm.exceptions import *
 
 
-class LOCMDraftEnv(LOCMEnv):
+class LOCMConstructedEnv(LOCMEnv):
     metadata = {"render.modes": ["text", "native"]}
 
     def __init__(
         self,
         battle_agents=(RandomBattleAgent(), RandomBattleAgent()),
-        use_draft_history=False,
-        use_mana_curve=False,
-        sort_cards=False,
         evaluation_battles=1,
         seed=None,
         items=True,
-        k=3,
+        k=120,
         n=30,
         reward_functions=("win-loss",),
-        reward_weights=(1.0,),
     ):
         super().__init__(
             seed=seed,
-            version="1.2",
+            version="1.5",
             items=items,
             k=k,
             n=n,
             reward_functions=reward_functions,
-            reward_weights=reward_weights,
         )
 
         # init bookkeeping structures
         self.results = []
         self.choices = ([], [])
-        self.draft_ordering = list(range(3))
+        self.draft_ordering = list(range(self.k))
         self.rewards = [0.0]
 
         self.battle_agents = battle_agents
@@ -48,26 +43,17 @@ class LOCMDraftEnv(LOCMEnv):
             battle_agent.seed(seed)
 
         self.evaluation_battles = evaluation_battles
-        self.sort_cards = sort_cards
-        self.use_draft_history = use_draft_history
-        self.use_mana_curve = use_mana_curve
 
-        self.cards_in_state = self.n + self.k if use_draft_history else self.k
-        self.card_features = 16
-
-        self.state_shape = self.cards_in_state * self.card_features
-
-        if self.use_mana_curve:
-            self.state_shape += 13
-
-        self.state_shape = (self.state_shape,)
+        self.cards_in_state = self.k
+        self.card_features = 17
+        self.state_shape = (self.cards_in_state * self.card_features,)
 
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=self.state_shape, dtype=np.float32
         )
 
-        # three actions possible - choose each of the three cards
-        self.action_space = gym.spaces.Discrete(3)
+        # k actions possible - choose each of the k cards
+        self.action_space = gym.spaces.Discrete(self.k)
 
         self.reward_range = (-1, 1)
 
@@ -82,7 +68,7 @@ class LOCMDraftEnv(LOCMEnv):
         # empty bookkeeping structures
         self.results = []
         self.choices = ([], [])
-        self.draft_ordering = list(range(3))
+        self.draft_ordering = list(range(self.k))
 
         # reset all agents' internal state
         for agent in self.battle_agents:
@@ -95,8 +81,8 @@ class LOCMDraftEnv(LOCMEnv):
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        # if the draft is finished, there should be no more actions
-        if self._draft_is_finished:
+        # if deck building is finished, there should be no more actions
+        if self._construction_is_finished:
             raise GameIsEndedError()
 
         # check if an action object or an integer was passed
@@ -145,8 +131,8 @@ class LOCMDraftEnv(LOCMEnv):
         done = False
         info = {"phase": state.phase, "turn": state.turn, "winner": []}
 
-        # if draft is now ended, evaluation should be done
-        if self._draft_is_finished:
+        # if construction is now ended, evaluation should be done
+        if self._construction_is_finished:
             # faster evaluation method for when only one battle is required
             # todo: check if this optimization is still necessary
             if self.evaluation_battles == 1:
@@ -215,19 +201,10 @@ class LOCMDraftEnv(LOCMEnv):
     def _encode_state_deck_building(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
-        chosen_cards = self.choices[self.state.current_player.id]
-
-        if not self._draft_is_finished:
+        if not self._construction_is_finished:
             card_choices = self.state.current_player.hand[0 : self.k]
 
             self.draft_ordering = list(range(self.k))
-
-            if self.sort_cards:
-                sorted_cards = sorted(
-                    self.draft_ordering, key=lambda p: card_choices[p].id
-                )
-
-                self.draft_ordering = list(sorted_cards)
 
             for i in range(len(card_choices)):
                 index = self.draft_ordering[i]
@@ -236,23 +213,8 @@ class LOCMDraftEnv(LOCMEnv):
                 hi = hi if hi < 0 else None
 
                 encoded_state[lo:hi] = self.encode_card(
-                    card_choices[index], version="1.2"
+                    card_choices[index], version="1.5"
                 )
-
-        if self.use_draft_history:
-            if self.sort_cards:
-                chosen_cards = sorted(chosen_cards, key=lambda c: c.id)
-
-            for j, card in enumerate(chosen_cards):
-                lo = -(self.n + self.k - j) * self.card_features
-                hi = lo + self.card_features
-                hi = hi if hi < 0 else None
-
-                encoded_state[lo:hi] = self.encode_card(card, version="1.2")
-
-        if self.use_mana_curve:
-            for chosen_card in chosen_cards:
-                encoded_state[chosen_card.cost] += 1
 
         return encoded_state
 
@@ -263,16 +225,23 @@ class LOCMDraftEnv(LOCMEnv):
         return self.rewards
 
 
-class LOCMDraftSingleEnv(LOCMDraftEnv):
-    def __init__(self, draft_agent=RandomDraftAgent(), play_first=True, **kwargs):
+class LOCMConstructedSingleEnv(LOCMConstructedEnv):
+    def __init__(
+        self, constructed_agent=RandomConstructedAgent(), play_first=True, **kwargs
+    ):
         # init the env
         super().__init__(**kwargs)
 
-        # also init the draft agent and the new parameter
-        self.draft_agent = draft_agent
+        # also init the constructed agent and the new parameter
+        self.constructed_agent = constructed_agent
         self.play_first = play_first
 
         self.rewards_single_player = []
+
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
 
     def reset(self) -> np.array:
         """
@@ -280,24 +249,34 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         The game is put into its initial state and all agents are reset.
         """
         # reset what is needed
-        encoded_state = super().reset()
+        super().reset()
 
-        # also reset the draft agent
-        self.draft_agent.reset()
+        # also reset the constructed agent
+        self.constructed_agent.reset()
 
         self.rewards_single_player.append(0.0)
+
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
+        encoded_state = self.encode_state()
 
         return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        # act according to first and second players
-        if self.play_first:
-            super().step(action)
-            state, reward, done, info = super().step(self.draft_agent.act(self.state))
-        else:
-            super().step(self.draft_agent.act(self.state))
-            state, reward, done, info = super().step(action)
+        state, reward, done, info = super().step(action)
+
+        # takes all the actions of the another agent if that's the last action of the training agent
+        if self.state.current_player.id == 1 and self.play_first:
+            while not done:
+                state, reward, done, info = super().step(
+                    self.constructed_agent.act(self.state)
+                )
+
+        if not self.play_first:
             reward = -reward
 
         try:
@@ -311,7 +290,7 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         return self.rewards_single_player
 
 
-class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
+class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
     def __init__(self, play_first, adversary_policy=None, **kwargs):
         # init the env
         super().__init__(**kwargs)
@@ -322,24 +301,35 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
 
         self.rewards_single_player = []
 
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
     def reset(self) -> np.array:
-        encoded_state = super().reset()
+        super().reset()
 
         self.rewards_single_player.append(0.0)
+
+        # takes all the actions of the another agent
+        if not self.play_first:
+            while self.state.current_player.id == 0:
+                super().step(self.constructed_agent.act(self.state))
+
+        encoded_state = self.encode_state()
 
         return encoded_state
 
     def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
         """Makes an action in the game."""
-        obs = self.encode_state()
+        state, reward, done, info = super().step(action)
 
-        # act according to first and second players
-        if self.play_first:
-            super().step(action)
-            state, reward, done, info = super().step(self.adversary_policy(obs))
-        else:
-            super().step(self.adversary_policy(obs))
-            state, reward, done, info = super().step(action)
+        # takes all the actions of the another agent if that's the last action of the training agent
+        if self.state.current_player.id == 1 and self.play_first:
+            while not done:
+                state, reward, done, info = super().step(self.adversary_policy(state))
+
+        if not self.play_first:
             reward = -reward
 
         try:
