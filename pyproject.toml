@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gym_locm"
-version = "1.3.0"
+version = "1.4.0"
 description = "OpenAI Gym environments for Legends of Code and Magic, a collectible card game designed for AI research"
 readme = "README.md"
 license = { file = "LICENSE" }
