@@ -311,22 +311,35 @@ pip install -e .['experiments']
 ```
 
 ## References
-1. <span id="kowalski2020">Kowalski, J., Miernik, R. (2020). Evolutionary 
-Approach to Collectible Card Game Arena Deckbuilding using Active Genes. arXiv preprint arXiv:2001.01326.</span>
+1. <span id="kowalski2023">Kowalski, J., Miernik, R. (2023).
+Summarizing Strategy Card Game AI Competition.
+IEEE Conference on Games (COG).</span>
 
-2. <span id="vieira2020a">Vieira, R., Chaimowicz, L., Tavares, A. R. (2020). Drafting in Collectible Card Games via 
+2. <span id="kowalski2022">Miernik, R., Kowalski, J. (2022).
+Evolving Evaluation Functions for Collectible Card Game AI. 
+International Conference on Agents and Artificial Intelligence (ICAART).</span>
+
+3. <span id="kowalski2020">Kowalski, J., Miernik, R. (2020). Evolutionary 
+Approach to Collectible Card Game Arena Deckbuilding using Active Genes. 
+IEEE Congress on Evolutionary Computation (CEC).</span>
+
+4. <span id="Xi2023">Xi, W., Zhang, Y., Xiao, C., Huang, X., Deng, S., Liang, H., Chen, J., Sun, P. (2023).
+Mastering Strategy Card Game (Legends of Code and Magic) via End-to-End Policy and Optimistic Smooth Fictitious Play.
+arXiv preprint arXiv:2303.04096.</span>
+
+5. <span id="vieira2020a">Vieira, R., Chaimowicz, L., Tavares, A. R. (2020). Drafting in Collectible Card Games via 
 Reinforcement Learning. Master's thesis, Department of Computer Science, Federal University 
 of Minas Gerais, Belo Horizonte, Brazil.</span>
 
-3. <span id="vieira2020b">Vieira, R., Tavares, A. R., Chaimowicz, L. (2020). Drafting in 
+6. <span id="vieira2020b">Vieira, R., Tavares, A. R., Chaimowicz, L. (2020). Drafting in 
 Collectible Card Games via Reinforcement Learning. 19th Brazilian Symposium of Computer Games
 and Digital Entertainment (SBGames).</span>
 
-4. <span id="vieira2022a">Vieira, R. e S., Tavares, A. R., Chaimowicz, L. (2022). Exploring Deep 
+7. <span id="vieira2022a">Vieira, R. e S., Tavares, A. R., Chaimowicz, L. (2022). Exploring Deep 
 Reinforcement Learning for Battling in Collectible Card Games. 19th Brazilian Symposium 
 of Computer Games and Digital Entertainment (SBGames).</span>
 
-5. <span id="vieira2023">Vieira, R. e S., Tavares, A. R., Chaimowicz, L. (2023). Towards Sample
+8. <span id="vieira2023">Vieira, R. e S., Tavares, A. R., Chaimowicz, L. (2023). Towards Sample
 Efficient Deep Reinforcement Learning in Collectible Card Games. Entertainment Computing.</span>
 
 ## License
