@@ -1,48 +1,22 @@
-[build-system]
-requires = ["setuptools>=61.2"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "gym_locm"
 version = "1.4.0"
-description = "OpenAI Gym environments for Legends of Code and Magic, a collectible card game designed for AI research"
+description = "Gymnasium environments for Legends of Code and Magic, a collectible card game designed for AI research"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.6"
+requires-python = ">=3.12"
 keywords = ["reinforcement-learning", "collectible-card-games", "gym-environment", "legends-of-code-and-magic"]
-authors = [{ name = "Ronaldo e Silva Vieira", email = "ronaldo.vieira@dcc.ufmg.br" }]
+authors = [{ name = "Ronaldo e Silva Vieira", email = "ronaldoesv@gmail.com" }]
 dependencies = [
-    "gymnasium",
-    "numpy",
-    "prettytable",
-    "pexpect",
-    "sty",
+    "gymnasium>=1.2.3",
+    "numpy>=2.4.1",
 ]
 
-[project.optional-dependencies]
-experiments = [
-    "numpy",
-    "scipy",
-    "hyperopt",
-    "pandas",
-    "matplotlib",
-    "scikit-learn",
-    "prince",
-    "stable_baselines3",
-    "sb3-contrib",
-    "wandb",
-    "tensorboard",
-    "torch",
-]
-legacy-experiments = [
-    "numpy",
-    "scipy",
-    "stable_baselines",
-    "hyperopt",
-    "pandas",
-    "matplotlib",
-    "scikit-learn",
-]
+[project.urls]
+repository = "https://github.com/ronaldosvieira/gym-locm"
+
+[project.scripts]
+locm-runner = "gym_locm.toolbox.runner:run"
 
 [dependency-groups]
 native-agent = [
@@ -52,10 +26,3 @@ render = [
     "prettytable>=3.17.0",
     "sty>=1.0.6",
 ]
-
-
-[project.urls]
-repository = "https://github.com/ronaldosvieira/gym-locm"
-
-[project.scripts]
-locm-runner = "gym_locm.toolbox.runner:run"
