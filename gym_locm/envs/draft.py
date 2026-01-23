@@ -1,6 +1,6 @@
 from typing import Union
 
-import gym
+import gymnasium as gym
 
 from gym_locm.agents import *
 from gym_locm.engine import Action
@@ -25,6 +25,7 @@ class LOCMDraftEnv(LOCMEnv):
         n=30,
         reward_functions=("win-loss",),
         reward_weights=(1.0,),
+        render_mode=None
     ):
         super().__init__(
             seed=seed,
@@ -34,6 +35,7 @@ class LOCMDraftEnv(LOCMEnv):
             n=n,
             reward_functions=reward_functions,
             reward_weights=reward_weights,
+            render_mode=render_mode
         )
 
         # init bookkeeping structures
@@ -71,7 +73,7 @@ class LOCMDraftEnv(LOCMEnv):
 
         self.reward_range = (-1, 1)
 
-    def reset(self) -> np.array:
+    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.
@@ -91,9 +93,9 @@ class LOCMDraftEnv(LOCMEnv):
 
         self.rewards.append(0.0)
 
-        return self.encode_state()
+        return self.encode_state(), {}
 
-    def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+    def step(self, action: Union[int, Action]) -> tuple[np.array, int, bool, bool, dict]:
         """Makes an action in the game."""
         # if the draft is finished, there should be no more actions
         if self._draft_is_finished:
@@ -142,7 +144,7 @@ class LOCMDraftEnv(LOCMEnv):
         ]
 
         # init return info
-        done = False
+        terminated = False
         info = {"phase": state.phase, "turn": state.turn, "winner": []}
 
         # if draft is now ended, evaluation should be done
@@ -173,7 +175,7 @@ class LOCMDraftEnv(LOCMEnv):
             except ValueError:
                 pass
 
-            done = True
+            terminated = True
 
         if reward_before is None:
             raw_rewards = (0.0,) * len(self.reward_functions)
@@ -187,7 +189,7 @@ class LOCMDraftEnv(LOCMEnv):
 
         self.rewards[-1] += reward
 
-        return self.encode_state(), reward, done, info
+        return self.encode_state(), reward, terminated, False, info
 
     def do_match(self, state):
         # reset the agents
@@ -274,7 +276,7 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
 
         self.rewards_single_player = []
 
-    def reset(self) -> np.array:
+    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.
@@ -287,17 +289,17 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
 
         self.rewards_single_player.append(0.0)
 
-        return encoded_state
+        return encoded_state, {}
 
-    def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+    def step(self, action: Union[int, Action]) -> tuple[np.array, int, bool, bool, dict]:
         """Makes an action in the game."""
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            state, reward, done, info = super().step(self.draft_agent.act(self.state))
+            state, reward, terminated, truncated, info = super().step(self.draft_agent.act(self.state))
         else:
             super().step(self.draft_agent.act(self.state))
-            state, reward, done, info = super().step(action)
+            state, reward, terminated, truncated, info = super().step(action)
             reward = -reward
 
         try:
@@ -305,7 +307,7 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         except IndexError:
             self.rewards_single_player = [reward]
 
-        return state, reward, done, info
+        return state, reward, terminated, truncated, info
 
     def get_episode_rewards(self):
         return self.rewards_single_player
@@ -322,24 +324,24 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
 
         self.rewards_single_player = []
 
-    def reset(self) -> np.array:
+    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
         encoded_state = super().reset()
 
         self.rewards_single_player.append(0.0)
 
-        return encoded_state
+        return encoded_state, {}
 
-    def step(self, action: Union[int, Action]) -> (np.array, int, bool, dict):
+    def step(self, action: Union[int, Action]) -> tuple[np.array, int, bool, bool, dict]:
         """Makes an action in the game."""
         obs = self.encode_state()
 
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            state, reward, done, info = super().step(self.adversary_policy(obs))
+            state, reward, terminated, truncated, info = super().step(self.adversary_policy(obs))
         else:
             super().step(self.adversary_policy(obs))
-            state, reward, done, info = super().step(action)
+            state, reward, terminated, truncated, info = super().step(action)
             reward = -reward
 
         try:
@@ -347,7 +349,7 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         except IndexError:
             self.rewards_single_player = [reward]
 
-        return state, reward, done, info
+        return state, reward, terminated, truncated, info
 
     def get_episode_rewards(self):
         return self.rewards_single_player

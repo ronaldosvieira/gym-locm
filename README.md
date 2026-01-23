@@ -15,15 +15,16 @@ pip install -e .
 ## Usage
 
 ```python
-import gym
+import gymnasium as gym
 import gym_locm
 
 env = gym.make('LOCM-XXX-vX')
 
-done = False
-while not done:
+terminated = False
+truncated = False
+while not (terminated or truncated):
     action = ...  # Your agent code here
-    obs, reward, done, _ = env.step(action)
+    obs, reward, terminated, truncated, _ = env.step(action)
     env.render()
 ```
 

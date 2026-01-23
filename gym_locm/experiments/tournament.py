@@ -211,16 +211,16 @@ def run_matchup(
                 )
 
         # perform the action and get the outcome
-        _, rewards, dones, _ = env.step(actions)
+        _, rewards, terminateds, truncateds, _ = env.step(actions)
 
         if isinstance(current_drafter, agents.RLDraftAgent):
-            current_drafter.dones = dones
+            current_drafter.dones = np.logical_or(terminateds, truncateds)
 
         # update metrics
         for i in range(env.num_envs):
             episode_rewards[i][-1] += rewards[i]
 
-            if dones[i]:
+            if terminateds[i] or truncateds[i]:
                 episode_rewards[i].append(0.0)
                 current_drafter.decks[i].append([])
                 other_drafter.decks[i].append([])

@@ -872,14 +872,14 @@ class Evaluator:
                 action_histogram[action] += 1
 
             # perform the action and get the outcome
-            observations, rewards, dones, infos = self.env.step(actions)
+            observations, rewards, terminateds, truncateds, infos = self.env.step(actions)
 
             # update metrics
             for i in range(self.env.num_envs):
                 episode_rewards[i][-1] += rewards[i]
                 episode_lengths[i][-1] += 1
 
-                if dones[i]:
+                if terminateds[i] or truncateds[i]:
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
                     episode_turns[i].append(
