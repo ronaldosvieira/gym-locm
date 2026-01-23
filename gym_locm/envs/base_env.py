@@ -1,10 +1,14 @@
 from abc import ABC, abstractmethod
 from operator import attrgetter
-from sty import fg
 
 import numpy as np
 import gymnasium as gym
-from prettytable import PrettyTable
+
+try:
+    from sty import fg
+    from prettytable import PrettyTable
+except ImportError:
+    pass
 
 from gym_locm.engine import (
     Creature,
@@ -144,7 +148,12 @@ class LOCMEnv(gym.Env, ABC):
         )
         print()
 
-        table = PrettyTable(["Index", "Name", "Cost", "Description"])
+        try:
+            table = PrettyTable(["Index", "Name", "Cost", "Description"])
+        except NameError:
+            raise ImportError(
+                "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
+            )
 
         for i, card in enumerate(self.state.current_player.hand):
             table.add_row([i, card.name, card.cost, card.text])
@@ -178,7 +187,12 @@ class LOCMEnv(gym.Env, ABC):
         else:
             table_headers = ["Id", "Name", "Cost", "Description"]
 
-        table = PrettyTable(table_headers)
+        try:
+            table = PrettyTable(table_headers)
+        except NameError:
+            raise ImportError(
+                "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
+            )
 
         for i, card in enumerate(sorted(player.hand, key=attrgetter("cost"))):
             if self.version == "1.5":
@@ -299,12 +313,18 @@ class LOCMEnv(gym.Env, ABC):
             if card.card_draw > 0:
                 card_draw = str(card.card_draw)
 
-            colors = {
-                Creature: fg.li_yellow,
-                GreenItem: fg.li_green,
-                RedItem: fg.li_red,
-                BlueItem: fg.li_blue,
-            }
+            try:
+                colors = {
+                    Creature: fg.li_yellow,
+                    GreenItem: fg.li_green,
+                    RedItem: fg.li_red,
+                    BlueItem: fg.li_blue,
+                }
+            except NameError:
+                raise ImportError(
+                    "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
+                )
+                
             color = colors[type(card)]
 
             name = format(card.name[:27], "<27")

@@ -4,10 +4,13 @@ from operator import attrgetter
 from typing import Type
 from os import fpathconf
 
-import numpy as np
-from pexpect import TIMEOUT, EOF
+try:
+    import pexpect
+except ImportError:
+    pass
 
-import pexpect
+import numpy as np
+
 import random
 
 from gym_locm.engine import (
@@ -252,9 +255,14 @@ class NativeAgent(Agent):
         self._process = None
 
     def initialize(self):
-        self._process: pexpect.pty_spawn.spawn = pexpect.spawn(
-            self.cmd, echo=False, encoding="utf-8"
-        )
+        try:
+            self._process: pexpect.pty_spawn.spawn = pexpect.spawn(
+                self.cmd, echo=False, encoding="utf-8"
+            )
+        except NameError:
+            raise ImportError(
+                "To run native agents, please install `gym-locm[native-agent]`."
+            )
         self.initialized = True
 
     def __enter__(self):
@@ -389,9 +397,9 @@ class NativeAgent(Agent):
 
                 i += 1
 
-        except TIMEOUT:
+        except pexpect.TIMEOUT:
             print("WARNING: timeout")
-        except EOF:
+        except pexpect.EOF:
             print("WARNING: eof")
 
         if not actions:
@@ -433,9 +441,9 @@ class NativeBattleAgent(NativeAgent):
 
                 if self.verbose:
                     eprint(raw_output, end="")
-            except TIMEOUT:
+            except pexpect.TIMEOUT:
                 print("WARNING: timeout")
-            except EOF:
+            except pexpect.EOF:
                 print("WARNING: eof")
 
             fake_state.act(Action(ActionType.PASS))
@@ -445,9 +453,9 @@ class NativeBattleAgent(NativeAgent):
 
             if self.verbose:
                 eprint(raw_output, end="")
-        except TIMEOUT:
+        except pexpect.TIMEOUT:
             pass
-        except EOF:
+        except pexpect.EOF:
             pass
 
     def act(self, state, multiple=False):

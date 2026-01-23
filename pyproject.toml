@@ -44,6 +44,16 @@ legacy-experiments = [
     "scikit-learn",
 ]
 
+[dependency-groups]
+native-agent = [
+    "pexpect>=4.9.0",
+]
+render = [
+    "prettytable>=3.17.0",
+    "sty>=1.0.6",
+]
+
+
 [project.urls]
 repository = "https://github.com/ronaldosvieira/gym-locm"
 
