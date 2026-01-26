@@ -304,7 +304,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
             )
 
         # reset what is needed
-        encoded_state = super().reset()
+        encoded_state, info = super().reset()
 
         # also reset the battle agent
         # if it was not already reset as a deck-building agent
@@ -329,7 +329,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
         self.rewards_single_player.append(0.0)
 
-        return encoded_state, {}
+        return encoded_state, info
 
     def step(self, action) -> tuple[np.array, float, bool, bool, dict]:
         """Makes an action in the game."""
@@ -392,7 +392,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         The game is put into its initial state and all agents are reset.
         """
         # reset what is needed
-        encoded_state = super().reset()
+        encoded_state, info = super().reset()
 
         if self.alternate_roles:
             self.play_first = not self.play_first
@@ -410,17 +410,17 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
                 action = self.adversary_policy(state, self.action_mask)
 
                 try:
-                    state, reward, done, info = super().step(action)
+                    state, reward, terminated, truncated, info = super().step(action)
                 except ActionError:
                     if action == last_opponent_action:
                         # opponent is repeating the same invalid action, pass the turn instead
-                        state, reward, done, info = super().step(0)
+                        state, reward, terminated, truncated, info = super().step(0)
 
                 last_opponent_action = action
 
         self.rewards_single_player.append(0.0)
 
-        return encoded_state, {}
+        return encoded_state, info
 
     def step(self, action) -> tuple[np.array, float, bool, bool, dict]:
         """Makes an action in the game."""

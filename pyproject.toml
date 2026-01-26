@@ -30,6 +30,7 @@ experiments = [
     "sb3-contrib>=2.7.1",
     "scikit-learn>=1.8.0",
     "stable-baselines3>=2.7.1",
+    "tensorboard>=2.20.0",
     "torch>=2.10.0",
     "wandb>=0.24.0",
 ]
