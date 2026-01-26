@@ -7,9 +7,7 @@ game [Legends of Code and Magic (LOCM)](https://legendsofcodeandmagic.com/).
 
 Python 3.12+ is required.
 ```
-git clone https://github.com/ronaldosvieira/gym-locm.git
-cd gym-locm
-pip install -e .
+pip install gym-locm
 ```
 
 ## Usage
