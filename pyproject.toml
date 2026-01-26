@@ -1,6 +1,6 @@
 [project]
 name = "gym_locm"
-version = "1.4.0"
+version = "2.0.0b1"
 description = "Gymnasium environments for Legends of Code and Magic, a collectible card game designed for AI research"
 readme = "README.md"
 license = "MIT"
