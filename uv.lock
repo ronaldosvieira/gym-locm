@@ -426,7 +426,7 @@ wheels = [
 [[package]]
 name = "gym-locm"
 version = "1.4.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "gymnasium" },
     { name = "numpy" },
