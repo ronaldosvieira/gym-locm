@@ -22,7 +22,7 @@ class LOCMBattleEnv(LOCMEnv):
         reward_weights=(1.0,),
         version="1.5",
         use_average_deck=False,
-        render_mode=None
+        render_mode=None,
     ):
         super().__init__(
             seed=seed,
@@ -32,7 +32,7 @@ class LOCMBattleEnv(LOCMEnv):
             n=n,
             reward_functions=reward_functions,
             reward_weights=reward_weights,
-            render_mode=render_mode
+            render_mode=render_mode,
         )
 
         self.rewards = [0.0]
@@ -164,7 +164,9 @@ class LOCMBattleEnv(LOCMEnv):
 
         return self.encode_state(), reward, terminated, False, info
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.
@@ -287,7 +289,9 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         if self.battle_agent not in self.deck_building_agents:
             self.battle_agent.reset()
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.
@@ -380,7 +384,9 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         self.alternate_roles = alternate_roles
         self.rewards_single_player = []
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.

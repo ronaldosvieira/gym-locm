@@ -38,7 +38,7 @@ class LOCMEnv(gym.Env, ABC):
         n=30,
         reward_functions=("win-loss",),
         reward_weights=(1.0,),
-        render_mode="native"
+        render_mode="native",
     ):
         self._seed = seed
         self.render_mode = render_mode
@@ -75,16 +75,18 @@ class LOCMEnv(gym.Env, ABC):
         self._seed = seed
         self.state.seed(seed)
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state
         """
         super().reset(seed=seed)
-        
+
         if seed:
             self.seed(seed)
-        
+
         if self._seed is None:
             # recover random state from current state obj
             rng = self.state.rng
@@ -111,14 +113,14 @@ class LOCMEnv(gym.Env, ABC):
 
         self.episodes += 1
         self.last_player_rewards = [None, None]
-        
+
         return self.encode_state(), {}
 
     def render(self, mode: str | None = None):
         """Builds a representation of the current state."""
         if mode is None:
             mode = self.render_mode
-            
+
         # if text mode, print appropriate representation
         if mode == "text":
             if self.state.phase == Phase.DECK_BUILDING:
@@ -324,7 +326,7 @@ class LOCMEnv(gym.Env, ABC):
                 raise ImportError(
                     "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
                 )
-                
+
             color = colors[type(card)]
 
             name = format(card.name[:27], "<27")

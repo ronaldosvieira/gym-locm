@@ -21,7 +21,7 @@ class LOCMConstructedEnv(LOCMEnv):
         k=120,
         n=30,
         reward_functions=("win-loss",),
-        render_mode=None
+        render_mode=None,
     ):
         super().__init__(
             seed=seed,
@@ -30,7 +30,7 @@ class LOCMConstructedEnv(LOCMEnv):
             k=k,
             n=n,
             reward_functions=reward_functions,
-            render_mode=render_mode
+            render_mode=render_mode,
         )
 
         # init bookkeeping structures
@@ -59,7 +59,9 @@ class LOCMConstructedEnv(LOCMEnv):
 
         self.reward_range = (-1, 1)
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.
@@ -81,7 +83,9 @@ class LOCMConstructedEnv(LOCMEnv):
 
         return self.encode_state(), {}
 
-    def step(self, action: Union[int, Action]) -> tuple[np.array, int, bool, bool, dict]:
+    def step(
+        self, action: Union[int, Action]
+    ) -> tuple[np.array, int, bool, bool, dict]:
         """Makes an action in the game."""
         # if deck building is finished, there should be no more actions
         if self._construction_is_finished:
@@ -245,7 +249,9 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
             while self.state.current_player.id == 0:
                 super().step(self.constructed_agent.act(self.state))
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state and all agents are reset.
@@ -267,7 +273,9 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
 
         return encoded_state, {}
 
-    def step(self, action: Union[int, Action]) -> tuple[np.array, int, bool, bool, dict]:
+    def step(
+        self, action: Union[int, Action]
+    ) -> tuple[np.array, int, bool, bool, dict]:
         """Makes an action in the game."""
         state, reward, terminated, truncated, info = super().step(action)
 
@@ -308,7 +316,9 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
             while self.state.current_player.id == 0:
                 super().step(self.constructed_agent.act(self.state))
 
-    def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[np.array, dict]:
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         super().reset()
 
         self.rewards_single_player.append(0.0)
@@ -322,14 +332,18 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
 
         return encoded_state, {}
 
-    def step(self, action: Union[int, Action]) -> tuple[np.array, int, bool, bool, dict]:
+    def step(
+        self, action: Union[int, Action]
+    ) -> tuple[np.array, int, bool, bool, dict]:
         """Makes an action in the game."""
         state, reward, terminated, truncated, info = super().step(action)
 
         # takes all the actions of the another agent if that's the last action of the training agent
         if self.state.current_player.id == 1 and self.play_first:
             while not (terminated or truncated):
-                state, reward, terminated, truncated, info = super().step(self.adversary_policy(state))
+                state, reward, terminated, truncated, info = super().step(
+                    self.adversary_policy(state)
+                )
 
         if not self.play_first:
             reward = -reward

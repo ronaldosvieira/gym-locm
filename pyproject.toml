@@ -19,6 +19,9 @@ repository = "https://github.com/ronaldosvieira/gym-locm"
 locm-runner = "gym_locm.toolbox.runner:run"
 
 [dependency-groups]
+dev = [
+    "black>=26.1.0",
+]
 experiments = [
     "hyperopt>=0.2.7",
     "matplotlib>=3.10.8",
