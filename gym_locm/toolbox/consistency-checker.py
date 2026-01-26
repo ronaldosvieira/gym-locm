@@ -338,6 +338,8 @@ def check_version_15(agent):
             transitions, state2, p1_agent, p2_agent, Phase.BATTLE, version="1.5"
         )
 
+    print("All matches validated successfully! gym-locm is consistent with the original engine.")
+
     p1_agent.close()
     p2_agent.close()
 
