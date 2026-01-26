@@ -1,51 +1,58 @@
-[build-system]
-requires = ["setuptools>=61.2"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "gym_locm"
-version = "1.4.0"
-description = "OpenAI Gym environments for Legends of Code and Magic, a collectible card game designed for AI research"
+name = "gym-locm"
+version = "2.0.0b1"
+description = "Gymnasium environments for Legends of Code and Magic, a collectible card game designed for AI research"
 readme = "README.md"
-license = { file = "LICENSE" }
-requires-python = ">=3.6"
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+requires-python = ">=3.12"
 keywords = ["reinforcement-learning", "collectible-card-games", "gym-environment", "legends-of-code-and-magic"]
-authors = [{ name = "Ronaldo e Silva Vieira", email = "ronaldo.vieira@dcc.ufmg.br" }]
+authors = [{ name = "Ronaldo e Silva Vieira", email = "ronaldoesv@gmail.com" }]
 dependencies = [
-    "gym",
-    "numpy",
-    "prettytable",
-    "pexpect",
-    "sty",
+    "gymnasium>=1.2.3",
+    "numpy>=2.4.1",
 ]
 
-[project.optional-dependencies]
-experiments = [
-    "numpy",
-    "scipy",
-    "hyperopt",
-    "pandas",
-    "matplotlib",
-    "scikit-learn",
-    "prince",
-    "stable_baselines3",
-    "sb3-contrib",
-    "wandb",
-    "tensorboard",
-    "torch",
-]
-legacy-experiments = [
-    "numpy",
-    "scipy",
-    "stable_baselines",
-    "hyperopt",
-    "pandas",
-    "matplotlib",
-    "scikit-learn",
-]
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
 
 [project.urls]
 repository = "https://github.com/ronaldosvieira/gym-locm"
 
 [project.scripts]
 locm-runner = "gym_locm.toolbox.runner:run"
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0",
+]
+experiments = [
+    "hyperopt>=0.2.7",
+    "matplotlib>=3.10.8",
+    "pandas>=3.0.0",
+    "prince>=0.16.5",
+    "sb3-contrib>=2.7.1",
+    "scikit-learn>=1.8.0",
+    "stable-baselines3>=2.7.1",
+    "tensorboard>=2.20.0",
+    "torch>=2.10.0",
+    "wandb>=0.24.0",
+]
+native-agent = [
+    "pexpect>=4.9.0",
+]
+render = [
+    "prettytable>=3.17.0",
+    "sty>=1.0.6",
+]
+toolbox = [
+    "pexpect>=4.9.0",
+    "scipy>=1.17.0",
+]
+
+[build-system]
+requires = ["setuptools >= 61.0.0"]
+build-backend = "setuptools.build_meta"

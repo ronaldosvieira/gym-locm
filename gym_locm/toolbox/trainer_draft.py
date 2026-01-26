@@ -872,7 +872,9 @@ class Evaluator:
                 action_histogram[action] += 1
 
             # perform the action and get the outcome
-            observations, rewards, dones, infos = self.env.step(actions)
+            observations, rewards, dones, infos = self.env.step(
+                actions
+            )
 
             # update metrics
             for i in range(self.env.num_envs):

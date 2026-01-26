@@ -1,9 +1,14 @@
 from abc import ABC, abstractmethod
 from operator import attrgetter
-from sty import fg
 
-import gym
-from prettytable import PrettyTable
+import numpy as np
+import gymnasium as gym
+
+try:
+    from sty import fg
+    from prettytable import PrettyTable
+except ImportError:
+    pass
 
 from gym_locm.engine import (
     Creature,
@@ -33,8 +38,10 @@ class LOCMEnv(gym.Env, ABC):
         n=30,
         reward_functions=("win-loss",),
         reward_weights=(1.0,),
+        render_mode="native",
     ):
         self._seed = seed
+        self.render_mode = render_mode
         self.version = version
         self.episodes = 0
         self.items = items
@@ -68,11 +75,18 @@ class LOCMEnv(gym.Env, ABC):
         self._seed = seed
         self.state.seed(seed)
 
-    def reset(self):
+    def reset(
+        self, *, seed: int | None = None, options: dict | None = None
+    ) -> tuple[np.array, dict]:
         """
         Resets the environment.
         The game is put into its initial state
         """
+        super().reset(seed=seed)
+
+        if seed:
+            self.seed(seed)
+
         if self._seed is None:
             # recover random state from current state obj
             rng = self.state.rng
@@ -100,8 +114,13 @@ class LOCMEnv(gym.Env, ABC):
         self.episodes += 1
         self.last_player_rewards = [None, None]
 
-    def render(self, mode: str = "text"):
+        return self.encode_state(), {}
+
+    def render(self, mode: str | None = None):
         """Builds a representation of the current state."""
+        if mode is None:
+            mode = self.render_mode
+
         # if text mode, print appropriate representation
         if mode == "text":
             if self.state.phase == Phase.DECK_BUILDING:
@@ -131,7 +150,12 @@ class LOCMEnv(gym.Env, ABC):
         )
         print()
 
-        table = PrettyTable(["Index", "Name", "Cost", "Description"])
+        try:
+            table = PrettyTable(["Index", "Name", "Cost", "Description"])
+        except NameError:
+            raise ImportError(
+                "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
+            )
 
         for i, card in enumerate(self.state.current_player.hand):
             table.add_row([i, card.name, card.cost, card.text])
@@ -165,7 +189,12 @@ class LOCMEnv(gym.Env, ABC):
         else:
             table_headers = ["Id", "Name", "Cost", "Description"]
 
-        table = PrettyTable(table_headers)
+        try:
+            table = PrettyTable(table_headers)
+        except NameError:
+            raise ImportError(
+                "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
+            )
 
         for i, card in enumerate(sorted(player.hand, key=attrgetter("cost"))):
             if self.version == "1.5":
@@ -286,12 +315,18 @@ class LOCMEnv(gym.Env, ABC):
             if card.card_draw > 0:
                 card_draw = str(card.card_draw)
 
-            colors = {
-                Creature: fg.li_yellow,
-                GreenItem: fg.li_green,
-                RedItem: fg.li_red,
-                BlueItem: fg.li_blue,
-            }
+            try:
+                colors = {
+                    Creature: fg.li_yellow,
+                    GreenItem: fg.li_green,
+                    RedItem: fg.li_red,
+                    BlueItem: fg.li_blue,
+                }
+            except NameError:
+                raise ImportError(
+                    "To use the 'text' and 'ascii' rendering modes, please install `gym-locm[rendering]`."
+                )
+
             color = colors[type(card)]
 
             name = format(card.name[:27], "<27")

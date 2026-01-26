@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 
 from gym_locm import agents
 
@@ -18,15 +18,16 @@ def hello_world():
 
     agent = agents.GreedyBattleAgent()
 
-    obs = env.reset()
-    done = False
+    obs, info = env.reset()
+    terminated = False
+    truncated = False
 
-    while not done:
-        env.render(mode="text")
+    while not (terminated or truncated):
+        env.render()
         action = agent.act(env.state)
         print("Action:", action)
 
-        obs, reward, done, info = env.step(action)
+        obs, reward, terminated, truncated, info = env.step(action)
 
         print("Reward:", reward, info["raw_rewards"])
 
