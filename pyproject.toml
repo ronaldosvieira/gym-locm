@@ -19,10 +19,25 @@ repository = "https://github.com/ronaldosvieira/gym-locm"
 locm-runner = "gym_locm.toolbox.runner:run"
 
 [dependency-groups]
+experiments = [
+    "hyperopt>=0.2.7",
+    "matplotlib>=3.10.8",
+    "pandas>=3.0.0",
+    "prince>=0.16.5",
+    "sb3-contrib>=2.7.1",
+    "scikit-learn>=1.8.0",
+    "stable-baselines3>=2.7.1",
+    "torch>=2.10.0",
+    "wandb>=0.24.0",
+]
 native-agent = [
     "pexpect>=4.9.0",
 ]
 render = [
     "prettytable>=3.17.0",
     "sty>=1.0.6",
+]
+toolbox = [
+    "pexpect>=4.9.0",
+    "scipy>=1.17.0",
 ]
