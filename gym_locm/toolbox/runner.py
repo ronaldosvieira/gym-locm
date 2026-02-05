@@ -71,6 +71,9 @@ def get_arg_parser():
     )
     p.add_argument("--games", type=int, help="amount of games to run", default=1)
     p.add_argument(
+        "--allow-invalid-actions", action="store_true", help="whether to allow invalid actions"
+    )
+    p.add_argument(
         "--processes", type=int, help="amount of processes to use", default=1
     )
     p.add_argument("--seed", type=int, help="seed to use on episodes", default=0)
@@ -92,7 +95,7 @@ def get_arg_parser():
 
 
 def evaluate(params):
-    game_id, player_1, player_2, seed, silent, log_battles, version = params
+    game_id, player_1, player_2, seed, silent, log_battles, version, allow_invalid_actions = params
 
     deck_building_bots = (player_1[0], player_2[0])
     battle_bots = (player_1[1], player_2[1])
@@ -115,7 +118,11 @@ def evaluate(params):
 
         action = bot.act(game)
 
-        game.act(action)
+        try:
+            game.act(action)
+        except exceptions.ActionError:
+            if allow_invalid_actions:
+                pass
 
     with lock:
         wins_by_p0[0] += 1 if game.winner == engine.PlayerOrder.FIRST else 0
@@ -191,19 +198,18 @@ def run():
         result = io.StringIO()
 
         profiler.enable()
-
+        
         for i in range(args.games):
-            evaluate(
-                (
-                    i,
-                    player_1,
-                    player_2,
-                    args.seed,
-                    args.silent,
-                    args.log_battles,
-                    args.version,
-                )
-            )
+            evaluate((
+                i,
+                player_1,
+                player_2,
+                args.seed,
+                args.silent,
+                args.log_battles,
+                args.version,
+                args.allow_invalid_actions,
+            ))
 
         profiler.disable()
 
@@ -223,6 +229,7 @@ def run():
                 args.silent,
                 args.log_battles,
                 args.version,
+                args.allow_invalid_actions,
             )
             for j in range(args.games)
         )
