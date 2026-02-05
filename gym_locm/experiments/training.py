@@ -193,14 +193,7 @@ def get_arg_parser():
     return p
 
 
-def run():
-    if sys.version_info < (3, 0, 0):
-        sys.stderr.write("You need python 3.0 or later to run this script\n")
-        sys.exit(1)
-
-    arg_parser = get_arg_parser()
-    args = arg_parser.parse_args()
-
+def run(args):
     args.path += "/" + "-".join(
         [
             args.task,
