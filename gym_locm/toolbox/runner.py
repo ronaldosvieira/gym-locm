@@ -219,6 +219,18 @@ def run():
         profiler_stats.print_stats()
 
         print(result.getvalue())
+    elif args.processes == 1:
+        for i in range(args.games):
+            evaluate((
+                i,
+                player_1,
+                player_2,
+                args.seed,
+                args.silent,
+                args.log_battles,
+                args.version,
+                args.allow_invalid_actions,
+            ))
     else:
         params = (
             (
