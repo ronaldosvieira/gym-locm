@@ -18,6 +18,6 @@ date-released: 2020-10-01
 license: MIT
 message: "If you use this software, please cite it as below."
 repository-code: "https://github.com/ronaldosvieira/gym-locm"
-title: "OpenAI Gym Environments for Legends of Code and Magic"
-version: "1.4.0"
+title: "Gymnasium Environments for Legends of Code and Magic"
+version: "2.0.0b1"
 ...
