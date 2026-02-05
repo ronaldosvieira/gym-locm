@@ -6,7 +6,7 @@ from datetime import datetime
 from pstats import Stats
 from multiprocessing import Pool, Manager, Lock
 
-from gym_locm import agents, engine
+from gym_locm import agents, engine, exceptions
 from gym_locm.agents import (
     parse_draft_agent,
     parse_battle_agent,
@@ -27,7 +27,7 @@ def get_arg_parser():
         "--p1-deck-building",
         "-db1",
         help="deck-building agent used by player 1",
-        choices=agents.draft_agents.keys(),
+        choices=(agents.draft_agents | agents.constructed_agents).keys(),
     )
     p.add_argument(
         "--p1-battle",
@@ -46,7 +46,7 @@ def get_arg_parser():
         "--p2-deck-building",
         "-db2",
         help="deck-building agent used by player 2",
-        choices=agents.draft_agents.keys(),
+        choices=(agents.draft_agents | agents.constructed_agents).keys(),
     )
     p.add_argument(
         "--p2-battle",
