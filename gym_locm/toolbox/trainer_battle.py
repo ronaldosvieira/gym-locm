@@ -478,12 +478,11 @@ class SelfPlay(TrainingSession):
             model.next_switch += self.switch_frequency
 
             # log training win rate at the time of the switch
-            train_mean_reward = np.mean(
-                [
-                    np.mean(rewards)
-                    for rewards in model.env.env_method("get_episode_rewards")
-                ]
-            )
+            train_mean_reward = np.mean([
+                np.mean(rewards[:-1])
+                for rewards in model.env.env_method("get_episode_rewards")
+            ])
+            
             if self.wandb_run:
                 self.wandb_run.log({"train_mean_reward": train_mean_reward})
 
@@ -750,12 +749,11 @@ class FixedAndSelfPlayHybrid(TrainingSession):
             model.next_switch += self.switch_frequency
 
             # log training win rate at the time of the switch
-            train_mean_reward = np.mean(
-                [
-                    np.mean(rewards)
-                    for rewards in model.env.env_method("get_episode_rewards")
-                ]
-            )
+            train_mean_reward = np.mean([
+                np.mean(rewards[:-1])
+                for rewards in model.env.env_method("get_episode_rewards")
+            ])
+            
             if self.wandb_run:
                 self.wandb_run.log({"train_mean_reward": train_mean_reward})
 
@@ -1076,12 +1074,11 @@ class AsymmetricSelfPlay(TrainingSession):
                 )
 
                 # log training win rate at the time of the switch
-                train_mean_reward1 = np.mean(
-                    [
-                        np.mean(rewards)
-                        for rewards in self.env1.env_method("get_episode_rewards")
-                    ]
-                )
+                train_mean_reward1 = np.mean([
+                    np.mean(rewards[:-1])
+                    for rewards in self.env1.env_method("get_episode_rewards")
+                ])
+                
                 if self.wandb_run:
                     self.wandb_run.log({"train_mean_reward_0": train_mean_reward1})
 
@@ -1104,12 +1101,11 @@ class AsymmetricSelfPlay(TrainingSession):
                 )
 
                 # log training win rate at the time of the switch
-                train_mean_reward2 = np.mean(
-                    [
-                        np.mean(rewards)
-                        for rewards in self.env2.env_method("get_episode_rewards")
-                    ]
-                )
+                train_mean_reward2 = np.mean([
+                    np.mean(rewards[:-1])
+                    for rewards in self.env2.env_method("get_episode_rewards")
+                ])
+
                 if self.wandb_run:
                     self.wandb_run.log({"train_mean_reward_1": train_mean_reward2})
 
