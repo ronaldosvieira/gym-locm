@@ -508,11 +508,32 @@ class MaxAttackDraftAgent(Agent):
         hand = state.current_player.hand
         index, max_attack = 0, 0
 
-        for i in range(3):
+        for i in range(len(hand)):
             if isinstance(hand[i], Creature) and hand[i].attack > max_attack:
                 index, max_attack = i, hand[i].attack
 
         return Action(ActionType.PICK, index)
+
+
+class MaxAttackConstructedAgent(Agent):
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        pass
+
+    def act(self, state):
+        hand = state.current_player.hand
+        index, max_attack = 0, 0
+        
+        for i, (card, mask) in enumerate(zip(hand, state.deck_building_phase.action_mask())):
+            if not mask:
+                continue
+
+            if isinstance(card, Creature) and card.attack > max_attack:
+                index, max_attack = i, card.attack
+
+        return Action(ActionType.CHOOSE, index)
 
 
 class IceboxDraftAgent(Agent):
@@ -2907,6 +2928,8 @@ draft_agents = {
 constructed_agents = {
     "pass": PassConstructedAgent,
     "random": RandomConstructedAgent,
+    "ma": MaxAttackConstructedAgent,
+    "max-attack": MaxAttackConstructedAgent,
     "inspirai": InspiraiConstructedAgent,
 }
 
