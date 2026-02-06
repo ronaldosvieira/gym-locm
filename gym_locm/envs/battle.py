@@ -47,7 +47,7 @@ class LOCMBattleEnv(LOCMEnv):
         self.return_action_mask = return_action_mask
         self.use_average_deck = use_average_deck
 
-        player_features = 3
+        player_features = 3 if self.version == "1.5" else 4
         cards_in_hand = 8
         card_features = 17 if self.items else 13
         friendly_cards_on_board = 6
