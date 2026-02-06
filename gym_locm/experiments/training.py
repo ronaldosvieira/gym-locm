@@ -190,6 +190,9 @@ def get_arg_parser():
     p.add_argument(
         "--wandb-project", type=str, default="gym-locm", help="project name on W&B"
     )
+    p.add_argument(
+        "--no-tracking", action="store_true", help="whether to upload runs to W&B", default=False
+    )
 
     return p
 
@@ -351,7 +354,7 @@ def run(args):
         "gamma": args.gamma,
     }
 
-    if args.task == "battle":
+    if args.task == "battle" and not args.no_tracking:
         run = wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,
