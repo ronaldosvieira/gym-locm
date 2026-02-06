@@ -1,4 +1,5 @@
 import argparse
+from typing import Callable
 import os
 import sys
 from datetime import datetime
@@ -193,6 +194,33 @@ def get_arg_parser():
     return p
 
 
+def materialize_agent(agent: str | agents.Agent, type: str) -> Callable[[], agents.Agent]:
+    if type == "battle":
+        native_agent_class = agents.NativeBattleAgent
+        parse_function = agents.parse_battle_agent
+    elif type == "draft":
+        native_agent_class = agents.NativeDraftAgent
+        parse_function = agents.parse_draft_agent
+    elif type == "constructed":
+        native_agent_class = agents.NativeConstructedAgent
+        parse_function = agents.parse_constructed_agent
+    else:
+        raise ValueError(f"Unknown agent type {type} not in ['battle', 'draft', 'constructed']")
+
+    # if agent is a string,
+    if isinstance(agent, str):
+        if agent.startswith("native:"):
+            # if starts with native:, then it's a command to run a native agent
+            return lambda: native_agent_class(agent[len("native:"):])
+        else:
+            # else, it's the name of a battle agent
+            return parse_function(agent)
+
+    # if it's already an agent instance, just return it wrapped in a lambda
+    elif isinstance(agent, agents.Agent):
+        return lambda: agent
+
+
 def run(args):
     args.path += "/" + "-".join(
         [
@@ -230,7 +258,7 @@ def run(args):
         else:
             model_builder = model_builder_mlp
 
-        battle_agent = agents.parse_battle_agent(args.battle_agent)
+        battle_agent = materialize_agent(args.battle_agent, type="battle")
 
         self_play_env_params = {
             "battle_agents": (battle_agent(), battle_agent()),
@@ -259,22 +287,17 @@ def run(args):
         )
 
         model_builder = model_builder_mlp_masked
-        battle_agent = agents.parse_battle_agent(args.battle_agent)
 
-        try:
-            draft_agent = agents.parse_draft_agent(args.draft_agent)
-        except KeyError:
-            draft_agent = agents.parse_constructed_agent(args.draft_agent)
+        battle_agent = materialize_agent(args.battle_agent, type="battle")
+        deck_building_agent = materialize_agent(args.draft_agent, type="constructed" if args.version == "1.5" else "draft")
 
         if args.eval_battle_agents is None:
             args.eval_battle_agents = [args.battle_agent]
 
-        eval_battle_agents = list(
-            map(agents.parse_battle_agent, args.eval_battle_agents)
-        )
+        eval_battle_agents = list(map(lambda a: materialize_agent(a, type="battle"), args.eval_battle_agents))
 
         self_play_env_params = {
-            "deck_building_agents": (draft_agent(), draft_agent()),
+            "deck_building_agents": (deck_building_agent(), deck_building_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
             "use_average_deck": args.use_average_deck,
@@ -283,7 +306,7 @@ def run(args):
 
         fixed_adversary_env_params = {
             "battle_agent": battle_agent(),
-            "deck_building_agents": (draft_agent(), draft_agent()),
+            "deck_building_agents": (deck_building_agent(), deck_building_agent()),
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
             "use_average_deck": args.use_average_deck,
@@ -295,7 +318,7 @@ def run(args):
         for eval_battle_agent in eval_battle_agents:
             eval_env_params.append(
                 {
-                    "deck_building_agents": (draft_agent(), draft_agent()),
+                    "deck_building_agents": (deck_building_agent(), deck_building_agent()),
                     "battle_agent": eval_battle_agent(),
                     "reward_functions": args.reward_functions,
                     "reward_weights": args.reward_weights,
