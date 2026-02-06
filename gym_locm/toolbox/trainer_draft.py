@@ -235,7 +235,10 @@ class FixedAdversary(TrainingSession):
         # save and evaluate starting model
         self._training_callback()
 
-        callbacks = [TrainingCallback(self._training_callback)]
+        callbacks = [
+            TrainingCallback(self._training_callback),
+            RolloutEndLogger()
+        ]
 
         try:
             # train the model
@@ -475,7 +478,10 @@ class SelfPlay(TrainingSession):
         # save and evaluate starting models
         self._training_callback({"self": self.model})
 
-        callbacks = [TrainingCallback(self._training_callback)]
+        callbacks = [
+            TrainingCallback(self._training_callback),
+            RolloutEndLogger()
+        ]
 
         try:
             self.logger.debug(
@@ -708,10 +714,12 @@ class AsymmetricSelfPlay(TrainingSession):
             )
 
             callbacks1 = [
-                TrainingCallback(lambda: self._training_callback({"self": self.model1}))
+                TrainingCallback(lambda: self._training_callback({"self": self.model1})),
+                RolloutEndLogger()
             ]
             callbacks2 = [
-                TrainingCallback(lambda: self._training_callback({"self": self.model2}))
+                TrainingCallback(lambda: self._training_callback({"self": self.model2})),
+                RolloutEndLogger()
             ]
 
             for _ in range(self.num_switches):
@@ -928,6 +936,21 @@ class TrainingCallback(BaseCallback):
 
     def _on_step(self):
         return self.callback_func()
+
+
+class RolloutEndLogger(BaseCallback):
+    def __init__(self, verbose=0):
+        # initialize logger
+        self.rollout_logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
+        
+        super(RolloutEndLogger, self).__init__(verbose)
+
+    def _on_step(self) -> bool:
+        return super()._on_step()
+
+    def _on_rollout_end(self):
+        self.rollout_logger.debug("Rollout ended; updating policy.")
+
 
 
 def save_model_as_json(model, act_fun, path):

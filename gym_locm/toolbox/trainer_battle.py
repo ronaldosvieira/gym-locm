@@ -250,7 +250,10 @@ class FixedAdversary(TrainingSession):
         # save and evaluate starting model
         self._training_callback()
 
-        callbacks = [TrainingCallback(self._training_callback)]
+        callbacks = [
+            TrainingCallback(self._training_callback),
+            RolloutEndLogger()
+        ]
 
         if self.wandb_run:
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
@@ -510,7 +513,10 @@ class SelfPlay(TrainingSession):
         # save and evaluate starting model
         self._training_callback()
 
-        callbacks = [TrainingCallback(self._training_callback)]
+        callbacks = [
+            TrainingCallback(self._training_callback),
+            RolloutEndLogger()
+        ]
 
         if self.wandb_run:
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
@@ -781,7 +787,10 @@ class FixedAndSelfPlayHybrid(TrainingSession):
         # save and evaluate starting model
         self._training_callback()
 
-        callbacks = [TrainingCallback(self._training_callback)]
+        callbacks = [
+            TrainingCallback(self._training_callback),
+            RolloutEndLogger()
+        ]
 
         if self.wandb_run:
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
@@ -1055,10 +1064,12 @@ class AsymmetricSelfPlay(TrainingSession):
             )
 
             callbacks1 = [
-                TrainingCallback(lambda: self._training_callback({"self": self.model1}))
+                TrainingCallback(lambda: self._training_callback({"self": self.model1})),
+                RolloutEndLogger()
             ]
             callbacks2 = [
-                TrainingCallback(lambda: self._training_callback({"self": self.model2}))
+                TrainingCallback(lambda: self._training_callback({"self": self.model2})),
+                RolloutEndLogger()
             ]
 
             if self.wandb_run:
@@ -1300,6 +1311,20 @@ class TrainingCallback(BaseCallback):
 
     def _on_step(self):
         return self.callback_func()
+
+
+class RolloutEndLogger(BaseCallback):
+    def __init__(self, verbose=0):
+        # initialize logger
+        self.rollout_logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
+        
+        super(RolloutEndLogger, self).__init__(verbose)
+
+    def _on_step(self) -> bool:
+        return super()._on_step()
+
+    def _on_rollout_end(self):
+        self.rollout_logger.debug("Rollout ended; updating policy.")
 
 
 def save_model_as_json(model, act_fun, path):
