@@ -417,11 +417,16 @@ class NativeAgent(Agent):
 
 
 class NativeBattleAgent(NativeAgent):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, cmd, version="1.5", *args, **kwargs):
+        super().__init__(cmd, *args, **kwargs)
+        
+        if version not in ("1.2", "1.5"):
+            raise ValueError("version must be '1.2' or '1.5'")
+        
+        self.version = version
 
-    def fake_draft(self, state):
-        fake_state = State(version="1.2")
+    def simulate_draft(self, state):
+        fake_state = State(version=self.version)
 
         play_first = state.current_player.id == 0
         deck = state.current_player.deck + state.current_player.hand
@@ -445,9 +450,40 @@ class NativeBattleAgent(NativeAgent):
                 print("WARNING: timeout")
             except pexpect.EOF:
                 print("WARNING: eof")
-
+                
+        fake_state.act(Action(ActionType.PASS))
+        
+        if play_first:
             fake_state.act(Action(ActionType.PASS))
+            
+        try:
+            raw_output = self._process.read_nonblocking(size=2048, timeout=0.1)
 
+            if self.verbose:
+                eprint(raw_output, end="")
+        except pexpect.TIMEOUT:
+            pass
+        except pexpect.EOF:
+            pass
+
+    def simulate_constructed(self, state):
+        # differently from simulate_draft, the agent here
+        # is not forced to select the exact cards in their actual deck
+        # most agents won't have a problem with this, but some might
+        fake_state = State(version=self.version)
+
+        self._process.write(str(fake_state))
+
+        try:
+            raw_output = self._process.readline()
+
+            if self.verbose:
+                eprint(raw_output, end="")
+        except pexpect.TIMEOUT:
+            print("WARNING: timeout")
+        except pexpect.EOF:
+            print("WARNING: eof")
+            
         try:
             raw_output = self._process.read_nonblocking(size=2048, timeout=0.1)
 
@@ -462,8 +498,10 @@ class NativeBattleAgent(NativeAgent):
         if not self.initialized:
             self.initialize()
 
-            # todo: support LOCM 1.5
-            self.fake_draft(state)
+            if self.version == "1.2":
+                self.simulate_draft(state)
+            elif self.version == "1.5":
+                self.simulate_constructed(state)
 
         return super()._act(state, multiple)
 
