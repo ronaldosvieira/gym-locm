@@ -21,7 +21,7 @@ class LOCMBattleEnv(LOCMEnv):
         reward_functions=("win-loss",),
         reward_weights=(1.0,),
         version="1.5",
-        use_average_deck=False,
+        use_average_deck=True,
         render_mode=None,
     ):
         super().__init__(
