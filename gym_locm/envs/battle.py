@@ -49,6 +49,8 @@ class LOCMBattleEnv(LOCMEnv):
 
         player_features = 3 if self.version == "1.5" else 4
         cards_in_hand = 8
+        deck_size_features = 1
+        hand_size_features = 1
         card_features = 17 if self.items else 13
         friendly_cards_on_board = 6
         friendly_board_card_features = 9
@@ -59,12 +61,18 @@ class LOCMBattleEnv(LOCMEnv):
         card_features -= 1 if version == "1.2" else 0
 
         self.state_shape = (
-            player_features * 2
-            + cards_in_hand * card_features
-            + friendly_cards_on_board * friendly_board_card_features
-            + enemy_cards_on_board * enemy_board_card_features
-            + card_features * int(self.use_average_deck)
+            player_features * 2  # player and opponent's stats
+            
+            + deck_size_features * 2  # player and opponent's deck size
+            + card_features * int(self.use_average_deck)  # player's deck content
+            
+            + hand_size_features * 2  # player and opponent's hand size
+            + cards_in_hand * card_features  # player's hand content
+            
+            + friendly_cards_on_board * friendly_board_card_features  # player's battlefield content
+            + enemy_cards_on_board * enemy_board_card_features  # opponent's battlefield content
         )
+        
         self.observation_space = gym.spaces.Box(
             low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
         )
@@ -246,10 +254,23 @@ class LOCMBattleEnv(LOCMEnv):
         encoded_state[:player_features] = self.encode_players(
             p0, p1, version=self.version
         )
+
+        anchor = player_features
+
+        encoded_state[anchor:anchor + 2] = np.array(
+            [len(p0.deck) / 25, len(p1.deck) / 25]
+        )
+        
+        anchor += 2
+
+        encoded_state[anchor:anchor + 2] = np.array(
+            [len(p0.hand) / 8, len(p1.hand) / 8]
+        )
+
+        anchor += 2
+
         if self.use_average_deck:
-            encoded_state[player_features:-card_features] = np.array(
-                all_cards
-            ).flatten()
+            encoded_state[anchor:-card_features] = np.array(all_cards).flatten()
             encoded_state[-card_features:] = np.array(
                 list(
                     map(
@@ -259,7 +280,7 @@ class LOCMBattleEnv(LOCMEnv):
                 )
             ).mean(axis=0)
         else:
-            encoded_state[player_features:] = np.array(all_cards).flatten()
+            encoded_state[anchor:] = np.array(all_cards).flatten()
 
         return encoded_state
 
