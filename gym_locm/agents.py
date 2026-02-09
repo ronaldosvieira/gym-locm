@@ -376,16 +376,15 @@ class NativeAgent(Agent):
             )
 
         actions = []
+        old_raw_output = ""
 
         try:
             i = 1
+            raw_output = self._process.readline()
 
-            while not actions and i <= 15:
+            while not actions and raw_output != old_raw_output:
                 if self.verbose:
-                    eprint(f"Trying to decode actions... (try {i}/15)")
-
-                # read an action output ending with \n
-                raw_output = self._process.readline()
+                    eprint(f"Trying to decode actions... (try {i})")
 
                 # remove the \n
                 self.raw_actions = raw_output.strip()
@@ -397,6 +396,11 @@ class NativeAgent(Agent):
 
                 if self.verbose:
                     eprint("Decoded:", actions)
+                
+                if not actions:
+                    old_raw_output = raw_output
+                    # read an action output ending with \n
+                    raw_output = self._process.readline()
 
                 i += 1
 
