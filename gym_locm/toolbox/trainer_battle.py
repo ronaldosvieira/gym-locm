@@ -146,7 +146,7 @@ class FixedAdversary(TrainingSession):
         self.num_evals = num_evals
         self.eval_frequency = train_episodes / num_evals
         self.eval_adversaries = [
-            type(e["battle_agent"]).__name__ for e in eval_env_params
+            repr(e["battle_agent"]) for e in eval_env_params
         ]
         self.role = role
 
@@ -379,7 +379,7 @@ class SelfPlay(TrainingSession):
         self.switch_frequency = switch_frequency
         self.num_switches = math.ceil(train_episodes / switch_frequency)
         self.eval_adversaries = [
-            type(e["battle_agent"]).__name__ for e in eval_env_params
+            repr(e["battle_agent"]) for e in eval_env_params
         ]
         self.role = role
 
@@ -653,7 +653,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
         self.switch_frequency = switch_frequency
         self.num_switches = math.ceil(train_episodes / switch_frequency)
         self.eval_adversaries = [
-            type(e["battle_agent"]).__name__ for e in eval_env_params
+            repr(e["battle_agent"]) for e in eval_env_params
         ]
         self.role = role
 
@@ -931,7 +931,7 @@ class AsymmetricSelfPlay(TrainingSession):
         self.eval_frequency = train_episodes / num_evals
         self.num_switches = math.ceil(train_episodes / switch_frequency)
         self.eval_adversaries = [
-            type(e["battle_agent"]).__name__ for e in eval_env_params
+            repr(e["battle_agent"]) for e in eval_env_params
         ]
 
         # initialize control attributes
@@ -1182,12 +1182,13 @@ class Evaluator:
         # save parameters
         self.episodes = episodes
         self.seed = seed
+        agent_name = repr(env_params["battle_agent"])
 
         # log end time
         end_time = time.perf_counter()
 
         self.logger.debug(
-            "Finished initializing evaluator "
+            f"Finished initializing evaluator ({agent_name}) "
             f"({round(end_time - start_time, ndigits=3)}s)."
         )
 

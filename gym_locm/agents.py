@@ -44,6 +44,9 @@ class Agent(ABC):
     @abstractmethod
     def act(self, state):
         pass
+    
+    def __repr__(self) -> str:
+        return type(self).__name__
 
 
 class PassBattleAgent(Agent):
@@ -414,6 +417,9 @@ class NativeAgent(Agent):
             self.action_buffer = list(reversed(actions))
 
             return self.action_buffer.pop()
+
+    def __repr__(self) -> str:
+        return f"native:{self.cmd}"
 
 
 class NativeBattleAgent(NativeAgent):
