@@ -199,13 +199,10 @@ def get_arg_parser():
 
 def materialize_agent(agent: str | agents.Agent, type: str) -> Callable[[], agents.Agent]:
     if type == "battle":
-        native_agent_class = agents.NativeBattleAgent
         parse_function = agents.parse_battle_agent
     elif type == "draft":
-        native_agent_class = agents.NativeDraftAgent
         parse_function = agents.parse_draft_agent
     elif type == "constructed":
-        native_agent_class = agents.NativeConstructedAgent
         parse_function = agents.parse_constructed_agent
     else:
         raise ValueError(f"Unknown agent type {type} not in ['battle', 'draft', 'constructed']")
@@ -214,7 +211,7 @@ def materialize_agent(agent: str | agents.Agent, type: str) -> Callable[[], agen
     if isinstance(agent, str):
         if agent.startswith("native:"):
             # if starts with native:, then it's a command to run a native agent
-            return lambda: native_agent_class(agent[len("native:"):])
+            return lambda: agents.NativeAgent(agent[len("native:"):])
         else:
             # else, it's the name of a battle agent
             return parse_function(agent)
@@ -290,12 +287,12 @@ def run(args):
         )
 
         model_builder = model_builder_mlp_masked
+        
+        if args.eval_battle_agents is None:
+            args.eval_battle_agents = [args.battle_agent]
 
         battle_agent = materialize_agent(args.battle_agent, type="battle")
         deck_building_agent = materialize_agent(args.draft_agent, type="constructed" if args.version == "1.5" else "draft")
-
-        if args.eval_battle_agents is None:
-            args.eval_battle_agents = [args.battle_agent]
 
         eval_battle_agents = list(map(lambda a: materialize_agent(a, type="battle"), args.eval_battle_agents))
 
@@ -318,11 +315,21 @@ def run(args):
 
         eval_env_params = []
 
-        for eval_battle_agent in eval_battle_agents:
+        for agent_str, agent_builder in zip(args.eval_battle_agents, eval_battle_agents):
+            # if eval agent is native, it will necessarily play deck-building as well
+            if agent_str.startswith("native:"):
+                native_agent = agent_builder()
+
+                deck_building_agents = (deck_building_agent(), native_agent)
+                battle_agent = native_agent
+            else:
+                deck_building_agents = (deck_building_agent(), deck_building_agent())
+                battle_agent = agent_builder()
+                
             eval_env_params.append(
                 {
-                    "deck_building_agents": (deck_building_agent(), deck_building_agent()),
-                    "battle_agent": eval_battle_agent(),
+                    "deck_building_agents": deck_building_agents,
+                    "battle_agent": battle_agent,
                     "reward_functions": args.reward_functions,
                     "reward_weights": args.reward_weights,
                     "use_average_deck": args.use_average_deck,
