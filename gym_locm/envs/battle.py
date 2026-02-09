@@ -296,12 +296,16 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         alternate_roles=False,
         **kwargs,
     ):
+        # manage the deck-building agents before super.__init__ uses them to simulate deck-building
+        self._play_first = True
+        self.deck_building_agents = kwargs["deck_building_agents"]
+        self.play_first = play_first
+        
         # init the env
         super().__init__(**kwargs)
 
         # also init the battle agent and the new parameters
         self.battle_agent = battle_agent
-        self.play_first = play_first
         self.alternate_roles = alternate_roles
         self.rewards_single_player = []
 
@@ -319,10 +323,6 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         """
         if self.alternate_roles:
             self.play_first = not self.play_first
-            self.deck_building_agents = (
-                self.deck_building_agents[1],
-                self.deck_building_agents[0],
-            )
 
         # reset what is needed
         encoded_state, info = super().reset()
@@ -391,16 +391,33 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
     def get_episode_rewards(self):
         return self.rewards_single_player
 
+    @property
+    def play_first(self) -> bool:
+        return self._play_first
+
+    @play_first.setter
+    def play_first(self, value: bool):
+        if value != self._play_first:
+            self._play_first = value
+            self.deck_building_agents = (
+                self.deck_building_agents[1],
+                self.deck_building_agents[0],
+            )
+
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
     def __init__(
         self, play_first=True, alternate_roles=True, adversary_policy=None, **kwargs
     ):
+        # manage the deck-building agents before super.__init__ uses them to simulate deck-building
+        self._play_first = True
+        self.deck_building_agents = kwargs["deck_building_agents"]
+        self.play_first = play_first
+        
         # init the env
         super().__init__(**kwargs)
 
         # also init the new parameters
-        self.play_first = play_first
         self.adversary_policy = adversary_policy
         self.alternate_roles = alternate_roles
         self.rewards_single_player = []
@@ -417,10 +434,6 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         if self.alternate_roles:
             self.play_first = not self.play_first
-            self.deck_building_agents = (
-                self.deck_building_agents[1],
-                self.deck_building_agents[0],
-            )
 
         last_opponent_action = None
 
@@ -482,3 +495,16 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
     def get_episode_rewards(self):
         return self.rewards_single_player
+
+    @property
+    def play_first(self) -> bool:
+        return self._play_first
+
+    @play_first.setter
+    def play_first(self, value: bool):
+        if value != self._play_first:
+            self._play_first = value
+            self.deck_building_agents = (
+                self.deck_building_agents[1],
+                self.deck_building_agents[0],
+            )
