@@ -343,8 +343,8 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
                     super().step(action)
                 except ActionError:
                     if action == last_opponent_action:
-                        # opponent is repeating the same invalid action, pass the turn instead
-                        super().step(0)
+                        # opponent is repeating the same invalid action, raise exception to avoid infinite loop
+                        raise Exception(f"Opponent is repeating the same invalid action: {action}.")
 
                 last_opponent_action = action
 
@@ -371,8 +371,8 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
                 state, reward, terminated, truncated, info = super().step(action)
             except ActionError:
                 if action == last_opponent_action:
-                    # opponent is repeating the same invalid action, pass the turn instead
-                    state, reward, terminated, truncated, info = super().step(0)
+                    # opponent is repeating the same invalid action, raise exception to avoid infinite loop
+                    raise Exception(f"Opponent is repeating the same invalid action: {action}.")
 
             last_opponent_action = action
 
