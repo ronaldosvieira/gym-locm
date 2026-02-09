@@ -410,7 +410,7 @@ class NativeAgent(Agent):
             print("WARNING: eof")
 
         if not actions:
-            actions = [Action(ActionType.PASS)]
+            raise Exception("Failed to get actions from native agent. Last output line: " + old_raw_output)
 
         if actions[-1].type != ActionType.PASS and state.is_battle():
             actions += [Action(ActionType.PASS)]
