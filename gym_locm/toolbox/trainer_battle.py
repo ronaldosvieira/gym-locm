@@ -214,10 +214,6 @@ class FixedAdversary(TrainingSession):
                 self.battle_lengths.append(battle_length)
                 self.action_histograms.append(act_hist)
 
-                # update control attributes
-                model.last_eval = episodes_so_far
-                model.next_eval += self.eval_frequency
-
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
                     panel_name = f"eval_vs_{eval_adversary}"
@@ -240,6 +236,10 @@ class FixedAdversary(TrainingSession):
                         info[panel_name + "/attack_actions"] = sum(act_hist[17:])
 
                     self.wandb_run.log(info)
+
+            # update control attributes
+            model.last_eval = episodes_so_far
+            model.next_eval += self.eval_frequency
 
         # if training should end, return False to end training
         training_is_finished = episodes_so_far >= self.train_episodes
@@ -448,10 +448,6 @@ class SelfPlay(TrainingSession):
                 self.battle_lengths.append(battle_length)
                 self.action_histograms.append(act_hist)
 
-                # update control attributes
-                model.last_eval = episodes_so_far
-                model.next_eval += self.eval_frequency
-
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
                     panel_name = f"eval_vs_{eval_adversary}"
@@ -474,6 +470,10 @@ class SelfPlay(TrainingSession):
                         info[panel_name + "/attack_actions"] = sum(act_hist[17:])
 
                     self.wandb_run.log(info)
+            
+            # update control attributes
+            model.last_eval = episodes_so_far
+            model.next_eval += self.eval_frequency
 
         # if it is time to update the adversary model, do so
         if episodes_so_far >= model.next_switch:
@@ -722,10 +722,6 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                 self.battle_lengths.append(battle_length)
                 self.action_histograms.append(act_hist)
 
-                # update control attributes
-                model.last_eval = episodes_so_far
-                model.next_eval += self.eval_frequency
-
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
                     panel_name = f"eval_vs_{eval_adversary}"
@@ -748,6 +744,10 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                         info[panel_name + "/attack_actions"] = sum(act_hist[17:])
 
                     self.wandb_run.log(info)
+                    
+            # update control attributes
+            model.last_eval = episodes_so_far
+            model.next_eval += self.eval_frequency
 
         # if it is time to update the adversary model, do so
         if episodes_so_far >= model.next_switch:
@@ -1004,10 +1004,6 @@ class AsymmetricSelfPlay(TrainingSession):
                 self.battle_lengths[model.role_id].append(battle_length)
                 self.action_histograms[model.role_id].append(act_hist)
 
-                # update control attributes
-                model.last_eval = episodes_so_far
-                model.next_eval += self.eval_frequency
-
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
                     panel_name = f"eval_vs_{eval_adversary}"
@@ -1039,6 +1035,10 @@ class AsymmetricSelfPlay(TrainingSession):
                         )
 
                     self.wandb_run.log(info)
+                    
+            # update control attributes
+            model.last_eval = episodes_so_far
+            model.next_eval += self.eval_frequency
 
         # if training should end, return False to end training
         training_is_finished = (
