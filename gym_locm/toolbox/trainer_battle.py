@@ -1319,12 +1319,23 @@ class RolloutEndLogger(BaseCallback):
         self.rollout_logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
         
         super(RolloutEndLogger, self).__init__(verbose)
+        
+        self.episode_counter = 0
 
     def _on_step(self) -> bool:
         return super()._on_step()
 
     def _on_rollout_end(self):
-        self.rollout_logger.debug("Rollout ended; updating policy.")
+        all_episodes = sum(self.training_env.get_attr("episodes"))
+        n_rollout_steps = self.locals["n_rollout_steps"]
+        
+        rollout_episodes = all_episodes - self.episode_counter
+        self.episode_counter = all_episodes
+
+        self.rollout_logger.debug(
+            f"Rollout ended; updating policy ({rollout_episodes} episodes, "
+            f"{round(n_rollout_steps / rollout_episodes, 2)} steps/episode)."
+        )
 
 
 def save_model_as_json(model, act_fun, path):
