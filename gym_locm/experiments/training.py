@@ -304,9 +304,16 @@ def run(args):
             "version": args.version,
         }
 
+        battle_agent = battle_agent()
+        
+        if args.battle_agent.startswith("native:"):
+            deck_building_agents = (deck_building_agent(), battle_agent)
+        else:
+            deck_building_agents = (deck_building_agent(), deck_building_agent())
+            
         fixed_adversary_env_params = {
-            "battle_agent": battle_agent(),
-            "deck_building_agents": (deck_building_agent(), deck_building_agent()),
+            "battle_agent": battle_agent,
+            "deck_building_agents": deck_building_agents,
             "reward_functions": args.reward_functions,
             "reward_weights": args.reward_weights,
             "use_average_deck": args.use_average_deck,
