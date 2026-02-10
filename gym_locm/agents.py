@@ -9,8 +9,6 @@ try:
 except ImportError:
     pass
 
-import numpy as np
-
 import random
 
 from gym_locm.engine import (
@@ -625,7 +623,8 @@ class IceboxDraftAgent(Agent):
         return value
 
     def act(self, state):
-        index = np.argmax(list(map(self._icebox_eval, state.current_player.hand)))
+        hand = state.current_player.hand
+        index = hand.index(max(hand, key=self._icebox_eval))
 
         return Action(ActionType.PICK, index)
 
@@ -804,7 +803,8 @@ class ClosetAIDraftAgent(Agent):
         return self.scores[card.id - 1]
 
     def act(self, state):
-        index = np.argmax(list(map(self._closet_ai_eval, state.current_player.hand)))
+        hand = state.current_player.hand
+        index = hand.index(max(hand, key=self._closet_ai_eval))
 
         return Action(ActionType.PICK, index)
 
@@ -851,7 +851,7 @@ class UJI1DraftAgent(Agent):
 
             weights.append(p)
 
-        chosen_card = int(np.argmax(weights))
+        chosen_card = weights.index(max(weights))
 
         self.picked[indexes[chosen_card]] += 1
 
@@ -1577,9 +1577,8 @@ class CoacDraftAgent(Agent):
         if self.drafted > 0 and self.creatures_drafted / self.drafted < 0.4:
             key += "_creature"
 
-        chosen_card = np.argmin(
-            list(map(self._coac_eval(key), state.current_player.hand))
-        )
+        hand = state.current_player.hand
+        index = hand.index(min(hand, key=self._coac_card_eval(key)))
 
         self.drafted += 1
 
@@ -2595,7 +2594,8 @@ class ChadDraftAgent(Agent):
         else:
             card_eval_func = self._chad_eval_p2
 
-        index = np.argmax(list(map(card_eval_func, state.current_player.hand)))
+        hand = state.current_player.hand
+        index = hand.index(max(hand, key=card_eval_func))
 
         return Action(ActionType.PICK, index)
 
@@ -2774,7 +2774,8 @@ class HistorylessDraftAgent(Agent):
         return self.scores[card.id - 1]
 
     def act(self, state):
-        index = np.argmax(list(map(self._card_eval, state.current_player.hand)))
+        hand = state.current_player.hand
+        index = hand.index(max(hand, key=self._card_eval))
 
         return Action(ActionType.PICK, index)
 
