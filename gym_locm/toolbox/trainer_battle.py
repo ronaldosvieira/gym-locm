@@ -1391,3 +1391,7 @@ def model_builder_mlp_masked(
         policy_kwargs=dict(net_arch=net_arch, activation_fn=activation),
         tensorboard_log=tensorboard_log,
     )
+
+
+def load_trained_mlp_masked(env, path, seed):
+    return MaskablePPO.load(path + ".zip", env=env, force_reset=True, seed=seed)
