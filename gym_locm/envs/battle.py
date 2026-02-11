@@ -298,7 +298,10 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
     ):
         # manage the deck-building agents before super.__init__ uses them to simulate deck-building
         self._play_first = True
-        self.deck_building_agents = kwargs["deck_building_agents"]
+        try:
+            self.deck_building_agents = kwargs["deck_building_agents"]
+        except KeyError:
+            self.deck_building_agents = (RandomDraftAgent(), RandomDraftAgent())
         self.play_first = play_first
         
         # init the env
@@ -411,7 +414,10 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
     ):
         # manage the deck-building agents before super.__init__ uses them to simulate deck-building
         self._play_first = True
-        self.deck_building_agents = kwargs["deck_building_agents"]
+        try:
+            self.deck_building_agents = kwargs["deck_building_agents"]
+        except KeyError:
+            self.deck_building_agents = (RandomDraftAgent(), RandomDraftAgent())
         self.play_first = play_first
         
         # init the env
