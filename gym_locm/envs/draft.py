@@ -1,5 +1,6 @@
 from typing import Union
 
+import numpy as np
 import gymnasium as gym
 
 from gym_locm.agents import *
