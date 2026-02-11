@@ -37,7 +37,7 @@ from gym_locm.agents.native_agent import (
     NativeConstructedAgent,
 )
 from gym_locm.agents.rl import RLDraftAgent, RLBattleAgent
-from gym_locm.agents.byterl import ByteRL
+from gym_locm.agents.byterl import ByteRL, NoisyByteRL
 
 
 draft_agents = {

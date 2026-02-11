@@ -1,1 +1,1 @@
-from gym_locm.agents.byterl.main import ByteRL
+from gym_locm.agents.byterl.main import ByteRL, NoisyByteRL

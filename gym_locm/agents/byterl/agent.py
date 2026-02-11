@@ -3,6 +3,7 @@ from collections import OrderedDict
 from copy import deepcopy
 
 import numpy as np
+from scipy.special import softmax
 from gym_locm.agents import Agent
 from gym_locm.engine import (
     Action,
@@ -326,8 +327,11 @@ class SubmitInterface:
 
 
 class ByterlAgent(Agent):
-    def __init__(self, **kwargs):
+    def __init__(self, temperature=0.0, seed=None, **kwargs):
         super().__init__(**kwargs)
+        self.temperature = temperature
+        self.np_random = np.random.RandomState(seed)
+
         weights_name = [
             "self/shared_raw_card_embed/conv0/weights:0",
             "self/shared_raw_card_embed/conv0/biases:0",
@@ -430,7 +434,7 @@ class ByterlAgent(Agent):
         return outputs
 
     def seed(self, seed):
-        pass
+        self.np_random = np.random.RandomState(seed)
 
     def reset(self, **kwargs):
         self.bt_hs_new = None
@@ -532,12 +536,30 @@ class ByterlAgent(Agent):
         bt_lstm_embed, self.bt_hs_new = self.bt_lstm_embed(bt_embed, self.bt_hs_new)
         if state.phase == Phase.BATTLE:
             bt_action_logit = self.bt_action_head(bt_lstm_embed, obs["bt_action_mask"])
-            bt_action_num = np.argmax(bt_action_logit, -1)
+            
+            if self.temperature == 0.0:
+                bt_action_num = np.argmax(bt_action_logit, -1)
+            else:
+                action_prob = bt_action_logit / self.temperature
+                action_prob = softmax(action_prob, -1)
+                # action_prob = np.nan_to_num(action_prob, nan=0.0)
+
+                bt_action_num = self.np_random.choice(len(action_prob), p=action_prob)
+
             return self.intf.convert_to_locm_action(state, bt_action_num)
 
         else:
             cb_action_logit = self.cb_action_head(
                 cb_fm, obs["cb_action_mask"], obs["cards_can_select_mask"]
             )
-            cb_action_num = np.argmax(cb_action_logit, -1)
+            
+            if self.temperature == 0.0:
+                cb_action_num = np.argmax(cb_action_logit, -1)
+            else:
+                action_prob = cb_action_logit / self.temperature
+                action_prob = softmax(action_prob, -1)
+                # action_prob = np.nan_to_num(action_prob, nan=0.0)
+                
+                cb_action_num = self.np_random.choice(len(action_prob), p=action_prob)
+            
             return self.intf.convert_to_locm_action(state, cb_action_num)

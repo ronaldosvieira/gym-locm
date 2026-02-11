@@ -104,3 +104,21 @@ class ByteRL(Agent):
             state = self.card_recorder.full_missing_cards(state.clone())
 
             return self.agent.act(state)
+
+
+class NoisyByteRL(ByteRL):
+    def __init__(self, temperature=1.0, seed=None):
+        self.temperature = temperature
+        self._seed = seed
+
+        super().__init__()
+        
+        ensure_weights_are_available()
+
+        self.reset()
+
+    def reset(self):
+        super().reset()
+        
+        self.agent.seed(self._seed)
+        self.agent.temperature = self.temperature
