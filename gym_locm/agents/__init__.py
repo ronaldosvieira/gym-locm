@@ -37,6 +37,7 @@ from gym_locm.agents.native_agent import (
     NativeConstructedAgent,
 )
 from gym_locm.agents.rl import RLDraftAgent, RLBattleAgent
+from gym_locm.agents.byterl import ByteRL
 
 
 draft_agents = {
@@ -55,6 +56,7 @@ draft_agents = {
     "chad": ChadDraftAgent,
     "historyless": HistorylessDraftAgent,
     "rl": RLDraftAgent,
+    "byterl": ByteRL,
 }
 
 constructed_agents = {
@@ -63,6 +65,7 @@ constructed_agents = {
     "ma": MaxAttackConstructedAgent,
     "max-attack": MaxAttackConstructedAgent,
     "inspirai": InspiraiConstructedAgent,
+    "byterl": ByteRL,
 }
 
 battle_agents = {
@@ -76,6 +79,7 @@ battle_agents = {
     "baseline2": MaxAttackBattleAgent,
     "ma": MaxAttackBattleAgent,
     "rl": RLBattleAgent,
+    "byterl": ByteRL,
 }
 
 
