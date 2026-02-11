@@ -371,7 +371,7 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         # act according to first and second players
         if self.play_first:
             super().step(action)
-            state, reward, done, info = super().step(self.adversary_policy(obs))
+            state, reward, terminated, truncated, info = super().step(self.adversary_policy(obs))
         else:
             super().step(self.adversary_policy(obs))
             state, reward, terminated, truncated, info = super().step(action)
