@@ -172,8 +172,8 @@ def run():
     if args.p1_path is not None:
         player_1 = agents.NativeAgent(args.p1_path)
         player_1 = (player_1, player_1)
-    elif args.p1_deck_building == "byterl" and args.p1_battle == "byterl":
-        byterl = parse_battle_agent("byterl")()
+    elif args.p1_deck_building.endswith("byterl") and args.p1_battle.endswith("byterl"):
+        byterl = parse_battle_agent(args.p1_battle)()
         player_1 = (byterl, byterl)
     else:
         player_1 = (
@@ -187,8 +187,8 @@ def run():
     if args.p2_path is not None:
         player_2 = agents.NativeAgent(args.p2_path)
         player_2 = (player_2, player_2)
-    elif args.p2_deck_building == "byterl" and args.p2_battle == "byterl":
-        byterl = parse_battle_agent("byterl")()
+    elif args.p2_deck_building.endswith("byterl") and args.p2_battle.endswith("byterl"):
+        byterl = parse_battle_agent(args.p2_battle)()
         player_2 = (byterl, byterl)
     else:
         player_2 = (

@@ -57,6 +57,7 @@ draft_agents = {
     "historyless": HistorylessDraftAgent,
     "rl": RLDraftAgent,
     "byterl": ByteRL,
+    "noisy-byterl": NoisyByteRL,
 }
 
 constructed_agents = {
@@ -66,6 +67,7 @@ constructed_agents = {
     "max-attack": MaxAttackConstructedAgent,
     "inspirai": InspiraiConstructedAgent,
     "byterl": ByteRL,
+    "noisy-byterl": NoisyByteRL,
 }
 
 battle_agents = {
@@ -80,6 +82,7 @@ battle_agents = {
     "ma": MaxAttackBattleAgent,
     "rl": RLBattleAgent,
     "byterl": ByteRL,
+    "noisy-byterl": NoisyByteRL,
 }
 
 
