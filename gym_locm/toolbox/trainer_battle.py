@@ -1393,5 +1393,8 @@ def model_builder_mlp_masked(
     )
 
 
-def load_trained_mlp_masked(env, path, seed):
-    return MaskablePPO.load(path + ".zip", env=env, force_reset=True, seed=seed)
+def load_trained_mlp_masked(path):
+    def loaded_model_builder(env, seed, *args, **kwargs):
+        return MaskablePPO.load(path + ".zip", env=env, force_reset=True, seed=seed)
+    
+    return loaded_model_builder
