@@ -437,6 +437,7 @@ class ByterlAgent(Agent):
         self.np_random = np.random.RandomState(seed)
 
     def reset(self, **kwargs):
+        self.cb_hs_new = None
         self.bt_hs_new = None
         self.intf = SubmitInterface()
 
