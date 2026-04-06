@@ -292,20 +292,18 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
     def __init__(
         self,
         battle_agent=RandomBattleAgent(),
+        deck_building_agents=(RandomDraftAgent(), RandomDraftAgent()),
         play_first=True,
         alternate_roles=False,
         **kwargs,
     ):
-        # manage the deck-building agents before super.__init__ uses them to simulate deck-building
-        self._play_first = True
-        try:
-            self.deck_building_agents = kwargs["deck_building_agents"]
-        except KeyError:
-            self.deck_building_agents = (RandomDraftAgent(), RandomDraftAgent())
-        self.play_first = play_first
-        
         # init the env
         super().__init__(**kwargs)
+        
+        # manage the deck-building agents before super.__init__ uses them to simulate deck-building
+        self._play_first = True
+        self.deck_building_agents = deck_building_agents
+        self.play_first = play_first
 
         # also init the battle agent and the new parameters
         self.battle_agent = battle_agent
@@ -410,18 +408,20 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
     def __init__(
-        self, play_first=True, alternate_roles=True, adversary_policy=None, **kwargs
+        self,
+        play_first=True,
+        deck_building_agents=(RandomDraftAgent(), RandomDraftAgent()),
+        alternate_roles=True,
+        adversary_policy=None,
+        **kwargs
     ):
-        # manage the deck-building agents before super.__init__ uses them to simulate deck-building
-        self._play_first = True
-        try:
-            self.deck_building_agents = kwargs["deck_building_agents"]
-        except KeyError:
-            self.deck_building_agents = (RandomDraftAgent(), RandomDraftAgent())
-        self.play_first = play_first
-        
         # init the env
         super().__init__(**kwargs)
+        
+        # manage the deck-building agents before super.__init__ uses them to simulate deck-building
+        self._play_first = True
+        self.deck_building_agents = deck_building_agents
+        self.play_first = play_first
 
         # also init the new parameters
         self.adversary_policy = adversary_policy
