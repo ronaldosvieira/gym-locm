@@ -252,7 +252,7 @@ class FixedAdversary(TrainingSession):
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger()
+            RolloutEndLogger(self.wandb_run)
         ]
 
         if self.wandb_run:
@@ -480,25 +480,6 @@ class SelfPlay(TrainingSession):
             model.last_switch = episodes_so_far
             model.next_switch += self.switch_frequency
 
-            # log training win rate at the time of the switch
-            train_mean_reward = np.mean([
-                np.mean(rewards[:-1])
-                for rewards in model.env.env_method("get_episode_rewards")
-            ])
-            
-            if self.wandb_run:
-                self.wandb_run.log({"train_mean_reward": train_mean_reward})
-
-            self.logger.debug(
-                f"Model trained for "
-                f"{sum(model.env.get_attr('episodes'))} episodes. "
-                f"Train reward: {train_mean_reward}"
-            )
-
-            # reset training env rewards
-            for i in range(model.env.num_envs):
-                model.env.set_attr("rewards_single_player", [], indices=[i])
-
             # update parameters of adversary models
             model.adversary.set_parameters(model.get_parameters(), exact_match=True)
 
@@ -515,7 +496,7 @@ class SelfPlay(TrainingSession):
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger()
+            RolloutEndLogger(self.wandb_run)
         ]
 
         if self.wandb_run:
@@ -754,25 +735,6 @@ class FixedAndSelfPlayHybrid(TrainingSession):
             model.last_switch = episodes_so_far
             model.next_switch += self.switch_frequency
 
-            # log training win rate at the time of the switch
-            train_mean_reward = np.mean([
-                np.mean(rewards[:-1])
-                for rewards in model.env.env_method("get_episode_rewards")
-            ])
-            
-            if self.wandb_run:
-                self.wandb_run.log({"train_mean_reward": train_mean_reward})
-
-            self.logger.debug(
-                f"Model trained for "
-                f"{sum(model.env.get_attr('episodes'))} episodes. "
-                f"Train reward: {train_mean_reward}"
-            )
-
-            # reset training env rewards
-            for i in range(model.env.num_envs):
-                model.env.set_attr("rewards_single_player", [], indices=[i])
-
             # update parameters of adversary models
             model.adversary.set_parameters(model.get_parameters(), exact_match=True)
 
@@ -789,7 +751,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger()
+            RolloutEndLogger(self.wandb_run)
         ]
 
         if self.wandb_run:
@@ -974,18 +936,26 @@ class TrainingCallback(BaseCallback):
 
 
 class RolloutEndLogger(BaseCallback):
-    def __init__(self, verbose=0):
+    def __init__(self, wandb_run = None, verbose=0):
         # initialize logger
         self.rollout_logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
         
         super(RolloutEndLogger, self).__init__(verbose)
-        
+
+        self.wandb_run = wandb_run
+
         self.episode_counter = 0
 
     def _on_step(self) -> bool:
         return super()._on_step()
 
     def _on_rollout_end(self):
+        self.log_rollout_stats()
+        
+        self.log_training_rewards()
+        
+    def log_rollout_stats(self):
+        # log the number of episodes and steps per episode in the rollout that just ended
         all_episodes = sum(self.training_env.get_attr("episodes"))
         n_rollout_steps = self.locals["n_rollout_steps"]
         
@@ -996,6 +966,28 @@ class RolloutEndLogger(BaseCallback):
             f"Rollout ended; updating policy ({rollout_episodes} episodes, "
             f"{round(n_rollout_steps / rollout_episodes, 2)} steps/episode)."
         )
+        
+    def log_training_rewards(self):
+        # log avg. training rewards at the end of the rollout
+        train_mean_reward = np.mean([
+            np.mean(rewards[:-1])
+            for rewards in self.training_env.env_method("get_episode_rewards")
+        ])
+        
+        if self.wandb_run:
+            log_name = "train_mean_reward"
+
+            self.wandb_run.log({log_name: train_mean_reward})
+
+        self.rollout_logger.debug(
+            f"Model trained for "
+            f"{sum(self.model.env.get_attr('episodes'))} episodes. "
+            f"Train reward: {train_mean_reward}"
+        )
+
+        # reset training env rewards
+        for i in range(self.training_env.num_envs):
+            self.training_env.set_attr("rewards_single_player", [], indices=[i])
 
 
 def save_model_as_json(model, act_fun, path):
