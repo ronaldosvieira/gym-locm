@@ -1022,7 +1022,13 @@ def model_builder_mlp_masked(
     gae_lambda=0.95,
     tensorboard_log=None,
 ):
-    net_arch = [neurons] * layers
+    if isinstance(layers, int):
+        net_arch = [neurons] * layers
+    elif isinstance(layers, dict) or isinstance(layers, list):
+        net_arch = layers
+    else:
+        raise ValueError(f"Invalid type for layers: {type(layers)}.")
+    
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
     return MaskablePPO(
