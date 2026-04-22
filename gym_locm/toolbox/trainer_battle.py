@@ -11,7 +11,9 @@ from datetime import datetime
 from statistics import mean
 
 import torch as th
+import torch.nn as nn
 
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.vec_env import (
     VecEnv as VecEnv3,
     DummyVecEnv as DummyVecEnv3,
@@ -20,6 +22,7 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from sb3_contrib import MaskablePPO
 from wandb.integration.sb3 import WandbCallback
 
+from gymnasium.spaces import Box
 from gym_locm.agents import Agent, RLBattleAgent, RLDraftAgent
 from gym_locm.envs import LOCMBattleSingleEnv
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
@@ -1055,3 +1058,92 @@ def load_trained_mlp_masked(path):
         return MaskablePPO.load(path + ".zip", env=env, force_reset=True, seed=seed)
     
     return loaded_model_builder
+
+
+class SharedCardEmbeddingNetwork(BaseFeaturesExtractor):
+    def __init__(self, observation_space: Box, card_dim: int = 32):
+        features_dim = observation_space.shape[0]
+        
+        super().__init__(observation_space, features_dim)
+            
+        self.card_embedding = nn.Sequential(
+            nn.Linear(card_dim, 32),
+            nn.ReLU(),
+            nn.Linear(32, 32),
+            nn.ReLU(),
+            nn.Linear(32, card_dim),
+            nn.ReLU(),
+        )
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        # 6 player features
+        # 2 deck length features
+        # 2 hand length features
+        # 8 * 17 card features (4 type, 1 cost, 1 attack, 1 defense, 3 ETB abilities, 6 abilities, 1 area)
+        # 6 * 9 friendly creature features (1 attack, 1 defense, 1 can_attack, 6 abilities)
+        # 6 * 8 enemy creature features (1 attack, 1 defense, 6 abilities)
+        # 17 average deck features
+        # = 265 features
+        
+        obs_pre_hand = observations[:, :6 + 2 + 2]
+        hand = observations[:, 6 + 2 + 2 : 6 + 2 + 2 + 8 * 17]
+        obs_post_hand = observations[:, 6 + 2 + 2 + 8 * 17 :]
+        
+        # pass each card in hand through the card embedding network
+        hand = hand.reshape(-1, 17)  # reshape to (batch_size * max_hand_size, card_feature_dim)
+        hand_embedding = self.card_embedding(hand)  # (batch_size * max_hand_size, card_dim)
+        hand_embedding = hand_embedding.reshape(-1, 8 * 17)  # reshape back to (batch_size, max_hand_size * card_dim)
+
+        obs = th.cat((obs_pre_hand, hand_embedding, obs_post_hand), dim=1)
+
+        return obs
+
+
+def model_builder_sce_mlp_masked(
+    env,
+    seed,
+    neurons,
+    layers,
+    activation,
+    n_steps,
+    nminibatches,
+    noptepochs,
+    cliprange,
+    vf_coef,
+    ent_coef,
+    learning_rate,
+    gamma=1,
+    gae_lambda=0.95,
+    tensorboard_log=None,
+):
+    if isinstance(layers, int):
+        net_arch = [neurons] * layers
+    elif isinstance(layers, dict) or isinstance(layers, list):
+        net_arch = layers
+    else:
+        raise ValueError(f"Invalid type for layers: {type(layers)}.")
+    
+    activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
+
+    return MaskablePPO(
+        "MlpPolicy",
+        env,
+        learning_rate=learning_rate,
+        n_steps=n_steps,
+        batch_size=nminibatches,
+        n_epochs=noptepochs,
+        gamma=gamma,
+        gae_lambda=gae_lambda,
+        clip_range=cliprange,
+        ent_coef=ent_coef,
+        vf_coef=vf_coef,
+        verbose=0,
+        seed=seed,
+        policy_kwargs=dict(
+            net_arch=net_arch, 
+            activation_fn=activation,
+            features_extractor_class=SharedCardEmbeddingNetwork,
+            features_extractor_kwargs=dict(card_dim=17),
+        ),
+        tensorboard_log=tensorboard_log,
+    )
