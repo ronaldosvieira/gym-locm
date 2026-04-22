@@ -271,14 +271,14 @@ class LOCMBattleEnv(LOCMEnv):
 
         if self.use_average_deck:
             encoded_state[anchor:-card_features] = np.array(all_cards).flatten()
-            encoded_state[-card_features:] = np.array(
-                list(
-                    map(
-                        lambda c: self.encode_card(c, version=self.version),
-                        self.player_decks[p0.id],
-                    )
-                )
-            ).mean(axis=0)
+            
+            deck_cards = self.player_decks[p0.id]
+            deck_cards = list(map(lambda c: self.encode_card(c, version=self.version), deck_cards))
+
+            if not self.items:
+                deck_cards = list(map(lambda c: c[4:], deck_cards))
+
+            encoded_state[-card_features:] = np.array(deck_cards).mean(axis=0)
         else:
             encoded_state[anchor:] = np.array(all_cards).flatten()
 
