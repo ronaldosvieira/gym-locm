@@ -130,6 +130,11 @@ class SubmitInterface:
         state = observation  # shorthand
 
         p0, p1 = state.current_player, state.opposing_player
+        
+        # note: gym-locm addition - handle items=False
+        items_setting = state.items
+        state.items = True
+        state._phase.items = True
 
         def fill_cards(card_list, up_to, features):
             remaining_cards = up_to - len(card_list)
@@ -260,6 +265,11 @@ class SubmitInterface:
                     ("oppo_player", np.zeros(self.player_features, dtype=np.float32)),
                 ]
             )
+
+        # note: gym-locm addition - handle items=False
+        state.items = items_setting
+        state._phase.items = items_setting
+
         return cur_player_obs
 
     def convert_to_locm_action(self, state, action_number):
@@ -269,9 +279,6 @@ class SubmitInterface:
 
         me_player = state.current_player
         oppo_player = state.opposing_player
-
-        if not state.items and action_number > 16:
-            action_number += 104
 
         if action_number == 0:
             return Action(ActionType.PASS)
