@@ -484,7 +484,7 @@ class LOCMEnv(gym.Env, ABC):
         can_attack = int(card.can_attack and not card.has_attacked_this_turn)
         keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
 
-        return [attack, defense, can_attack] + keywords
+        return [can_attack, attack, defense] + keywords
 
     @staticmethod
     def encode_enemy_card_on_board(card: Creature):
