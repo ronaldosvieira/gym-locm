@@ -22,6 +22,7 @@ class LOCMBattleEnv(LOCMEnv):
         reward_weights=(1.0,),
         version="1.5",
         use_average_deck=True,
+        dict_observations=False,
         render_mode=None,
     ):
         super().__init__(
@@ -46,6 +47,7 @@ class LOCMBattleEnv(LOCMEnv):
 
         self.return_action_mask = return_action_mask
         self.use_average_deck = use_average_deck
+        self.dict_observations = dict_observations
 
         player_features = 3 if self.version == "1.5" else 4
         cards_in_hand = 8
@@ -53,7 +55,7 @@ class LOCMBattleEnv(LOCMEnv):
         hand_size_features = 1
         card_features = 17 if self.items else 13
         friendly_cards_on_board = 6
-        friendly_board_card_features = 9
+        friendly_board_card_features = 9 if not self.dict_observations else 8
         enemy_cards_on_board = 6
         enemy_board_card_features = 8
 
@@ -73,9 +75,24 @@ class LOCMBattleEnv(LOCMEnv):
             + enemy_cards_on_board * enemy_board_card_features  # opponent's battlefield content
         )
         
-        self.observation_space = gym.spaces.Box(
-            low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
-        )
+        if dict_observations:
+            self.observation_space = gym.spaces.Dict({
+                "player_stats": gym.spaces.Box(low=-1.0, high=1.0, shape=(5,), dtype=np.float32),
+                "player_deck": gym.spaces.Box(low=-1.0, high=1.0, shape=(30, card_features,), dtype=np.float32),
+                "player_hand": gym.spaces.Box(low=-1.0, high=1.0, shape=(cards_in_hand, card_features,), dtype=np.float32),
+                "player_lane0": gym.spaces.Box(low=-1.0, high=1.0, shape=(3, friendly_board_card_features,), dtype=np.float32),
+                "player_lane1": gym.spaces.Box(low=-1.0, high=1.0, shape=(3, friendly_board_card_features,), dtype=np.float32),
+                
+                "opponent_stats": gym.spaces.Box(low=-1.0, high=1.0, shape=(5,), dtype=np.float32),
+                "opponent_lane0": gym.spaces.Box(low=-1.0, high=1.0, shape=(3, enemy_board_card_features,), dtype=np.float32),
+                "opponent_lane1": gym.spaces.Box(low=-1.0, high=1.0, shape=(3, enemy_board_card_features,), dtype=np.float32),
+                
+                "action_mask": gym.spaces.MultiBinary(145 if self.items else 41),
+            })
+        else:
+            self.observation_space = gym.spaces.Box(
+                low=-1.0, high=1.0, shape=(self.state_shape,), dtype=np.float32
+            )
 
         if self.items:
             # 145 possible actions
@@ -197,6 +214,68 @@ class LOCMBattleEnv(LOCMEnv):
         pass
 
     def _encode_state_battle(self):
+        if self.dict_observations:
+            return self._encode_state_battle_dict_obs()
+        else:
+            return self._encode_state_battle_box_obs()
+
+    def _encode_state_battle_dict_obs(self):
+        p0, p1 = self.state.current_player, self.state.opposing_player
+        
+        def fill_cards(card_list, up_to, features):
+            remaining_cards = up_to - len(card_list)
+
+            return card_list + [[0] * features for _ in range(remaining_cards)]
+        
+        card_features = 17 if self.items else 13
+
+        if self.version == "1.2":
+            card_features -= 1
+        
+        players_info = self.encode_players(
+            p0, p1, version=self.version
+        )
+        
+        player_hand = list(map(lambda c: self.encode_card(c, version=self.version), p0.hand))
+        player_deck = list(map(lambda c: self.encode_card(c, version=self.version), p0.deck))
+        
+        if not self.items:
+            player_hand = list(map(lambda c: c[4:], player_hand))
+            player_deck = list(map(lambda c: c[4:], player_deck))
+
+        player_hand = fill_cards(player_hand, up_to=8, features=card_features)
+        player_deck = fill_cards(player_deck, up_to=30, features=card_features)
+
+        # encode_enemy_card_on_board is used on purpose to not include can_attack information
+        player_lane0 = list(map(self.encode_enemy_card_on_board, p0.lanes[0]))
+        player_lane0 = fill_cards(player_lane0, up_to=3, features=8)
+        
+        player_lane1 = list(map(self.encode_enemy_card_on_board, p0.lanes[1]))
+        player_lane1 = fill_cards(player_lane1, up_to=3, features=8)
+
+        opponent_lane0 = list(map(self.encode_enemy_card_on_board, p1.lanes[0]))
+        opponent_lane0 = fill_cards(opponent_lane0, up_to=3, features=8)
+        
+        opponent_lane1 = list(map(self.encode_enemy_card_on_board, p1.lanes[1]))
+        opponent_lane1 = fill_cards(opponent_lane1, up_to=3, features=8)
+        
+        encoded_state = {
+            "player_stats": list(players_info[:3]) + [len(p0.hand) / 8, len(p0.deck) / 30],
+            "player_deck": player_deck,
+            "player_hand": player_hand,
+            "player_lane0": player_lane0,
+            "player_lane1": player_lane1,
+            
+            "opponent_stats": list(players_info[3:]) + [len(p1.hand) / 8, len(p1.deck) / 30],
+            "opponent_lane0": opponent_lane0,
+            "opponent_lane1": opponent_lane1,
+            
+            "action_mask": self.action_mask,
+        }
+        
+        return encoded_state
+
+    def _encode_state_battle_box_obs(self):
         encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
 
         p0, p1 = self.state.current_player, self.state.opposing_player
@@ -251,9 +330,11 @@ class LOCMBattleEnv(LOCMEnv):
         # players info
         player_features = 6 if self.version == "1.5" else 8
 
-        encoded_state[:player_features] = self.encode_players(
+        players_info = self.encode_players(
             p0, p1, version=self.version
         )
+        
+        encoded_state[:player_features] = players_info
 
         anchor = player_features
 
