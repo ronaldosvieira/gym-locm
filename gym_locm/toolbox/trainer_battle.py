@@ -1,9 +1,10 @@
+from functools import partial
 import json
 import logging
 import math
 import os
 import time
-from typing import List
+from typing import Callable, List, Tuple
 
 import numpy as np
 from abc import abstractmethod
@@ -14,6 +15,7 @@ import torch as th
 import torch.nn as nn
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from stable_baselines3.common.vec_env import (
     VecEnv as VecEnv3,
     DummyVecEnv as DummyVecEnv3,
@@ -22,7 +24,8 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from sb3_contrib import MaskablePPO
 from wandb.integration.sb3 import WandbCallback
 
-from gymnasium.spaces import Box
+from gymnasium.spaces import Space, Box, Dict
+from gym_locm import envs
 from gym_locm.agents import Agent, RLBattleAgent, RLDraftAgent
 from gym_locm.envs import LOCMBattleSingleEnv
 from gym_locm.envs.battle import LOCMBattleSelfPlayEnv
@@ -1145,5 +1148,391 @@ def model_builder_sce_mlp_masked(
             features_extractor_class=SharedCardEmbeddingNetwork,
             features_extractor_kwargs=dict(card_dim=17),
         ),
+        tensorboard_log=tensorboard_log,
+    )
+
+
+class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
+    def __init__(
+        self, 
+        observation_space: Dict, 
+        card_dim: int = 17, 
+        player_dim: int = 5, 
+        creature_dim: int = 8,
+        card_emb_dim: int = 32,
+        zone_emb_dim: int = 32,
+        player_emb_dim: int = 16,
+        creature_emb_dim: int = 16,
+        lane_emb_dim: int = 16,
+        state_emb_dim: int = 256,
+    ):
+        features_dim = (
+            2 * player_emb_dim  # players
+            + 30 * card_emb_dim  # deck cards
+            + zone_emb_dim  # deck
+            + 8 * card_emb_dim  # hand cards
+            + zone_emb_dim  # hand
+            + 4 * 3 * creature_emb_dim  # lane creatures
+            + 4 * lane_emb_dim  # lanes
+            + state_emb_dim  # whole state
+            # = 1824
+        )
+
+        super().__init__(observation_space, features_dim=features_dim)
+
+        self.player_embedding = nn.Sequential(
+            nn.Linear(player_dim, 16), nn.ReLU(),
+            nn.Linear(16, 16), nn.ReLU(),
+        ) # 5 * 16 + 16 * 16 = 336 parameters
+
+        self.card_embedding = nn.Sequential(
+            nn.Linear(card_dim, 32), nn.ReLU(),
+            nn.Linear(32, 32), nn.ReLU(),
+        ) # 17 * 32 + 32 * 32 = 1,568 parameters
+        
+        self.card_zone_embedding = nn.Sequential(
+            nn.Linear(32, 32), nn.ReLU(),
+        ) # 32 * 32 = 1,024 parameters
+
+        self.creature_embedding = nn.Sequential(
+            nn.Linear(creature_dim, 16), nn.ReLU(),
+            nn.Linear(16, 16), nn.ReLU(),
+        ) # 8 * 16 + 16 * 16 = 384 parameters
+        
+        self.lane_embedding = nn.Sequential(
+            nn.Linear(16, 16), nn.ReLU(),
+        ) # 16 * 16 = 256 parameters
+        
+        # 2 * 16 player + 32 hand + 32 deck + 4 * 16 lane = 160 features
+        self.state_embedding = nn.Sequential(
+            nn.Linear(160, 256), nn.ReLU(),
+            nn.Linear(256, 256), nn.ReLU(),
+        ) # 160 * 256 + 256 * 256 = 106,496 parameters
+
+    def forward(self, observations) -> th.Tensor:
+        # embedding of both players
+        p = self.player_embedding(observations["player_stats"])
+        op = self.player_embedding(observations["opponent_stats"])
+        
+        p_deck_cards = observations["player_deck"]
+        
+        # embedding of individual deck cards
+        p_deck_cards = p_deck_cards.reshape(-1, 17)
+        p_deck_cards = self.card_embedding(p_deck_cards)
+        p_deck_cards = p_deck_cards.reshape(-1, 30, 32)
+        
+        # embedding of the whole deck
+        p_deck = p_deck_cards.sum(dim=1)
+        p_deck = self.card_zone_embedding(p_deck)
+
+        p_hand_cards = observations["player_hand"]
+
+        # embedding of individual hand cards
+        p_hand_cards = p_hand_cards.reshape(-1, 17)
+        p_hand_cards = self.card_embedding(p_hand_cards)
+        p_hand_cards = p_hand_cards.reshape(-1, 8, 32)
+        
+        # embedding of the whole hand
+        p_hand = p_hand_cards.sum(dim=1)
+        p_hand = self.card_zone_embedding(p_hand)
+        
+        p_lane0_creatures = observations["player_lane0"]
+        
+        # embedding of individual player lane 0 creatures
+        p_lane0_creatures = p_lane0_creatures.reshape(-1, 8)
+        p_lane0_creatures = self.creature_embedding(p_lane0_creatures)
+        p_lane0_creatures = p_lane0_creatures.reshape(-1, 3, 16)
+
+        # embedding of the whole player lane 0
+        p_lane0 = p_lane0_creatures.sum(dim=1)
+        p_lane0 = self.lane_embedding(p_lane0)
+
+        p_lane1_creatures = observations["player_lane1"]
+        
+        # embedding of individual player lane 1 creatures
+        p_lane1_creatures = p_lane1_creatures.reshape(-1, 8)
+        p_lane1_creatures = self.creature_embedding(p_lane1_creatures)
+        p_lane1_creatures = p_lane1_creatures.reshape(-1, 3, 16)
+
+        # embedding of the whole player lane 1
+        p_lane1 = p_lane1_creatures.sum(dim=1)
+        p_lane1 = self.lane_embedding(p_lane1)
+
+        op_lane0_creatures = observations["opponent_lane0"]
+        
+        # embedding of individual opponent lane 0 creatures
+        op_lane0_creatures = op_lane0_creatures.reshape(-1, 8)
+        op_lane0_creatures = self.creature_embedding(op_lane0_creatures)
+        op_lane0_creatures = op_lane0_creatures.reshape(-1, 3, 16)
+
+        # embedding of the whole opponent lane 0
+        op_lane0 = op_lane0_creatures.sum(dim=1)
+        op_lane0 = self.lane_embedding(op_lane0)
+
+        op_lane1_creatures = observations["opponent_lane1"]
+        
+        # embedding of individual opponent lane 1 creatures
+        op_lane1_creatures = op_lane1_creatures.reshape(-1, 8)
+        op_lane1_creatures = self.creature_embedding(op_lane1_creatures)
+        op_lane1_creatures = op_lane1_creatures.reshape(-1, 3, 16)
+
+        # embedding of the whole opponent lane 1
+        op_lane1 = op_lane1_creatures.sum(dim=1)
+        op_lane1 = self.lane_embedding(op_lane1)
+        
+        # embedding of the whole state
+        state_input = th.cat((
+            p, op, 
+            p_deck, p_hand, 
+            p_lane0, p_lane1, 
+            op_lane0, op_lane1
+        ), dim=1)
+        state = self.state_embedding(state_input)
+
+        embeddings = dict(
+            player=p,
+            opponent=op,
+            deck_cards=p_deck_cards,
+            deck=p_deck,
+            hand_cards=p_hand_cards,
+            hand=p_hand,
+            p_lane0_creatures=p_lane0_creatures,
+            p_lane0=p_lane0,
+            p_lane1_creatures=p_lane1_creatures,
+            p_lane1=p_lane1,
+            op_lane0_creatures=op_lane0_creatures,
+            op_lane0=op_lane0,
+            op_lane1_creatures=op_lane1_creatures,
+            op_lane1=op_lane1,
+            state=state,
+        )
+        
+        return embeddings
+
+
+class PermutationInvariantLOCMNetwork(nn.Module):
+    """
+    Custom network for policy and value function.
+    It receives as input the features extracted by the features extractor.
+
+    :param feature_dim: dimension of the features extracted with the features_extractor (e.g. features from a CNN)
+    :param last_layer_dim_pi: (int) number of units for the last layer of the policy network
+    :param last_layer_dim_vf: (int) number of units for the last layer of the value network
+    """
+
+    def __init__(
+        self,
+        feature_dim: int,
+        player_dim: int = 5,
+        card_dim: int = 17,
+        creature_dim: int = 8,
+        last_layer_dim_pi: int = 145,
+        last_layer_dim_vf: int = 1,
+    ):
+        super().__init__()
+
+        # IMPORTANT:
+        # Save output dimensions, used to create the distributions
+        self.latent_dim_pi = last_layer_dim_pi
+        self.latent_dim_vf = last_layer_dim_vf
+        
+        
+        # input: state (256)
+        self.pass_action = nn.Sequential(
+            nn.Linear(256, last_layer_dim_vf)
+        )
+        
+        # input: source card (32) + target lane (16) + state (256) = 304
+        self.summon_action = nn.Sequential(
+            nn.Linear(304, 1)
+        )
+        
+        # input: source card (32) + target creature (16) + state (256) = 304
+        self.use_action = nn.Sequential(
+            nn.Linear(304, 1)
+        )
+
+        # input: source card (16) + target creature (16) + state (256) = 288
+        self.attack_action = nn.Sequential(
+            nn.Linear(288, 1)
+        )
+        
+        # value function head
+        # input: state (256)
+        self.value_net = nn.Sequential(
+            nn.Linear(256, last_layer_dim_vf)
+        )
+
+    def forward(self, features: dict) -> Tuple[th.Tensor, th.Tensor]:
+        """
+        :return: (th.Tensor, th.Tensor) latent_policy, latent_value of the specified network.
+            If all layers are shared, then ``latent_policy == latent_value``
+        """
+        
+        return self.forward_actor(features), self.forward_critic(features)
+
+    def forward_actor(self, embeddings: dict) -> th.Tensor:
+        # PASS logit
+        pass_logit = self.pass_action(embeddings["state"])  # [bs, 1]
+
+        # SUMMON logits
+        hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
+        hand = hand.repeat_interleave(2, dim=1)  # [bs, 2 * max_hand_size, card_dim]
+        # hand = hand.reshape(-1, 16, 32)  # [bs, 2 * max_hand_size, card_dim]
+        
+        lane0 = embeddings["p_lane0"].reshape(-1, 1, 16)  # [bs, 1, lane_dim]
+        lane1 = embeddings["p_lane1"].reshape(-1, 1, 16)  # [bs, 1, lane_dim]
+        lanes = th.cat((lane0, lane1), dim=1)  # [bs, 2, lane_dim]
+        lanes = lanes.repeat(1, 8, 1)  # [bs, 2 * max_hand_size, lane_dim]
+
+        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
+        state = state.repeat(1, 8 * 2, 1)  # [bs, 2 * max_hand_size, state_dim]
+
+        summon_input = th.cat((hand, lanes, state), dim=2)  # [bs * 2 * max_hand_size, card_dim + lane_dim + state_dim]
+        summon_input = summon_input.reshape(-1, 304)  # [bs * 2 * max_hand_size, card_dim + lane_dim + state_dim]
+        summon_logits = self.summon_action(summon_input)  # [bs * 2 * max_hand_size, 1]
+        summon_logits = summon_logits.reshape(-1, 8 * 2)  # [bs, max_hand_size * 2]
+        
+        # USE logits
+        hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
+        targets = th.cat((
+            th.zeros((hand.size(0), 1, 16), device=hand.device),  # for the "no target" option
+            embeddings["p_lane0_creatures"], embeddings["p_lane1_creatures"],
+            embeddings["op_lane0_creatures"], embeddings["op_lane1_creatures"],
+        ), dim=1)  # [bs, 13, creature_dim]
+        targets = targets.repeat(1, 8, 1)  # [bs, 13 * max_hand_size, creature_dim]
+        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
+        state = state.repeat(1, 8 * 13, 1)  # [bs, 13 * max_hand_size, state_dim]
+        hand = hand.repeat_interleave(13, dim=1)  # [bs, 13 * max_hand_size, card_dim]
+        
+        use_input = th.cat((hand, targets, state), dim=2)  # [bs, 13 * max_hand_size, card_dim + creature_dim + state_dim]
+        use_input = use_input.reshape(-1, 304)  # [bs * 13 * max_hand_size, card_dim + creature_dim + state_dim]
+        use_logits = self.use_action(use_input)  # [bs * 13 * max_hand_size, 1]
+        use_logits = use_logits.reshape(-1, 8 * 13)  # [bs, max_hand_size * 13])
+
+        # ATTACK lane 0 logits
+        op_lane0_creatures = embeddings["op_lane0_creatures"]  # [bs, 3, creature_dim]
+        op_lane0_creatures = th.cat((th.zeros((op_lane0_creatures.size(0), 1, 16), device=op_lane0_creatures.device), op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
+        op_lane0_creatures = op_lane0_creatures.repeat(1, 3, 1)  # [bs, 12, creature_dim]
+
+        p_lane0_creatures = embeddings["p_lane0_creatures"]  # [bs, 3, creature_dim]
+        p_lane0_creatures = p_lane0_creatures.repeat_interleave(4, dim=1)  # [bs, 12, creature_dim]
+
+        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
+        state = state.repeat(1, 12, 1)  # [bs, 12, state_dim]
+        
+        attack_lane0_input = th.cat((p_lane0_creatures, op_lane0_creatures, state), dim=2)  # [bs, 12, 2 * creature_dim + state_dim]
+        attack_lane0_input = attack_lane0_input.reshape(-1, 288)  # [bs * 12, 2 * creature_dim + state_dim]
+
+        attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs * 12, 1]
+        attack_lane0_logits = attack_lane0_logits.reshape(-1, 12)  # [bs, 12]
+        
+        # ATTACK lane 1 logits
+        op_lane1_creatures = embeddings["op_lane1_creatures"]  # [bs, 3, creature_dim]
+        op_lane1_creatures = th.cat((th.zeros((op_lane1_creatures.size(0), 1, 16), device=op_lane1_creatures.device), op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
+        op_lane1_creatures = op_lane1_creatures.repeat(1, 3, 1)  # [bs, 12, creature_dim]
+
+        p_lane1_creatures = embeddings["p_lane1_creatures"]  # [bs, 3, creature_dim]
+        p_lane1_creatures = p_lane1_creatures.repeat_interleave(4, dim=1)  # [bs, 12, creature_dim]
+        
+        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
+        state = state.repeat(1, 12, 1)  # [bs, 12, state_dim]
+
+        attack_lane1_input = th.cat((p_lane1_creatures, op_lane1_creatures, state), dim=2)  # [bs, 12, 2 * creature_dim + state_dim]
+        attack_lane1_input = attack_lane1_input.reshape(-1, 288)  # [bs * 12, 2 * creature_dim + state_dim]
+
+        attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs * 12, 1]
+        attack_lane1_logits = attack_lane1_logits.reshape(-1, 12)  # [bs, 12]
+
+        # concat all action logits
+        logits = th.cat((
+            pass_logit,
+            summon_logits,
+            use_logits,
+            attack_lane0_logits,
+            attack_lane1_logits,
+        ), dim=1)  # [bs, 145]
+        
+        return logits
+
+    def forward_critic(self, embeddings: dict) -> th.Tensor:
+        return self.value_net(embeddings["state"])
+
+
+class CustomActorCriticPolicy(MaskableActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: Space,
+        action_space: Space,
+        lr_schedule: Callable[[float], float],
+        *args,
+        **kwargs,
+    ):  
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            # Pass remaining arguments to base class
+            *args,
+            features_extractor_class=PermutationInvariantFeaturesExtractor,
+            features_extractor_kwargs=dict(),
+            **kwargs,
+        )
+
+    def _build(self, lr_schedule: Callable[[float], float]) -> None:
+        super()._build(lr_schedule)
+        
+        # do not add a nn.Linear layer on top of what we return at PermutationInvariantLOCMNetwork
+        self.action_net = nn.Identity()
+        self.value_net = nn.Identity()
+        
+        # initialize weights of the new output layers (which are not initialized by the base class)
+        if self.ortho_init:
+            module_gains = {
+                self.mlp_extractor.pass_action: 0.01,
+                self.mlp_extractor.summon_action: 0.01,
+                self.mlp_extractor.use_action: 0.01,
+                self.mlp_extractor.attack_action: 0.01,
+                self.mlp_extractor.value_net: 1,
+            }
+            
+            for module, gain in module_gains.items():
+                module.apply(partial(self.init_weights, gain=gain))
+
+    def _build_mlp_extractor(self) -> None:
+        self.mlp_extractor = PermutationInvariantLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
+
+
+def model_builder_pinv_masked(
+    env,
+    seed,
+    neurons,
+    layers,
+    activation,
+    n_steps,
+    nminibatches,
+    noptepochs,
+    cliprange,
+    vf_coef,
+    ent_coef,
+    learning_rate,
+    gamma=1,
+    gae_lambda=0.95,
+    tensorboard_log=None,
+):
+    return MaskablePPO(
+        CustomActorCriticPolicy,
+        env,
+        learning_rate=learning_rate,
+        n_steps=n_steps,
+        batch_size=nminibatches,
+        n_epochs=noptepochs,
+        gamma=gamma,
+        gae_lambda=gae_lambda,
+        clip_range=cliprange,
+        ent_coef=ent_coef,
+        vf_coef=vf_coef,
+        verbose=0,
+        seed=seed,
         tensorboard_log=tensorboard_log,
     )
