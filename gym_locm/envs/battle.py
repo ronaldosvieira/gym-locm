@@ -432,7 +432,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
         self.rewards_single_player.append(0.0)
 
-        return encoded_state, info
+        return self.encode_state(), info
 
     def step(self, action) -> tuple[np.array, float, bool, bool, dict]:
         """Makes an action in the game."""
@@ -541,7 +541,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         self.rewards_single_player.append(0.0)
 
-        return encoded_state, info
+        return self.encode_state(), info
 
     def step(self, action) -> tuple[np.array, float, bool, bool, dict]:
         """Makes an action in the game."""
