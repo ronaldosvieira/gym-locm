@@ -269,8 +269,8 @@ class LOCMBattleEnv(LOCMEnv):
             "opponent_stats": list(players_info[3:]) + [len(p1.hand) / 8, len(p1.deck) / 30],
             "opponent_lane0": opponent_lane0,
             "opponent_lane1": opponent_lane1,
-            
-            "action_mask": self.action_mask,
+
+            "action_mask": np.array(list(map(int, self.state.action_mask))),
         }
         
         return encoded_state
@@ -528,7 +528,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         if not self.play_first:
             while self.state.current_player.id != PlayerOrder.SECOND:
                 state = self.encode_state()
-                action = self.adversary_policy(state, self.action_mask)
+                action = self.adversary_policy(state)
 
                 try:
                     state, reward, terminated, truncated, info = super().step(action)
@@ -557,7 +557,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         while self.state.current_player.id != player and self.state.winner is None:
             state = self.encode_state()
-            action = self.adversary_policy(state, self.action_mask)
+            action = self.adversary_policy(state)
 
             try:
                 state, reward, terminated, truncated, info = super().step(action)

@@ -15,12 +15,13 @@ import torch as th
 import torch.nn as nn
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
+from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.vec_env import (
     VecEnv as VecEnv3,
     DummyVecEnv as DummyVecEnv3,
 )
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
+from stable_baselines3 import PPO
 from sb3_contrib import MaskablePPO
 from wandb.integration.sb3 import WandbCallback
 
@@ -361,8 +362,8 @@ class SelfPlay(TrainingSession):
 
         # set adversary models as adversary policies of the self-play envs
         def make_adversary_policy(model):
-            def adversary_policy(obs, action_mask):
-                actions, _ = model.adversary.predict(obs, action_masks=action_mask)
+            def adversary_policy(obs):
+                actions, _ = model.adversary.predict(obs)
 
                 return actions
 
@@ -616,8 +617,8 @@ class FixedAndSelfPlayHybrid(TrainingSession):
 
         # set the adversary model as an adversary policy in the self-play envs
         def make_adversary_policy(model):
-            def adversary_policy(obs, action_mask):
-                actions, _ = model.adversary.predict(obs, action_masks=action_mask)
+            def adversary_policy(obs):
+                actions, _ = model.adversary.predict(obs)
 
                 return actions
 
@@ -865,8 +866,7 @@ class Evaluator:
             if isinstance(agent, RLDraftAgent):
                 actions = agent.act(observations)
             elif isinstance(agent, RLBattleAgent):
-                action_masks = self.env.env_method("action_masks")
-                actions = agent.act(observations, action_masks)
+                actions = agent.act(observations)
             else:
                 observations = self.env.get_attr("state")
                 actions = [agent.act(observation) for observation in observations]
@@ -1305,6 +1305,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
             op_lane1_creatures=op_lane1_creatures,
             op_lane1=op_lane1,
             state=state,
+            action_mask=observations["action_mask"],
         )
         
         return embeddings
@@ -1452,6 +1453,10 @@ class PermutationInvariantLOCMNetwork(nn.Module):
             attack_lane0_logits,
             attack_lane1_logits,
         ), dim=1)  # [bs, 145]
+        action_mask = embeddings["action_mask"]
+        
+        # prevent invalid actions
+        logits = logits.masked_fill(action_mask == 0, -1e9)
         
         return logits
 
@@ -1459,7 +1464,7 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         return self.value_net(embeddings["state"])
 
 
-class CustomActorCriticPolicy(MaskableActorCriticPolicy):
+class CustomActorCriticPolicy(ActorCriticPolicy):
     def __init__(
         self,
         observation_space: Space,
@@ -1520,7 +1525,7 @@ def model_builder_pinv_masked(
     gae_lambda=0.95,
     tensorboard_log=None,
 ):
-    return MaskablePPO(
+    return PPO(
         CustomActorCriticPolicy,
         env,
         learning_rate=learning_rate,
