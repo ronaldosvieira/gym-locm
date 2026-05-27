@@ -1011,6 +1011,161 @@ def save_model_as_json(model, act_fun, path):
         json.dump(params, json_file)
 
 
+class BaselineFeaturesExtractor(BaseFeaturesExtractor):
+    def __init__(
+        self, 
+        observation_space: Dict, 
+        net_arch: list[int],
+        activation_fn: type[nn.Module],
+        card_dim: int = 17, 
+        player_dim: int = 5, 
+        creature_dim: int = 8,
+    ):
+        input_dim = (
+            2 * player_dim  # players
+            + card_dim  # deck
+            + 8 * card_dim  # hand cards
+            + 4 * 3 * creature_dim  # lane creatures
+            # = 259
+        )
+
+        super().__init__(observation_space, features_dim=net_arch[-1])
+
+        net_arch = [input_dim] + net_arch
+        
+        layers = []
+
+        for i in range(len(net_arch) - 1):
+            layers.append(nn.Linear(net_arch[i], net_arch[i + 1]))
+            layers.append(activation_fn())
+
+        self.fc = nn.Sequential(*layers)
+
+    def forward(self, features: dict) -> tuple[th.Tensor, th.Tensor]:
+        player_stats = features["player_stats"]  # [bs, 5]
+        opponent_stats = features["opponent_stats"]  # [bs, 5]
+        player_deck = features["player_deck"]  # [bs, 30, 17]
+        player_hand = features["player_hand"]  # [bs, 8, 17]
+        p_lane0 = features["player_lane0"]  # [bs, 3, 8]
+        p_lane1 = features["player_lane1"]  # [bs, 3, 8]
+        op_lane0 = features["opponent_lane0"]  # [bs, 3, 8]
+        op_lane1 = features["opponent_lane1"]  # [bs, 3, 8]
+
+        bs = player_stats.shape[0]
+
+        deck_mean = player_deck.mean(dim=1)  # [bs, 17]
+        hand_flat = player_hand.view(bs, -1)  # [bs, 8*17]
+        p_lane0_flat = p_lane0.view(bs, -1)  # [bs, 3*8]
+        p_lane1_flat = p_lane1.view(bs, -1)  # [bs, 3*8]
+        op_lane0_flat = op_lane0.view(bs, -1)  # [bs, 3*8]
+        op_lane1_flat = op_lane1.view(bs, -1)  # [bs, 3*8]
+
+        features_concat = th.cat((
+            player_stats,
+            opponent_stats,
+            deck_mean,
+            hand_flat,
+            p_lane0_flat,
+            p_lane1_flat,
+            op_lane0_flat,
+            op_lane1_flat,
+        ), dim=1)
+
+        return self.fc(features_concat), features["action_mask"]
+
+
+class BaselineLOCMNetwork(nn.Module):
+    def __init__(
+        self,
+        feature_dim: int,
+        last_layer_dim_pi: int = 145,
+        last_layer_dim_vf: int = 1,
+    ):
+        super().__init__()
+
+        # IMPORTANT:
+        # Save output dimensions, used to create the distributions
+        self.latent_dim_pi = last_layer_dim_pi
+        self.latent_dim_vf = last_layer_dim_vf
+        
+        self.policy = nn.Linear(feature_dim, last_layer_dim_pi)
+        self.value_function = nn.Linear(feature_dim, last_layer_dim_vf)
+
+    def forward(self, features: dict) -> Tuple[th.Tensor, th.Tensor]:
+        """
+        :return: (th.Tensor, th.Tensor) latent_policy, latent_value of the specified network.
+            If all layers are shared, then ``latent_policy == latent_value``
+        """
+        
+        return self.forward_actor(features), self.forward_critic(features)
+
+    def forward_actor(self, features: dict) -> th.Tensor:
+        logits = self.policy(features.get("latent"))
+
+        action_mask = features.get("action_mask")
+        
+        if action_mask is not None:
+            logits = logits.masked_fill(action_mask == 0, -1e9)
+
+        return logits
+
+    def forward_critic(self, features: dict) -> th.Tensor:
+        return self.value_function(features.get("latent"))
+
+
+class BaselineActorCriticPolicy(ActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: Space,
+        action_space: Space,
+        lr_schedule: Callable[[float], float],
+        net_arch: list[int] | None = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
+        *args,
+        **kwargs,
+    ):  
+        if net_arch is None:
+            net_arch = [256, 256]
+            
+        if isinstance(net_arch, int):
+            net_arch = [net_arch]
+        elif isinstance(net_arch, dict):
+            raise ValueError("dict net_arch not supported.")
+
+        self.net_arch = net_arch
+
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            net_arch,
+            # Pass remaining arguments to base class
+            features_extractor_class=BaselineFeaturesExtractor,
+            features_extractor_kwargs=dict(net_arch=net_arch, activation_fn=activation_fn),
+            *args,
+            **kwargs,
+        )
+
+    def _build(self, lr_schedule: Callable[[float], float]) -> None:
+        super()._build(lr_schedule)
+        
+        # do not add a nn.Linear layer on top of what we return at BaselineLOCMNetwork
+        self.action_net = nn.Identity()
+        self.value_net = nn.Identity()
+        
+        # initialize weights of the new output layers (which are not initialized by the base class)
+        if self.ortho_init:
+            module_gains = {
+                self.mlp_extractor.policy: 0.01,
+                self.mlp_extractor.value_function: 1,
+            }
+            
+            for module, gain in module_gains.items():
+                module.apply(partial(self.init_weights, gain=gain))
+
+    def _build_mlp_extractor(self) -> None:
+        self.mlp_extractor = BaselineLOCMNetwork(self.features_extractor.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
+
 def model_builder_mlp_masked(
     env,
     seed,
@@ -1037,8 +1192,8 @@ def model_builder_mlp_masked(
     
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
 
-    return MaskablePPO(
-        "MlpPolicy",
+    return PPO(
+        BaselineActorCriticPolicy,
         env,
         learning_rate=learning_rate,
         n_steps=n_steps,
@@ -1058,7 +1213,7 @@ def model_builder_mlp_masked(
 
 def load_trained_mlp_masked(path):
     def loaded_model_builder(env, seed, *args, **kwargs):
-        return MaskablePPO.load(path + ".zip", env=env, force_reset=True, seed=seed)
+        return PPO.load(path + ".zip", env=env, force_reset=True, seed=seed)
     
     return loaded_model_builder
 
@@ -1375,7 +1530,7 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         return self.value_net(embeddings["state"])
 
 
-class CustomActorCriticPolicy(ActorCriticPolicy):
+class PermutationInvariantActorCriticPolicy(ActorCriticPolicy):
     def __init__(
         self,
         observation_space: Space,
@@ -1437,7 +1592,7 @@ def model_builder_pinv_masked(
     tensorboard_log=None,
 ):
     return PPO(
-        CustomActorCriticPolicy,
+        PermutationInvariantActorCriticPolicy,
         env,
         learning_rate=learning_rate,
         n_steps=n_steps,
