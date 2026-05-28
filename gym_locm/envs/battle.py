@@ -180,6 +180,10 @@ class LOCMBattleEnv(LOCMEnv):
             "winner": winner,
             "invalid": state.was_last_action_invalid,
             "raw_rewards": raw_rewards,
+            "health_diff": (
+                state.players[0].health - state.players[1].health,
+                state.players[1].health - state.players[0].health,
+            )
         }
 
         if self.return_action_mask:

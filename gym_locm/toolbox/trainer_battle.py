@@ -51,6 +51,7 @@ class TrainingSession:
         self.win_rates = []
         self.episode_lengths = []
         self.battle_lengths = []
+        self.health_diffs = []
         self.action_histograms = []
         self.start_time, self.end_time = None, None
         self.wandb_run = wandb_run
@@ -203,6 +204,7 @@ class FixedAdversary(TrainingSession):
                     mean_reward,
                     ep_length,
                     battle_length,
+                    health_diff,
                     act_hist,
                 ) = evaluator.run(
                     agent,
@@ -223,6 +225,7 @@ class FixedAdversary(TrainingSession):
                 self.episode_lengths.append(ep_length)
                 self.battle_lengths.append(battle_length)
                 self.action_histograms.append(act_hist)
+                self.health_diffs.append(health_diff)
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -235,6 +238,7 @@ class FixedAdversary(TrainingSession):
                     info[panel_name + "/win_rate"] = win_rate
                     info[panel_name + "/mean_ep_length"] = ep_length
                     info[panel_name + "/mean_battle_length"] = battle_length
+                    info[panel_name + "/mean_health_diff"] = health_diff
 
                     info[panel_name + "/pass_actions"] = act_hist[0]
                     info[panel_name + "/summon_actions"] = sum(act_hist[1:17])
@@ -437,6 +441,7 @@ class SelfPlay(TrainingSession):
                     mean_reward,
                     ep_length,
                     battle_length,
+                    health_diff,
                     act_hist,
                 ) = evaluator.run(
                     agent,
@@ -457,6 +462,7 @@ class SelfPlay(TrainingSession):
                 self.episode_lengths.append(ep_length)
                 self.battle_lengths.append(battle_length)
                 self.action_histograms.append(act_hist)
+                self.health_diffs.append(health_diff)
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -469,6 +475,7 @@ class SelfPlay(TrainingSession):
                     info[panel_name + "/win_rate"] = win_rate
                     info[panel_name + "/mean_ep_length"] = ep_length
                     info[panel_name + "/mean_battle_length"] = battle_length
+                    info[panel_name + "/mean_health_diff"] = health_diff
 
                     info[panel_name + "/pass_actions"] = act_hist[0]
                     info[panel_name + "/summon_actions"] = sum(act_hist[1:17])
@@ -692,6 +699,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                     mean_reward,
                     ep_length,
                     battle_length,
+                    health_diff,
                     act_hist,
                 ) = evaluator.run(
                     agent,
@@ -712,6 +720,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                 self.episode_lengths.append(ep_length)
                 self.battle_lengths.append(battle_length)
                 self.action_histograms.append(act_hist)
+                self.health_diffs.append(health_diff)
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -724,6 +733,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                     info[panel_name + "/win_rate"] = win_rate
                     info[panel_name + "/mean_ep_length"] = ep_length
                     info[panel_name + "/mean_battle_length"] = battle_length
+                    info[panel_name + "/mean_health_diff"] = health_diff
 
                     info[panel_name + "/pass_actions"] = act_hist[0]
                     info[panel_name + "/summon_actions"] = sum(act_hist[1:17])
@@ -853,6 +863,7 @@ class Evaluator:
         episodes_so_far = 0
         episode_wins = [[] for _ in range(self.env.num_envs)]
         episode_rewards = [[0.0] for _ in range(self.env.num_envs)]
+        episode_health_diff = [[] for _ in range(self.env.num_envs)]
         episode_lengths = [[0] for _ in range(self.env.num_envs)]
         episode_turns = [[] for _ in range(self.env.num_envs)]
         action_histogram = [0] * self.env.action_space.n
@@ -879,9 +890,7 @@ class Evaluator:
                 action_histogram[action] += 1
 
             # perform the action and get the outcome
-            observations, rewards, dones, infos = self.env.step(
-                actions
-            )
+            observations, rewards, dones, infos = self.env.step(actions)
 
             # update metrics
             for i in range(self.env.num_envs):
@@ -893,6 +902,7 @@ class Evaluator:
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
                     episode_turns[i].append(infos[i]["turn"])
+                    episode_health_diff[i].append(infos[i]["health_diff"][roles[i]])
 
                     episodes_so_far += 1
 
@@ -904,6 +914,7 @@ class Evaluator:
         all_rewards = [reward for rewards in episode_rewards for reward in rewards[:-1]]
         all_lengths = [length for lengths in episode_lengths for length in lengths[:-1]]
         all_turns = [turn for turns in episode_turns for turn in turns]
+        all_health_diff = [health for health_diffs in episode_health_diff for health in health_diffs]
         all_wins = [win for wins in episode_wins for win in wins]
 
         # todo: fix -- sometimes we miss self.episodes by one
@@ -921,12 +932,14 @@ class Evaluator:
         all_rewards = all_rewards[: self.episodes]
         all_lengths = all_lengths[: self.episodes]
         all_turns = all_turns[: self.episodes]
+        all_health_diff = all_health_diff[: self.episodes]
 
         return (
             mean(all_wins),
             mean(all_rewards),
             mean(all_lengths),
             mean(all_turns),
+            mean(all_health_diff),
             action_histogram,
         )
 
