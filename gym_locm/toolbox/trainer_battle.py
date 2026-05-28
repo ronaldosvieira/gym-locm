@@ -1437,7 +1437,10 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
             # = 1824
         )
 
-        super().__init__(observation_space, features_dim=features_dim)
+        super().__init__(
+            observation_space, 
+            features_dim=state_emb_dim
+        )  # features_dim is used to calculate LSTM input size
 
         self.player_embedding = nn.Sequential(
             nn.Linear(player_dim, 16), nn.ReLU(),
@@ -1468,7 +1471,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
             nn.Linear(256, 256), nn.ReLU(),
         ) # 160 * 256 + 256 * 256 = 106,496 parameters
 
-    def forward(self, observations) -> th.Tensor:
+    def forward(self, observations) -> dict[str, th.Tensor]:
         # embedding of both players
         p = self.player_embedding(observations["player_stats"])
         op = self.player_embedding(observations["opponent_stats"])
@@ -1571,15 +1574,6 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
 
 
 class PermutationInvariantLOCMNetwork(nn.Module):
-    """
-    Custom network for policy and value function.
-    It receives as input the features extracted by the features extractor.
-
-    :param feature_dim: dimension of the features extracted with the features_extractor (e.g. features from a CNN)
-    :param last_layer_dim_pi: (int) number of units for the last layer of the policy network
-    :param last_layer_dim_vf: (int) number of units for the last layer of the value network
-    """
-
     def __init__(
         self,
         feature_dim: int,
@@ -1723,6 +1717,220 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         return self.value_net(embeddings["state"])
 
 
+class PermutationInvariantRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: Space,
+        action_space: Space,
+        lr_schedule: Callable[[float], float],
+        net_arch: list[int] | None = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
+        lstm_hidden_size: int = 256,
+        *args,
+        **kwargs,
+    ):  
+        if net_arch is None:
+            net_arch = [256, 256]
+            
+        if isinstance(net_arch, int):
+            net_arch = [net_arch]
+        elif isinstance(net_arch, dict):
+            raise ValueError("dict net_arch not supported.")
+
+        self.net_arch = net_arch
+        self.lstm_hidden_size = lstm_hidden_size
+
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            net_arch,
+            # Pass remaining arguments to base class
+            features_extractor_class=PermutationInvariantFeaturesExtractor,
+            features_extractor_kwargs=dict(),
+            lstm_hidden_size=lstm_hidden_size,
+            n_lstm_layers=1,
+            shared_lstm=True,
+            enable_critic_lstm=False,
+            *args,
+            **kwargs,
+        )
+        
+    def _build(self, lr_schedule: Callable[[float], float]) -> None:
+        super()._build(lr_schedule)
+        
+        # do not add a nn.Linear layer on top of what we return at BaselineLOCMNetwork
+        self.action_net = nn.Identity()
+        self.value_net = nn.Identity()
+        
+        # initialize weights of the new output layers (which are not initialized by the base class)
+        if self.ortho_init:
+            module_gains = {
+                self.mlp_extractor.pass_action: 0.01,
+                self.mlp_extractor.summon_action: 0.01,
+                self.mlp_extractor.use_action: 0.01,
+                self.mlp_extractor.attack_action: 0.01,
+                self.mlp_extractor.value_net: 1,
+            }
+            
+            for module, gain in module_gains.items():
+                module.apply(partial(self.init_weights, gain=gain))
+
+    def _build_mlp_extractor(self) -> None:
+        self.mlp_extractor = PermutationInvariantLOCMNetwork(256, last_layer_dim_pi=145, last_layer_dim_vf=1)
+
+    def dict_features_to_tensor(self, features: dict[str, th.Tensor]) -> th.Tensor:
+        bs = features["player"].size(0)
+        
+        return th.cat(list([v.view(bs, -1) for k, v in features.items() if k != "action_mask"]), dim=1)
+    
+    def tensor_features_to_dict(self, features: th.Tensor) -> dict[str, th.Tensor]:
+        return dict(
+            player=features[:, :16],  # [bs, 16]
+            opponent=features[:, 16:32],  # [bs, 16]
+            deck_cards=features[:, 32:992].view(-1, 30, 32),  # [bs, 30, 32]
+            deck=features[:, 992:1024],  # [bs, 32]
+            hand_cards=features[:, 1024:1280].view(-1, 8, 32),  # [bs, 8, 32]
+            hand=features[:, 1280:1312],  # [bs, 32]
+            p_lane0_creatures=features[:, 1312:1360].view(-1, 3, 16),  # [bs, 3, 16]
+            p_lane0=features[:, 1360:1376],  # [bs, 16]
+            p_lane1_creatures=features[:, 1376:1424].view(-1, 3, 16),  # [bs, 3, 16]
+            p_lane1=features[:, 1424:1440],  # [bs, 16]
+            op_lane0_creatures=features[:, 1440:1488].view(-1, 3, 16),  # [bs, 3, 16]
+            op_lane0=features[:, 1488:1504],  # [bs, 16]
+            op_lane1_creatures=features[:, 1504:1552].view(-1, 3, 16),  # [bs, 3, 16]
+            op_lane1=features[:, 1552:1568],  # [bs, 16]
+            state=features[:, 1568:1824],  # [bs, 256]
+        )
+
+    def forward(
+            self,
+            obs: th.Tensor,
+            lstm_states: RNNStates,
+            episode_starts: th.Tensor,
+            deterministic: bool = False,
+        ) -> tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
+            """
+            Forward pass in all the networks (actor and critic)
+
+            :param obs: Observation. Observation
+            :param lstm_states: The last hidden and memory states for the LSTM.
+            :param episode_starts: Whether the observations correspond to new episodes
+                or not (we reset the lstm states in that case).
+            :param deterministic: Whether to sample or use deterministic actions
+            :return: action, value and log probability of the action
+            """
+            # Preprocess the observation if needed
+            features = self.extract_features(obs)
+            state_features = features.get("state")
+                
+            # latent_pi, latent_vf = self.mlp_extractor(features)
+            latent_pi, lstm_states_pi = self._process_sequence(state_features, lstm_states.pi, episode_starts, self.lstm_actor)
+
+            # Re-use LSTM features but do not backpropagate
+            latent_vf = latent_pi.detach()
+            lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
+            
+            features["state"] = latent_pi
+            latent_pi = self.mlp_extractor.forward_actor(features)
+            
+            features["state"] = latent_vf
+            latent_vf = self.mlp_extractor.forward_critic(features)
+
+            # Evaluate the values for the given observations
+            values = self.value_net(latent_vf)
+            distribution = self._get_action_dist_from_latent(latent_pi)
+            actions = distribution.get_actions(deterministic=deterministic)
+            log_prob = distribution.log_prob(actions)
+            return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
+
+    def get_distribution(
+        self,
+        obs: th.Tensor,
+        lstm_states: tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> tuple[Distribution, tuple[th.Tensor, ...]]:
+        """
+        Get the current policy distribution given the observations.
+
+        :param obs: Observation.
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
+        :return: the action distribution and new hidden states.
+        """
+        # Call the method from the parent of the parent class
+        features = super(ActorCriticPolicy, self).extract_features(obs, self.pi_features_extractor)
+        state_features = features.get("state")
+        latent_pi, lstm_states = self._process_sequence(state_features, lstm_states, episode_starts, self.lstm_actor)
+        
+        features["state"] = latent_pi
+        latent_pi = self.mlp_extractor.forward_actor(features)
+        
+        return self._get_action_dist_from_latent(latent_pi), lstm_states
+
+    def predict_values(
+        self,
+        obs: th.Tensor,
+        lstm_states: tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> th.Tensor:
+        """
+        Get the estimated values according to the current policy given the observations.
+
+        :param obs: Observation.
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
+        :return: the estimated values.
+        """
+        # Call the method from the parent of the parent class
+        features = super(ActorCriticPolicy, self).extract_features(obs, self.vf_features_extractor)
+        state_features = features.get("state")
+
+        # Use LSTM from the actor
+        latent_pi, _ = self._process_sequence(state_features, lstm_states, episode_starts, self.lstm_actor)
+        latent_vf = latent_pi.detach()
+
+        features["state"] = latent_vf
+        latent_vf = self.mlp_extractor.forward_critic(features)
+        
+        return self.value_net(latent_vf)
+
+    def evaluate_actions(
+        self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        Evaluate actions according to the current policy,
+        given the observations.
+
+        :param obs: Observation.
+        :param actions:
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
+        :return: estimated value, log likelihood of taking those actions
+            and entropy of the action distribution.
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        state_features = features.get("state")
+
+        latent_pi, _ = self._process_sequence(state_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        latent_vf = latent_pi.detach()
+
+        features["state"] = latent_pi
+        latent_pi = self.mlp_extractor.forward_actor(features)
+        
+        features["state"] = latent_vf
+        latent_vf = self.mlp_extractor.forward_critic(features)
+
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        log_prob = distribution.log_prob(actions)
+        values = self.value_net(latent_vf)
+        return values, log_prob, distribution.entropy()
+
+
 class PermutationInvariantActorCriticPolicy(ActorCriticPolicy):
     def __init__(
         self,
@@ -1783,9 +1991,19 @@ def model_builder_pinv_masked(
     gamma=1,
     gae_lambda=0.95,
     tensorboard_log=None,
+    lstm=False,
 ):
-    return PPO(
-        PermutationInvariantActorCriticPolicy,
+    if lstm:
+        algo = RecurrentPPO
+        policy = PermutationInvariantRecurrentActorCriticPolicy
+        kwargs = dict(policy_kwargs=dict(lstm_hidden_size=lstm))
+    else:
+        algo = PPO
+        policy = PermutationInvariantActorCriticPolicy
+        kwargs = dict()
+
+    return algo(
+        policy,
         env,
         learning_rate=learning_rate,
         n_steps=n_steps,
@@ -1799,4 +2017,5 @@ def model_builder_pinv_masked(
         verbose=0,
         seed=seed,
         tensorboard_log=tensorboard_log,
+        **kwargs,
     )
