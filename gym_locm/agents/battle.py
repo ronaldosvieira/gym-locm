@@ -178,3 +178,36 @@ class MaxAttackBattleAgent(Agent):
             pass
 
         return Action(ActionType.PASS)
+
+
+class OTKAgent(Agent):
+    def seed(self, seed):
+        pass
+
+    def reset(self):
+        pass
+
+    def act(self, state):
+        possible_damage = 0
+        
+        if sum("G" in c.keywords for c in state.opposing_player.lanes[Lane.LEFT]) == 0:
+            possible_damage += sum(c.attack for c in state.current_player.lanes[Lane.LEFT])
+
+        if sum("G" in c.keywords for c in state.opposing_player.lanes[Lane.RIGHT]) == 0:
+            possible_damage += sum(c.attack for c in state.current_player.lanes[Lane.RIGHT])
+
+        possible_plays = [(c.cost, c.enemy_hp) for c in state.current_player.hand if is_it(BlueItem)(c)]
+        
+        mana_remaining = state.current_player.mana
+        
+        for cost, enemy_hp in sorted(possible_plays, reverse=False):
+            if cost <= mana_remaining:
+                possible_damage += enemy_hp
+                mana_remaining -= cost
+
+        if state.opposing_player.health <= possible_damage:
+            for action in state.available_actions:
+                if action.type == ActionType.ATTACK and action.target is None:
+                    return action
+
+        raise ValueError("No OTK possible")

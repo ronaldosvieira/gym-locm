@@ -39,6 +39,7 @@ from gym_locm.agents.native_agent import (
 from gym_locm.agents.rl import RLDraftAgent, RLBattleAgent
 from gym_locm.agents.byterl import ByteRL, NoisyByteRL
 
+from gym_locm.agents.battle import OTKAgent
 
 draft_agents = {
     "pass": PassDraftAgent,
