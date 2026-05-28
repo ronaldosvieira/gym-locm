@@ -178,8 +178,11 @@ class LOCMEnv(gym.Env, ABC):
         print(f"######## TURN {self.state.turn}: " f"PLAYER {player.id} ########")
         print()
         print("Stats:")
-        print(f"{player.health} HP, {player.mana}/{player.base_mana} MP")
-        print(f"Next rune: {player.next_rune}, " f"next draw: {1 + player.bonus_draw}")
+        print(f"{player.health} HP, {player.mana}/{player.base_mana} MP, {len(player.deck)} cards in deck")
+        if self.version == "1.5":
+            print(f"Next draw: {1 + player.bonus_draw} cards")
+        else:
+            print(f"Next rune: {player.next_rune}, next draw: {1 + player.bonus_draw} cards")
         print()
 
         print("Hand:")
@@ -234,10 +237,11 @@ class LOCMEnv(gym.Env, ABC):
         print(table)
         print()
         print("Opponent's stats:")
-        print(f"{opponent.health} HP, {opponent.mana}/{opponent.base_mana} MP")
-        print(
-            f"Next rune: {opponent.next_rune}, " f"next draw: {1 + opponent.bonus_draw}"
-        )
+        print(f"{opponent.health} HP, {opponent.mana}/{opponent.base_mana} MP, {len(opponent.deck)} cards in deck")
+        if self.version == "1.5":
+            print(f"Next draw: {1 + opponent.bonus_draw} cards")
+        else:
+            print(f"Next rune: {opponent.next_rune}, next draw: {1 + opponent.bonus_draw} cards")
         print(f"Cards in hand: {len(opponent.hand)}")
         print()
 
