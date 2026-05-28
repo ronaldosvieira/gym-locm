@@ -1479,9 +1479,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
         p_deck_cards = observations["player_deck"]
         
         # embedding of individual deck cards
-        p_deck_cards = p_deck_cards.reshape(-1, 17)
         p_deck_cards = self.card_embedding(p_deck_cards)
-        p_deck_cards = p_deck_cards.reshape(-1, 30, 32)
         
         # embedding of the whole deck
         p_deck = p_deck_cards.sum(dim=1)
@@ -1490,9 +1488,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
         p_hand_cards = observations["player_hand"]
 
         # embedding of individual hand cards
-        p_hand_cards = p_hand_cards.reshape(-1, 17)
         p_hand_cards = self.card_embedding(p_hand_cards)
-        p_hand_cards = p_hand_cards.reshape(-1, 8, 32)
         
         # embedding of the whole hand
         p_hand = p_hand_cards.sum(dim=1)
@@ -1501,9 +1497,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
         p_lane0_creatures = observations["player_lane0"]
         
         # embedding of individual player lane 0 creatures
-        p_lane0_creatures = p_lane0_creatures.reshape(-1, 8)
         p_lane0_creatures = self.creature_embedding(p_lane0_creatures)
-        p_lane0_creatures = p_lane0_creatures.reshape(-1, 3, 16)
 
         # embedding of the whole player lane 0
         p_lane0 = p_lane0_creatures.sum(dim=1)
@@ -1512,9 +1506,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
         p_lane1_creatures = observations["player_lane1"]
         
         # embedding of individual player lane 1 creatures
-        p_lane1_creatures = p_lane1_creatures.reshape(-1, 8)
         p_lane1_creatures = self.creature_embedding(p_lane1_creatures)
-        p_lane1_creatures = p_lane1_creatures.reshape(-1, 3, 16)
 
         # embedding of the whole player lane 1
         p_lane1 = p_lane1_creatures.sum(dim=1)
@@ -1523,9 +1515,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
         op_lane0_creatures = observations["opponent_lane0"]
         
         # embedding of individual opponent lane 0 creatures
-        op_lane0_creatures = op_lane0_creatures.reshape(-1, 8)
         op_lane0_creatures = self.creature_embedding(op_lane0_creatures)
-        op_lane0_creatures = op_lane0_creatures.reshape(-1, 3, 16)
 
         # embedding of the whole opponent lane 0
         op_lane0 = op_lane0_creatures.sum(dim=1)
@@ -1534,9 +1524,7 @@ class PermutationInvariantFeaturesExtractor(BaseFeaturesExtractor):
         op_lane1_creatures = observations["opponent_lane1"]
         
         # embedding of individual opponent lane 1 creatures
-        op_lane1_creatures = op_lane1_creatures.reshape(-1, 8)
         op_lane1_creatures = self.creature_embedding(op_lane1_creatures)
-        op_lane1_creatures = op_lane1_creatures.reshape(-1, 3, 16)
 
         # embedding of the whole opponent lane 1
         op_lane1 = op_lane1_creatures.sum(dim=1)
