@@ -74,34 +74,25 @@ class ByteRL(Agent):
         self.agent = ByterlAgent()
         self.agent.reset()
         
-        self.card_recorder = CardRecorder()
-        
-    def _simulate_deck_building(self, state):
-        fake_state = State()
-        
-        self.card_recorder.my_deck = state.current_player.deck + state.current_player.hand
-        
-        for card in self.card_recorder.my_deck:
-            fake_state.current_player.hand = [card] * 120
-            
-            _ = self.agent.act(fake_state)
-
     def act(self, state):
+        try:
+            state.card_recorders
+        except AttributeError:
+            state.card_recorders = CardRecorder(), CardRecorder()
+            
+        card_recorder = state.card_recorders[state.current_player.id]
+        
         if state.phase == Phase.DECK_BUILDING:
             action = self.agent.act(state)
 
-            self.card_recorder.recorder_draft(state.current_player.hand[action.origin])
+            card_recorder.recorder_draft(state.current_player.hand[action.origin])
 
             return action
 
         elif state.phase == Phase.BATTLE:
-            # if using the agent only in battle, simulate the deck-building phase
-            if state.turn == 1 and self.card_recorder.my_deck == []:
-                self._simulate_deck_building(state)
-            
-            self.card_recorder.recorder_battle(state)
+            card_recorder.recorder_battle(state)
 
-            state = self.card_recorder.full_missing_cards(state.clone())
+            state = card_recorder.full_missing_cards(state.clone())
 
             return self.agent.act(state)
 
