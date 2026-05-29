@@ -1641,6 +1641,10 @@ class PermutationInvariantLOCMNetwork(nn.Module):
             nn.Linear(32, last_layer_dim_vf)
         )
 
+        self.null_target = nn.Parameter(
+            th.randn(1, 1, 16) * 0.02
+        )  # for the "no target" option in use and attack actions
+
     def forward(self, features: dict) -> Tuple[th.Tensor, th.Tensor]:
         """
         :return: (th.Tensor, th.Tensor) latent_policy, latent_value of the specified network.
@@ -1650,6 +1654,9 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         return self.forward_actor(features), self.forward_critic(features)
 
     def forward_actor(self, embeddings: dict) -> th.Tensor:
+        bs = embeddings["state"].size(0)
+        null_target = self.null_target.expand(bs, -1, -1)  # [bs, 1, 16]
+        
         # PASS logit
         pass_logit = self.pass_action(embeddings["state"])  # [bs, 1]
 
@@ -1671,13 +1678,13 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         )
         
         summon_logits = self.summon_action(summon_input)  # [bs, max_hand_size, 2, 1]
-        summon_logits = summon_logits.squeeze(-1).reshape(summon_logits.size(0), -1)  # [bs, max_hand_size * 2]
+        summon_logits = summon_logits.squeeze(-1).reshape(bs, -1)  # [bs, max_hand_size * 2]
         
         # USE logits
         hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
         
         targets = th.cat((
-            th.zeros((hand.size(0), 1, 16), device=hand.device),  # for the "no target" option
+            null_target,
             embeddings["p_lane0_creatures"], embeddings["p_lane1_creatures"],
             embeddings["op_lane0_creatures"], embeddings["op_lane1_creatures"],
         ), dim=1)  # [bs, 13, creature_dim]
@@ -1695,7 +1702,6 @@ class PermutationInvariantLOCMNetwork(nn.Module):
 
         # ATTACK lane 0 logits
         op_lane0_creatures = embeddings["op_lane0_creatures"]  # [bs, 3, creature_dim]
-        null_target = th.zeros((op_lane0_creatures.size(0), 1, 16), device=op_lane0_creatures.device)  # [bs, 1, creature_dim]
         op_lane0_creatures = th.cat((null_target, op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
         
         p_lane0_creatures = embeddings["p_lane0_creatures"]  # [bs, 3, creature_dim]
@@ -1709,13 +1715,12 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         )
 
         attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs, 3, 4, 1]
-        attack_lane0_logits = attack_lane0_logits.squeeze(-1).reshape(attack_lane0_logits.size(0), -1)  # [bs, 3 * 4]
+        attack_lane0_logits = attack_lane0_logits.squeeze(-1).reshape(bs, -1)  # [bs, 3 * 4]
         
         # ATTACK lane 1 logits
         op_lane1_creatures = embeddings["op_lane1_creatures"]  # [bs, 3, creature_dim]
-        null_target = th.zeros((op_lane1_creatures.size(0), 1, 16), device=op_lane1_creatures.device)  # [bs, 1, creature_dim]
         op_lane1_creatures = th.cat((null_target, op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
-        
+
         p_lane1_creatures = embeddings["p_lane1_creatures"]  # [bs, 3, creature_dim]
         
         state = embeddings["state"]  # [bs, state_dim]
@@ -1727,7 +1732,7 @@ class PermutationInvariantLOCMNetwork(nn.Module):
         )
 
         attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs, 3, 4, 1]
-        attack_lane1_logits = attack_lane1_logits.squeeze(-1).reshape(attack_lane1_logits.size(0), -1)  # [bs, 3 * 4]
+        attack_lane1_logits = attack_lane1_logits.squeeze(-1).reshape(bs, -1)  # [bs, 3 * 4]
 
         # concat all action logits
         logits = th.cat((
