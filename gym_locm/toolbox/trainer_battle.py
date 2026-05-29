@@ -1632,72 +1632,85 @@ class PermutationInvariantLOCMNetwork(nn.Module):
 
         # SUMMON logits
         hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
-        hand = hand.repeat_interleave(2, dim=1)  # [bs, 2 * max_hand_size, card_dim]
-        # hand = hand.reshape(-1, 16, 32)  # [bs, 2 * max_hand_size, card_dim]
+        hand = hand[:, :, None, :]  # [bs, max_hand_size, 1, card_dim]
+        hand = hand.expand(-1, -1, 2, -1)  # [bs, max_hand_size, 2, card_dim]
+
+        lanes = th.stack((embeddings["p_lane0"], embeddings["p_lane1"]), dim=1)  # [bs, 2, lane_dim]
+        lanes = lanes[:, None, :, :]  # [bs, 1, 2, lane_dim]
+        lanes = lanes.expand(-1, 8, -1, -1)  # [bs, max_hand_size, 2, lane_dim]
+
+        state = embeddings["state"]  # [bs, state_dim]
+        state = state[:, None, None, :]  # [bs, 1, 1, state_dim]
+        state = state.expand(-1, 8, 2, -1)  # [bs, max_hand_size, 2, state_dim]
+
+        summon_input = th.cat((hand, lanes, state), dim=-1)  # [bs, max_hand_size, 2, card_dim + lane_dim + state_dim]
         
-        lane0 = embeddings["p_lane0"].reshape(-1, 1, 16)  # [bs, 1, lane_dim]
-        lane1 = embeddings["p_lane1"].reshape(-1, 1, 16)  # [bs, 1, lane_dim]
-        lanes = th.cat((lane0, lane1), dim=1)  # [bs, 2, lane_dim]
-        lanes = lanes.repeat(1, 8, 1)  # [bs, 2 * max_hand_size, lane_dim]
-
-        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
-        state = state.repeat(1, 8 * 2, 1)  # [bs, 2 * max_hand_size, state_dim]
-
-        summon_input = th.cat((hand, lanes, state), dim=2)  # [bs * 2 * max_hand_size, card_dim + lane_dim + state_dim]
-        summon_input = summon_input.reshape(-1, 304)  # [bs * 2 * max_hand_size, card_dim + lane_dim + state_dim]
-        summon_logits = self.summon_action(summon_input)  # [bs * 2 * max_hand_size, 1]
-        summon_logits = summon_logits.reshape(-1, 8 * 2)  # [bs, max_hand_size * 2]
+        summon_logits = self.summon_action(summon_input)  # [bs, max_hand_size, 2, 1]
+        summon_logits = summon_logits.squeeze(-1).reshape(summon_logits.size(0), -1)  # [bs, max_hand_size * 2]
         
         # USE logits
         hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
+        hand = hand[:, :, None, :]  # [bs, max_hand_size, 1, card_dim]
+        hand = hand.expand(-1, -1, 13, -1)  # [bs, max_hand_size, 13, card_dim]
+        
         targets = th.cat((
             th.zeros((hand.size(0), 1, 16), device=hand.device),  # for the "no target" option
             embeddings["p_lane0_creatures"], embeddings["p_lane1_creatures"],
             embeddings["op_lane0_creatures"], embeddings["op_lane1_creatures"],
         ), dim=1)  # [bs, 13, creature_dim]
-        targets = targets.repeat(1, 8, 1)  # [bs, 13 * max_hand_size, creature_dim]
-        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
-        state = state.repeat(1, 8 * 13, 1)  # [bs, 13 * max_hand_size, state_dim]
-        hand = hand.repeat_interleave(13, dim=1)  # [bs, 13 * max_hand_size, card_dim]
+        targets = targets[:, None, :, :]  # [bs, 1, 13, creature_dim]
+        targets = targets.expand(-1, 8, -1, -1)  # [bs, max_hand_size, 13, creature_dim]
         
-        use_input = th.cat((hand, targets, state), dim=2)  # [bs, 13 * max_hand_size, card_dim + creature_dim + state_dim]
-        use_input = use_input.reshape(-1, 304)  # [bs * 13 * max_hand_size, card_dim + creature_dim + state_dim]
+        state = embeddings["state"]  # [bs, state_dim]
+        state = state[:, None, None, :]  # [bs, 1, 1, state_dim]
+        state = state.expand(-1, 8, 13, -1)  # [bs, max_hand_size, 13, state_dim]
+
+        use_input = th.cat((hand, targets, state), dim=-1)  # [bs, max_hand_size, 13, card_dim + creature_dim + state_dim]
+        
         use_logits = self.use_action(use_input)  # [bs * 13 * max_hand_size, 1]
-        use_logits = use_logits.reshape(-1, 8 * 13)  # [bs, max_hand_size * 13])
+        use_logits = use_logits.squeeze(-1).reshape(use_logits.size(0), -1)  # [bs, max_hand_size * 13]
 
         # ATTACK lane 0 logits
         op_lane0_creatures = embeddings["op_lane0_creatures"]  # [bs, 3, creature_dim]
-        op_lane0_creatures = th.cat((th.zeros((op_lane0_creatures.size(0), 1, 16), device=op_lane0_creatures.device), op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
-        op_lane0_creatures = op_lane0_creatures.repeat(1, 3, 1)  # [bs, 12, creature_dim]
+        null_target = th.zeros((op_lane0_creatures.size(0), 1, 16), device=op_lane0_creatures.device)  # [bs, 1, creature_dim]
+
+        op_lane0_creatures = th.cat((null_target, op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
+        op_lane0_creatures = op_lane0_creatures[:, None, :, :]  # [bs, 1, 4, creature_dim]
+        op_lane0_creatures = op_lane0_creatures.expand(-1, 3, -1, -1)  # [bs, 3, 4, creature_dim]
 
         p_lane0_creatures = embeddings["p_lane0_creatures"]  # [bs, 3, creature_dim]
-        p_lane0_creatures = p_lane0_creatures.repeat_interleave(4, dim=1)  # [bs, 12, creature_dim]
+        p_lane0_creatures = p_lane0_creatures[:, :, None, :]  # [bs, 3, 1, creature_dim]
+        p_lane0_creatures = p_lane0_creatures.expand(-1, -1, 4, -1)  # [bs, 3, 4, creature_dim]
 
-        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
-        state = state.repeat(1, 12, 1)  # [bs, 12, state_dim]
-        
-        attack_lane0_input = th.cat((p_lane0_creatures, op_lane0_creatures, state), dim=2)  # [bs, 12, 2 * creature_dim + state_dim]
-        attack_lane0_input = attack_lane0_input.reshape(-1, 288)  # [bs * 12, 2 * creature_dim + state_dim]
+        state = embeddings["state"]  # [bs, state_dim]
+        state = state[:, None, None, :]  # [bs, 1, 1, state_dim]
+        state = state.expand(-1, 3, 4, -1)  # [bs, 3, 4, state_dim]
 
-        attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs * 12, 1]
-        attack_lane0_logits = attack_lane0_logits.reshape(-1, 12)  # [bs, 12]
+        attack_lane0_input = th.cat((p_lane0_creatures, op_lane0_creatures, state), dim=-1)  # [bs, 3, 4, 2 * creature_dim + state_dim]
+
+        attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs, 3, 4, 1]
+        attack_lane0_logits = attack_lane0_logits.squeeze(-1).reshape(attack_lane0_logits.size(0), -1)  # [bs, 3 * 4]
         
         # ATTACK lane 1 logits
         op_lane1_creatures = embeddings["op_lane1_creatures"]  # [bs, 3, creature_dim]
-        op_lane1_creatures = th.cat((th.zeros((op_lane1_creatures.size(0), 1, 16), device=op_lane1_creatures.device), op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
-        op_lane1_creatures = op_lane1_creatures.repeat(1, 3, 1)  # [bs, 12, creature_dim]
+        null_target = th.zeros((op_lane1_creatures.size(0), 1, 16), device=op_lane1_creatures.device)  # [bs, 1, creature_dim]
+
+        op_lane1_creatures = th.cat((null_target, op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
+        op_lane1_creatures = op_lane1_creatures[:, None, :, :]  # [bs, 1, 4, creature_dim]
+        op_lane1_creatures = op_lane1_creatures.expand(-1, 3, -1, -1)  # [bs, 3, 4, creature_dim]
 
         p_lane1_creatures = embeddings["p_lane1_creatures"]  # [bs, 3, creature_dim]
-        p_lane1_creatures = p_lane1_creatures.repeat_interleave(4, dim=1)  # [bs, 12, creature_dim]
-        
-        state = embeddings["state"].reshape(-1, 1, 256)  # [bs, 1, state_dim]
-        state = state.repeat(1, 12, 1)  # [bs, 12, state_dim]
+        p_lane1_creatures = p_lane1_creatures[:, :, None, :]  # [bs, 3, 1, creature_dim]
+        p_lane1_creatures = p_lane1_creatures.expand(-1, -1, 4, -1)  # [bs, 3, 4, creature_dim]
 
-        attack_lane1_input = th.cat((p_lane1_creatures, op_lane1_creatures, state), dim=2)  # [bs, 12, 2 * creature_dim + state_dim]
-        attack_lane1_input = attack_lane1_input.reshape(-1, 288)  # [bs * 12, 2 * creature_dim + state_dim]
+        state = embeddings["state"]  # [bs, state_dim]
+        state = state[:, None, None, :]  # [bs, 1, 1, state_dim]
+        state = state.expand(-1, 3, 4, -1)  # [bs, 3, 4, state_dim]
 
-        attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs * 12, 1]
-        attack_lane1_logits = attack_lane1_logits.reshape(-1, 12)  # [bs, 12]
+        attack_lane1_input = th.cat((p_lane1_creatures, op_lane1_creatures, state), dim=-1)  # [bs, 3, 4, 2 * creature_dim + state_dim]
+
+        attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs, 3, 4, 1]
+        attack_lane1_logits = attack_lane1_logits.squeeze(-1).reshape(attack_lane1_logits.size(0), -1)  # [bs, 3 * 4]
 
         # concat all action logits
         logits = th.cat((
