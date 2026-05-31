@@ -1,2 +1,3 @@
 from gym_locm.toolbox.networks.simple import build_simple_network, load_simple_network
 from gym_locm.toolbox.networks.deep_sets import build_deep_sets_network, load_deep_sets_network
+from gym_locm.toolbox.networks.set_transformer import build_set_transformer_network, load_set_transformer_network
