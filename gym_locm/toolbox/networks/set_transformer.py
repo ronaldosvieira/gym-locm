@@ -78,7 +78,7 @@ class PMA(nn.Module):
 
     def forward(self, X):
         return self.mab(self.S.repeat(X.size(0), 1, 1), X)
-    
+#####
 
 class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
     def __init__(
@@ -94,18 +94,6 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         lane_emb_dim: int = 16,
         state_emb_dim: int = 256,
     ):
-        features_dim = (
-            2 * player_emb_dim  # players
-            + 30 * card_emb_dim  # deck cards
-            + zone_emb_dim  # deck
-            + 8 * card_emb_dim  # hand cards
-            + zone_emb_dim  # hand
-            + 4 * 3 * creature_emb_dim  # lane creatures
-            + 4 * lane_emb_dim  # lanes
-            + state_emb_dim  # whole state
-            # = 1824
-        )
-
         super().__init__(
             observation_space, 
             features_dim=state_emb_dim
@@ -122,14 +110,15 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         ) # 17 * 32 + 32 * 32 = 1,568 parameters
 
         self.card_zone_embedding = nn.Sequential(
-            SAB(32, 32, num_heads=4),
-            SAB(32, 32, num_heads=4),
+            SAB(32, 32, num_heads=4, ln=True),
+            SAB(32, 32, num_heads=4, ln=True),
         )
 
         self.card_zone_pool = PMA(
             dim=32,
             num_heads=4,
-            num_seeds=1
+            num_seeds=1,
+            ln=True
         )
 
         self.creature_embedding = nn.Sequential(
@@ -138,14 +127,15 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         ) # 8 * 16 + 16 * 16 = 384 parameters
         
         self.lane_embedding = nn.Sequential(
-            SAB(16, 16, num_heads=4),
-            SAB(16, 16, num_heads=4),
+            SAB(16, 16, num_heads=4, ln=True),
+            SAB(16, 16, num_heads=4, ln=True),
         )
 
         self.lane_pool = PMA(
             dim=16,
             num_heads=4,
-            num_seeds=1
+            num_seeds=1,
+            ln=True
         )
         
         # 2 * 16 player + 32 hand + 32 deck + 4 * 16 lane = 160 features
