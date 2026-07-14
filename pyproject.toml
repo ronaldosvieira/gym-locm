@@ -3,8 +3,7 @@ name = "gym-locm"
 version = "2.0.0b1"
 description = "Gymnasium environments for Legends of Code and Magic, a collectible card game designed for AI research"
 readme = "README.md"
-license = "MIT"
-license-files = ["LICEN[CS]E*"]
+license = { text = "MIT" }
 requires-python = ">=3.10"
 keywords = ["reinforcement-learning", "collectible-card-games", "gym-environment", "legends-of-code-and-magic"]
 authors = [{ name = "Ronaldo e Silva Vieira", email = "ronaldoesv@gmail.com" }]
@@ -54,5 +53,5 @@ toolbox = [
 ]
 
 [build-system]
-requires = ["setuptools >= 61.0.0"]
+requires = ["setuptools >= 61.0.0", "Cython"]
 build-backend = "setuptools.build_meta"
