@@ -55,6 +55,9 @@ toolbox = [
 [tool.setuptools]
 packages = ["gym_locm"]
 
+[tool.cibuildwheel]
+skip = "cp36-* cp37-* cp38-* cp39-* pp*"
+
 [build-system]
 requires = ["setuptools >= 61.0.0", "Cython"]
 build-backend = "setuptools.build_meta"
