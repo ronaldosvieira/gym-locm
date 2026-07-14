@@ -52,6 +52,9 @@ toolbox = [
     "scipy>=1.17.0",
 ]
 
+[tool.setuptools]
+packages = ["gym_locm"]
+
 [build-system]
 requires = ["setuptools >= 61.0.0", "Cython"]
 build-backend = "setuptools.build_meta"

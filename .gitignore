@@ -109,3 +109,7 @@ venv.bak/
 # Cython build artifacts
 gym_locm/engine/*.c
 *.pyd
+
+# Local virtualenvs
+wsl_env/
+test_env/
