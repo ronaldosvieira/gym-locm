@@ -103,11 +103,32 @@ class LOCMBattleEnv(LOCMEnv):
 
         self._play_through_deck_building_phase()
 
+        self._update_player_decks()
+
+        self._encoded_state = np.zeros(self.state_shape, dtype=np.float32)
+
+    def _update_player_decks(self):
         self.player_decks = [None, None]
+        self.player_decks_mean = [None, None]
 
         for player in self.state.players:
             self.player_decks[player.id] = list(player.deck + player.hand)
             assert len(self.player_decks[player.id]) == 30
+
+            # Precalculate average deck features
+            card_features = 17 if self.items else 13
+            if self.version == "1.2":
+                card_features -= 1
+
+            deck_cards = self.player_decks[player.id]
+            encoded_deck = []
+            for card in deck_cards:
+                features = self.encode_card(card, version=self.version)
+                if not self.items:
+                    features = features[4:]
+                encoded_deck.append(features)
+
+            self.player_decks_mean[player.id] = np.mean(encoded_deck, axis=0)
 
     def _play_through_deck_building_phase(self):
         while self.state.phase == Phase.DECK_BUILDING:
@@ -209,6 +230,7 @@ class LOCMBattleEnv(LOCMEnv):
             agent.seed(self._seed)
 
         self._play_through_deck_building_phase()
+        self._update_player_decks()
 
         self.rewards.append(0.0)
 
@@ -280,56 +302,9 @@ class LOCMBattleEnv(LOCMEnv):
         return encoded_state
 
     def _encode_state_battle_box_obs(self):
-        encoded_state = np.full(self.state_shape, 0, dtype=np.float32)
+        encoded_state = self._encoded_state.copy()
 
         p0, p1 = self.state.current_player, self.state.opposing_player
-
-        def fill_cards(card_list, up_to, features):
-            remaining_cards = up_to - len(card_list)
-
-            return card_list + [[0] * features for _ in range(remaining_cards)]
-
-        all_cards = []
-
-        # convert all cards in hand to features
-        hand = list(map(lambda c: self.encode_card(c, version=self.version), p0.hand))
-
-        # if not using items, clip card type features
-        if not self.items:
-            hand = list(map(lambda c: c[4:], hand))
-
-        # add dummy cards up to the card limit
-        card_features = 17 if self.items else 13
-
-        if self.version == "1.2":
-            card_features -= 1
-
-        hand = fill_cards(hand, up_to=8, features=card_features)
-
-        # add to card list
-        all_cards.extend([feature for card in hand for feature in card])
-
-        # in current player's lanes
-        for location in (p0.lanes[0], p0.lanes[1]):
-            # convert all cards to features
-            location = list(map(self.encode_friendly_card_on_board, location))
-
-            # add dummy cards up to the card limit
-            location = fill_cards(location, up_to=3, features=9)
-
-            # add to card list
-            all_cards.extend([feature for card in location for feature in card])
-
-        # in opposing player's lanes
-        for location in (p1.lanes[0], p1.lanes[1]):
-            # convert all cards to features
-            location = list(map(self.encode_enemy_card_on_board, location))
-
-            # add dummy cards up to the card limit
-            location = fill_cards(location, up_to=3, features=8)
-
-            # add to card list
-            all_cards.extend([feature for card in location for feature in card])
 
         # players info
         player_features = 6 if self.version == "1.5" else 8
@@ -342,30 +317,61 @@ class LOCMBattleEnv(LOCMEnv):
 
         anchor = player_features
 
-        encoded_state[anchor:anchor + 2] = np.array(
-            [len(p0.deck) / 25, len(p1.deck) / 25]
-        )
+        encoded_state[anchor] = len(p0.deck) / 25
+        encoded_state[anchor + 1] = len(p1.deck) / 25
         
         anchor += 2
 
-        encoded_state[anchor:anchor + 2] = np.array(
-            [len(p0.hand) / 8, len(p1.hand) / 8]
-        )
+        encoded_state[anchor] = len(p0.hand) / 8
+        encoded_state[anchor + 1] = len(p1.hand) / 8
 
         anchor += 2
 
-        if self.use_average_deck:
-            encoded_state[anchor:-card_features] = np.array(all_cards).flatten()
-            
-            deck_cards = self.player_decks[p0.id]
-            deck_cards = list(map(lambda c: self.encode_card(c, version=self.version), deck_cards))
+        card_features = 17 if self.items else 13
+        if self.version == "1.2":
+            card_features -= 1
 
+        offset = anchor
+        # convert all cards in hand to features
+        for i, card in enumerate(p0.hand):
+            if i >= 8:
+                break
+            features = self.encode_card(card, version=self.version)
             if not self.items:
-                deck_cards = list(map(lambda c: c[4:], deck_cards))
+                features = features[4:]
+            encoded_state[offset:offset + card_features] = features
+            offset += card_features
+        
+        # zero out remaining cards in hand
+        encoded_state[offset:anchor + 8 * card_features] = 0.0
+        offset = anchor + 8 * card_features
 
-            encoded_state[-card_features:] = np.array(deck_cards).mean(axis=0)
-        else:
-            encoded_state[anchor:] = np.array(all_cards).flatten()
+        # in current player's lanes
+        for lane_id in (0, 1):
+            start_lane_offset = offset
+            for i, creature in enumerate(p0.lanes[lane_id]):
+                if i >= 3:
+                    break
+                features = self.encode_friendly_card_on_board(creature)
+                encoded_state[offset:offset + 9] = features
+                offset += 9
+            encoded_state[offset:start_lane_offset + 27] = 0.0
+            offset = start_lane_offset + 27
+
+        # in opposing player's lanes
+        for lane_id in (0, 1):
+            start_lane_offset = offset
+            for i, creature in enumerate(p1.lanes[lane_id]):
+                if i >= 3:
+                    break
+                features = self.encode_enemy_card_on_board(creature)
+                encoded_state[offset:offset + 8] = features
+                offset += 8
+            encoded_state[offset:start_lane_offset + 24] = 0.0
+            offset = start_lane_offset + 24
+
+        if self.use_average_deck:
+            encoded_state[-card_features:] = self.player_decks_mean[p0.id]
 
         return encoded_state
 

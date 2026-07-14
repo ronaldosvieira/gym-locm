@@ -204,6 +204,14 @@ def _get_card_weights() -> Dict:
             )
         )
 
+        # Pre-cache keys and values for fast random selection (rng.choice)
+        _card_weights["cached_choices"] = {}
+        for key in ["type", "type_no_items", "cost", "area", "keyword_count", "keywords", "card_draw", "player_hp", "enemy_hp"]:
+            _card_weights["cached_choices"][key] = (
+                list(_card_weights[key].keys()),
+                list(_card_weights[key].values())
+            )
+
     return _card_weights
 
 
@@ -325,19 +333,17 @@ def generate_card(
 
     card_weights = _get_card_weights()
 
-    if items:
-        card_type = rng.choice(
-            list(card_weights["type"].keys()), p=list(card_weights["type"].values())
-        )
-    else:
-        card_type = rng.choice(
-            list(card_weights["type_no_items"].keys()),
-            p=list(card_weights["type_no_items"].values()),
-        )
+    cached = card_weights["cached_choices"]
 
-    card_cost = rng.choice(
-        list(card_weights["cost"].keys()), p=list(card_weights["cost"].values())
-    )
+    if items:
+        choices, probs = cached["type"]
+        card_type = rng.choice(choices, p=probs)
+    else:
+        choices, probs = cached["type_no_items"]
+        card_type = rng.choice(choices, p=probs)
+
+    choices, probs = cached["cost"]
+    card_cost = rng.choice(choices, p=probs)
 
     card_budget = card_cost
 
@@ -357,14 +363,13 @@ def generate_card(
             if card_type == BlueItem:
                 continue
 
-            number_of_keywords = rng.choice(
-                list(card_weights["keyword_count"].keys()),
-                p=list(card_weights["keyword_count"].values()),
-            )
+            choices, probs = cached["keyword_count"]
+            number_of_keywords = rng.choice(choices, p=probs)
 
+            choices, probs = cached["keywords"]
             chosen_keywords = rng.choice(
-                list(card_weights["keywords"].keys()),
-                p=list(card_weights["keywords"].values()),
+                choices,
+                p=probs,
                 size=number_of_keywords,
                 replace=False,
             )
@@ -381,10 +386,8 @@ def generate_card(
                     chosen_properties["keywords"].append(keyword)
                     card_budget = new_card_budget
         else:
-            chosen_value = rng.choice(
-                list(card_weights[p].keys()),
-                p=list(card_weights[p].values()),
-            )
+            choices, probs = cached[p]
+            chosen_value = rng.choice(choices, p=probs)
 
             property_weights = card_weights[p + "_costs"][chosen_value]
             new_card_budget = (

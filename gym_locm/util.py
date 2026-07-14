@@ -1,6 +1,11 @@
 import numpy as np
 
 
+from gym_locm.engine.card import (
+    BREAKTHROUGH, CHARGE, DRAIN, GUARD, LETHAL, WARD
+)
+
+
 def is_it(card_type):
     return lambda card: isinstance(card, card_type)
 
@@ -16,7 +21,15 @@ def encode_card(card):
     cost = card.cost / 12
     attack = card.attack / 12
     defense = max(-12, card.defense) / 12
-    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+    kw = card.keywords
+    keywords = [
+        int(bool(kw & BREAKTHROUGH)),
+        int(bool(kw & CHARGE)),
+        int(bool(kw & DRAIN)),
+        int(bool(kw & GUARD)),
+        int(bool(kw & LETHAL)),
+        int(bool(kw & WARD)),
+    ]
     player_hp = card.player_hp / 12
     enemy_hp = card.enemy_hp / 12
     card_draw = card.card_draw / 2

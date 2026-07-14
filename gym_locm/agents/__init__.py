@@ -37,7 +37,10 @@ from gym_locm.agents.native_agent import (
     NativeConstructedAgent,
 )
 from gym_locm.agents.rl import RLDraftAgent, RLBattleAgent
-from gym_locm.agents.byterl import ByteRL, NoisyByteRL
+try:
+    from gym_locm.agents.byterl import ByteRL, NoisyByteRL
+except ImportError:
+    pass
 
 from gym_locm.agents.battle import OTKAgent
 
@@ -57,8 +60,6 @@ draft_agents = {
     "chad": ChadDraftAgent,
     "historyless": HistorylessDraftAgent,
     "rl": RLDraftAgent,
-    "byterl": ByteRL,
-    "noisy-byterl": NoisyByteRL,
 }
 
 constructed_agents = {
@@ -67,8 +68,6 @@ constructed_agents = {
     "ma": MaxAttackConstructedAgent,
     "max-attack": MaxAttackConstructedAgent,
     "inspirai": InspiraiConstructedAgent,
-    "byterl": ByteRL,
-    "noisy-byterl": NoisyByteRL,
 }
 
 battle_agents = {
@@ -82,9 +81,17 @@ battle_agents = {
     "baseline2": MaxAttackBattleAgent,
     "ma": MaxAttackBattleAgent,
     "rl": RLBattleAgent,
-    "byterl": ByteRL,
-    "noisy-byterl": NoisyByteRL,
 }
+
+try:
+    draft_agents["byterl"] = ByteRL
+    draft_agents["noisy-byterl"] = NoisyByteRL
+    constructed_agents["byterl"] = ByteRL
+    constructed_agents["noisy-byterl"] = NoisyByteRL
+    battle_agents["byterl"] = ByteRL
+    battle_agents["noisy-byterl"] = NoisyByteRL
+except NameError:
+    pass
 
 
 def parse_draft_agent(agent_name: str) -> Type:

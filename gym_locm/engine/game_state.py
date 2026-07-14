@@ -256,6 +256,7 @@ class State:
     @staticmethod
     def empty_copy():
         class Empty(State):
+            __slots__ = ()
             def __init__(self):
                 pass
 
