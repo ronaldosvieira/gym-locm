@@ -105,3 +105,6 @@ venv.bak/
 
 # JetBrain project files
 .idea
+
+# ByteRL's weights
+gym_locm/agents/byterl/Agent5.weights
