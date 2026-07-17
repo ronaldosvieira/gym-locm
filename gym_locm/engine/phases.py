@@ -14,6 +14,10 @@ from gym_locm.engine.card import (
     GreenItem,
     RedItem,
     BlueItem,
+    KEYWORD_BITS,
+    BREAKTHROUGH,
+    DRAIN,
+    GUARD,
 )
 from gym_locm.engine.enums import (
     DamageSource,
@@ -89,6 +93,7 @@ class Phase(ABC):
     @staticmethod
     def empty_copy(of_class):
         class Empty(of_class):
+            __slots__ = ()
             def __init__(self):
                 pass
 
@@ -155,7 +160,7 @@ class DraftPhase(DeckBuildingPhase):
 
             draft.append(pool[: self.k])
 
-        return draft
+        return tuple(draft)
 
     def act(self, action: Action):
         """Execute the action intended by the player in this draft turn"""
@@ -213,17 +218,18 @@ class ConstructedPhase(DeckBuildingPhase):
 
         self._constructed_cards = None
         self._action_mask = [True] * self.k, [True] * self.k
+        self._action_mask_tuples = [tuple(self._action_mask[0]), tuple(self._action_mask[1])]
+        self._available_actions_cached = [
+            list(Action(ActionType.CHOOSE, i) for i in range(self.k)),
+            list(Action(ActionType.CHOOSE, i) for i in range(self.k))
+        ]
         self._choices = [0] * self.k, [0] * self.k
 
     def available_actions(self) -> Tuple[Action]:
-        return tuple(
-            Action(ActionType.CHOOSE, i)
-            for i, can_be_chosen in enumerate(self.action_mask())
-            if can_be_chosen
-        )
+        return tuple(self._available_actions_cached[self._current_player]) if not self.ended else ()
 
     def action_mask(self) -> Tuple[bool]:
-        return tuple(self._action_mask[self._current_player])
+        return self._action_mask_tuples[self._current_player]
 
     def prepare(self):
         super().prepare()
@@ -275,6 +281,11 @@ class ConstructedPhase(DeckBuildingPhase):
         # update action mask, if needed
         if player_choices[chosen_card_index] >= self.max_copies:
             self._action_mask[self._current_player][chosen_card_index] = False
+            self._action_mask_tuples[self._current_player] = tuple(self._action_mask[self._current_player])
+            self._available_actions_cached[self._current_player] = [
+                a for a in self._available_actions_cached[self._current_player]
+                if a.origin != chosen_card_index
+            ]
 
         # add chosen card to player's deck
         card = self._constructed_cards[chosen_card_index]
@@ -317,6 +328,14 @@ class ConstructedPhase(DeckBuildingPhase):
         cloned_phase._action_mask = list(self._action_mask[0]), list(
             self._action_mask[1]
         )
+        cloned_phase._action_mask_tuples = [
+            tuple(cloned_phase._action_mask[0]),
+            tuple(cloned_phase._action_mask[1])
+        ]
+        cloned_phase._available_actions_cached = [
+            list(self._available_actions_cached[0]),
+            list(self._available_actions_cached[1])
+        ]
         cloned_phase._choices = list(self._choices[0]), list(self._choices[1])
 
         return cloned_phase
@@ -764,14 +783,14 @@ class BattlePhase(Phase):
 
             excess_damage = damage_dealt - target_defense
 
-            if "B" in origin.keywords and excess_damage > 0:
+            if origin.keywords & BREAKTHROUGH and excess_damage > 0:
                 self._damage_player(
                     opposing_player, amount=excess_damage, source=DamageSource.OPPONENT
                 )
         else:
             raise MalformedActionError("Target is not a creature or a player")
 
-        if "D" in origin.keywords:
+        if origin.keywords & DRAIN:
             current_player.health += damage_dealt
 
         origin.has_attacked_this_turn = True
@@ -788,7 +807,7 @@ class BattlePhase(Phase):
 
         target.attack = max(0, target.attack + origin.attack)
         target.defense += origin.defense
-        target.keywords = target.keywords.union(origin.keywords)
+        target.keywords = target.keywords | origin.keywords
 
         if target.defense <= 0:
             target.is_dead = True
@@ -804,7 +823,7 @@ class BattlePhase(Phase):
             raise MalformedActionError(error)
 
         target.attack = max(0, target.attack + origin.attack)
-        target.keywords = target.keywords.difference(origin.keywords)
+        target.keywords = target.keywords & ~origin.keywords
 
         try:
             target.damage(-origin.defense)
@@ -826,7 +845,7 @@ class BattlePhase(Phase):
 
         if isinstance(target, Creature):
             target.attack = max(0, target.attack + origin.attack)
-            target.keywords = target.keywords.difference(origin.keywords)
+            target.keywords = target.keywords & ~origin.keywords
 
             try:
                 target.damage(-origin.defense)

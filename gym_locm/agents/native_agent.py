@@ -1,5 +1,8 @@
 import sys
-from os import fpathconf
+try:
+    from os import fpathconf
+except ImportError:
+    fpathconf = None
 from gym_locm.agents import Agent
 from gym_locm.engine import Action, ActionType, Lane, State
 
@@ -118,7 +121,10 @@ class NativeAgent(Agent):
                 return self.action_buffer.pop()
 
         # get max send buffer size
-        n = fpathconf(0, "PC_MAX_CANON")
+        if fpathconf is not None:
+            n = fpathconf(0, "PC_MAX_CANON")
+        else:
+            n = 4096
 
         # get state as native string
         state_as_str = str(state)

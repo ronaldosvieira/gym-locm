@@ -3,8 +3,34 @@ from typing import List
 
 from gym_locm.exceptions import WardShieldError
 
+# Keyword bitfield constants — enables O(1) keyword operations via bitwise ops
+BREAKTHROUGH = 1   # B
+CHARGE       = 2   # C
+DRAIN        = 4   # D
+GUARD        = 8   # G
+LETHAL       = 16  # L
+WARD         = 32  # W
+
+KEYWORD_BITS = {'B': BREAKTHROUGH, 'C': CHARGE, 'D': DRAIN, 'G': GUARD, 'L': LETHAL, 'W': WARD}
+KEYWORD_CHARS = tuple('BCDGLW')
+
+
+def _parse_keywords(keyword_str: str) -> int:
+    """Convert a keyword string like 'BCG' or 'B-D--W' into a bitfield integer."""
+    bits = 0
+    for ch in keyword_str:
+        if ch in KEYWORD_BITS:
+            bits |= KEYWORD_BITS[ch]
+    return bits
+
 
 class Card:
+    __slots__ = (
+        'id', 'instance_id', 'name', 'type', 'cost', 'attack', 'defense',
+        'keywords', 'player_hp', 'enemy_hp', 'card_draw', 'area', 'text',
+        # Dynamic attrs assigned by game_state.py __str__ and phases.py:
+        'location', 'lane', 'cardType', 'abilities',
+    )
     def __init__(
         self,
         card_id,
@@ -28,7 +54,7 @@ class Card:
         self.cost = cost
         self.attack = attack
         self.defense = defense
-        self.keywords = set(list(keywords.replace("-", "")))
+        self.keywords = _parse_keywords(keywords) if isinstance(keywords, str) else keywords
         self.player_hp = player_hp
         self.enemy_hp = enemy_hp
         self.card_draw = card_draw
@@ -36,7 +62,7 @@ class Card:
         self.text = text
 
     def has_ability(self, keyword: str) -> bool:
-        return keyword in self.keywords
+        return bool(self.keywords & KEYWORD_BITS[keyword])
 
     def __eq__(self, other):
         return (
@@ -61,7 +87,7 @@ class Card:
         cloned_card.cost = self.cost
         cloned_card.attack = self.attack
         cloned_card.defense = self.defense
-        cloned_card.keywords = set(self.keywords)
+        cloned_card.keywords = self.keywords  # int is immutable, no copy needed
         cloned_card.player_hp = self.player_hp
         cloned_card.enemy_hp = self.enemy_hp
         cloned_card.card_draw = self.card_draw
@@ -77,7 +103,8 @@ class Card:
 
     @staticmethod
     def empty_copy(card):
-        class Empty(Card):
+        class Empty(type(card)):
+            __slots__ = ()
             def __init__(self):
                 pass
 
@@ -92,6 +119,7 @@ class Card:
 
 
 class Creature(Card):
+    __slots__ = ('is_dead', 'can_attack', 'has_attacked_this_turn', 'summon_counter')
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -100,10 +128,10 @@ class Creature(Card):
         self.has_attacked_this_turn = False
 
     def remove_ability(self, ability: str):
-        self.keywords.discard(ability)
+        self.keywords &= ~KEYWORD_BITS[ability]
 
     def add_ability(self, ability: str):
-        self.keywords.add(ability)
+        self.keywords |= KEYWORD_BITS[ability]
 
     def able_to_attack(self) -> bool:
         return not self.has_attacked_this_turn and (
@@ -137,19 +165,19 @@ class Creature(Card):
 
 
 class Item(Card):
-    pass
+    __slots__ = ()
 
 
 class GreenItem(Item):
-    pass
+    __slots__ = ()
 
 
 class RedItem(Item):
-    pass
+    __slots__ = ()
 
 
 class BlueItem(Item):
-    pass
+    __slots__ = ()
 
 
 def load_cards() -> List["Card"]:
@@ -205,7 +233,7 @@ def load_cards() -> List["Card"]:
 
     assert len(cards) == 160
 
-    return cards
+    return tuple(cards)
 
 
 _cards = None

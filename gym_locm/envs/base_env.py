@@ -22,6 +22,9 @@ from gym_locm.engine import (
     Lane,
     Area,
 )
+from gym_locm.engine.card import (
+    BREAKTHROUGH, CHARGE, DRAIN, GUARD, LETHAL, WARD,
+)
 from gym_locm.envs.rewards import parse_reward
 from gym_locm.exceptions import MalformedActionError
 
@@ -464,7 +467,15 @@ class LOCMEnv(gym.Env, ABC):
         cost = card.cost / 12
         attack = card.attack / 12
         defense = max(-12, card.defense) / 12
-        keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+        kw = card.keywords
+        keywords = [
+            int(bool(kw & BREAKTHROUGH)),
+            int(bool(kw & CHARGE)),
+            int(bool(kw & DRAIN)),
+            int(bool(kw & GUARD)),
+            int(bool(kw & LETHAL)),
+            int(bool(kw & WARD)),
+        ]
         player_hp = card.player_hp / 12
         enemy_hp = card.enemy_hp / 12
         card_draw = card.card_draw / 2
@@ -486,7 +497,15 @@ class LOCMEnv(gym.Env, ABC):
         attack = card.attack / 12
         defense = card.defense / 12
         can_attack = int(card.can_attack and not card.has_attacked_this_turn)
-        keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+        kw = card.keywords
+        keywords = [
+            int(bool(kw & BREAKTHROUGH)),
+            int(bool(kw & CHARGE)),
+            int(bool(kw & DRAIN)),
+            int(bool(kw & GUARD)),
+            int(bool(kw & LETHAL)),
+            int(bool(kw & WARD)),
+        ]
 
         return [can_attack, attack, defense] + keywords
 
@@ -495,7 +514,15 @@ class LOCMEnv(gym.Env, ABC):
         """Encodes a card object into a numerical array."""
         attack = card.attack / 12
         defense = card.defense / 12
-        keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+        kw = card.keywords
+        keywords = [
+            int(bool(kw & BREAKTHROUGH)),
+            int(bool(kw & CHARGE)),
+            int(bool(kw & DRAIN)),
+            int(bool(kw & GUARD)),
+            int(bool(kw & LETHAL)),
+            int(bool(kw & WARD)),
+        ]
 
         return [attack, defense] + keywords
 

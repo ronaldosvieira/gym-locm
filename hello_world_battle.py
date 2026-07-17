@@ -24,7 +24,7 @@ def hello_world():
 
     while not (terminated or truncated):
         env.render()
-        action = agent.act(env.state)
+        action = agent.act(env.unwrapped.state)
         print("Action:", action)
 
         obs, reward, terminated, truncated, info = env.step(action)

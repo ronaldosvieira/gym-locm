@@ -2,6 +2,10 @@ from gym_locm.exceptions import EmptyDeckError, FullHandError
 
 
 class Player:
+    __slots__ = (
+        'id', 'health', 'base_mana', 'bonus_mana', 'mana', 'next_rune',
+        'bonus_draw', 'last_drawn', 'drawn_cards', 'deck', 'hand', 'lanes', 'actions',
+    )
     def __init__(self, player_id):
         self.id = player_id
 
@@ -45,6 +49,7 @@ class Player:
     @staticmethod
     def empty_copy():
         class Empty(Player):
+            __slots__ = ()
             def __init__(self):
                 pass
 

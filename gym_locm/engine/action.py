@@ -2,6 +2,7 @@ from gym_locm.engine.enums import ActionType
 
 
 class Action:
+    __slots__ = ('type', 'origin', 'target', 'resolved_origin', 'resolved_target')
     def __init__(self, action_type, origin=None, target=None):
         self.type = action_type
         self.origin = origin
