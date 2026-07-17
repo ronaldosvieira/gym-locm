@@ -182,45 +182,46 @@ class DeepSetsLOCMNetwork(nn.Module):
         
         hidden_dim = 64
         
+        # PASS action head
         # input: state (256)
         self.pass_action = nn.Sequential(
             nn.Linear(256, 64), nn.ReLU(),
             nn.Linear(64, 32), nn.ReLU(),
-            nn.Linear(32, last_layer_dim_vf)
+            nn.Linear(32, 1)
         )
         
-        # input: source card (32) + target lane (16) + state (256) = 304
-        self.summon_source_card = nn.Linear(32, hidden_dim)
-        self.summon_target_lane = nn.Linear(16, hidden_dim)
-        self.summon_state = nn.Linear(256, hidden_dim)
+        # SOURCE head
+        self.source_state = nn.Linear(256, hidden_dim)
+        self.source_card = nn.Linear(32, hidden_dim)
+        self.source_creature = nn.Linear(16, hidden_dim)
         
-        self.summon_action = nn.Sequential(
+        self.source_action = nn.Sequential(
             nn.ReLU(),
             nn.Linear(64, 32), nn.ReLU(),
             nn.Linear(32, 1)
         )
         
-        # input: source card (32) + target creature (16) + state (256) = 304
-        self.use_source_card = nn.Linear(32, hidden_dim)
-        self.use_target_creature = nn.Linear(16, hidden_dim)
-        self.use_state = nn.Linear(256, hidden_dim)
+        # TARGET head
+        self.target_state = nn.Linear(256, hidden_dim)
+        self.target_lane = nn.Linear(16, hidden_dim)
+        self.target_creature = nn.Linear(16, hidden_dim)
         
-        self.use_action = nn.Sequential(
+        self.target_action = nn.Sequential(
             nn.ReLU(),
             nn.Linear(64, 32), nn.ReLU(),
             nn.Linear(32, 1)
         )
-
-        # input: source card (16) + target creature (16) + state (256) = 288
-        self.attack_source_creature = nn.Linear(16, hidden_dim)
-        self.attack_target_creature = nn.Linear(16, hidden_dim)
-        self.attack_state = nn.Linear(256, hidden_dim)
         
-        self.attack_action = nn.Sequential(
-            nn.ReLU(),
-            nn.Linear(64, 32), nn.ReLU(),
-            nn.Linear(32, 1)
-        )
+        # Low-rank bilinear interaction between source and target
+        interaction_dim = 8
+        self.source_interaction = nn.Linear(hidden_dim, interaction_dim, bias=False)
+        self.target_interaction = nn.Linear(hidden_dim, interaction_dim, bias=False)
+        self.interaction_scale = interaction_dim ** -0.5
+        
+        # Action-context biases
+        self.summon_bias = nn.Parameter(th.zeros(1))
+        self.use_bias = nn.Parameter(th.zeros(1))
+        self.attack_bias = nn.Parameter(th.zeros(1))
         
         # value function head
         # input: state (256)
@@ -230,9 +231,13 @@ class DeepSetsLOCMNetwork(nn.Module):
             nn.Linear(32, last_layer_dim_vf)
         )
 
-        self.null_target = nn.Parameter(
+        self.null_use_target = nn.Parameter(
             th.randn(1, 1, 16) * 0.02
-        )  # for the "no target" option in use and attack actions
+        )  # for the "no target" option in use actions
+        
+        self.null_attack_target = nn.Parameter(
+            th.randn(1, 1, 16) * 0.02
+        )  # for the "attack opponent directly" option in attack actions
 
     def forward(self, features: dict) -> Tuple[th.Tensor, th.Tensor]:
         """
@@ -244,86 +249,149 @@ class DeepSetsLOCMNetwork(nn.Module):
 
     def forward_actor(self, embeddings: dict) -> th.Tensor:
         bs = embeddings["state"].size(0)
-        null_target = self.null_target.expand(bs, -1, -1)  # [bs, 1, 16]
+        state = embeddings["state"]  # [bs, 256]
         
         # PASS logit
-        pass_logit = self.pass_action(embeddings["state"])  # [bs, 1]
+        pass_logit = self.pass_action(state)  # [bs, 1]
 
-        # SUMMON logits
-        hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
-
-        lanes = th.stack((embeddings["p_lane0"], embeddings["p_lane1"]), dim=1)  # [bs, 2, lane_dim]
+        # Source hidden embeddings and logits
+        hand = embeddings["hand_cards"]  # [bs, 8, 32]
+        p_lane0_creatures = embeddings["p_lane0_creatures"]  # [bs, 3, 16]
+        p_lane1_creatures = embeddings["p_lane1_creatures"]  # [bs, 3, 16]
         
-        state = embeddings["state"]  # [bs, state_dim]
+        source_state_emb = self.source_state(state)[:, None, :]  # [bs, 1, hidden_dim]
         
-        summon_card = self.summon_source_card(hand)  # [bs, max_hand_size, hidden_dim]
-        summon_lane = self.summon_target_lane(lanes)  # [bs, 2, hidden_dim]
-        summon_state = self.summon_state(state)  # [bs, hidden_dim]
+        source_hand_emb = self.source_card(hand) + source_state_emb  # [bs, 8, hidden_dim]
+        source_hand_logits = self.source_action(source_hand_emb).squeeze(-1)  # [bs, 8]
         
-        summon_input = (
-            summon_card[:, :, None, :]  # [bs, max_hand_size, 1, hidden_dim]
-            + summon_lane[:, None, :, :]  # [bs, 1, 2, hidden_dim]
-            + summon_state[:, None, None, :]  # [bs, 1, 1, hidden_dim]
-        )
+        source_p_lane0_emb = self.source_creature(p_lane0_creatures) + source_state_emb  # [bs, 3, hidden_dim]
+        source_p_lane0_logits = self.source_action(source_p_lane0_emb).squeeze(-1)  # [bs, 3]
         
-        summon_logits = self.summon_action(summon_input)  # [bs, max_hand_size, 2, 1]
-        summon_logits = summon_logits.squeeze(-1).reshape(bs, -1)  # [bs, max_hand_size * 2]
+        source_p_lane1_emb = self.source_creature(p_lane1_creatures) + source_state_emb  # [bs, 3, hidden_dim]
+        source_p_lane1_logits = self.source_action(source_p_lane1_emb).squeeze(-1)  # [bs, 3]
         
-        # USE logits
-        hand = embeddings["hand_cards"]  # [bs, max_hand_size, card_dim]
+        # Target hidden embeddings and logits
+        lanes = th.stack((embeddings["p_lane0"], embeddings["p_lane1"]), dim=1)  # [bs, 2, 16]
         
-        targets = th.cat((
-            null_target,
-            embeddings["p_lane0_creatures"], embeddings["p_lane1_creatures"],
-            embeddings["op_lane0_creatures"], embeddings["op_lane1_creatures"],
-        ), dim=1)  # [bs, 13, creature_dim]
+        op_lane0_creatures = embeddings["op_lane0_creatures"]  # [bs, 3, 16]
+        op_lane1_creatures = embeddings["op_lane1_creatures"]  # [bs, 3, 16]
         
-        state = embeddings["state"]  # [bs, state_dim]
+        null_use_target = self.null_use_target.expand(bs, -1, -1)  # [bs, 1, 16]
+        null_attack_target = self.null_attack_target.expand(bs, -1, -1)  # [bs, 1, 16]
         
-        use_input = (
-            self.use_source_card(hand)[:, :, None, :]  # [bs, max_hand_size, 1, hidden_dim]
-            + self.use_target_creature(targets)[:, None, :, :]  # [bs, 1, 13, hidden_dim]
-            + self.use_state(state)[:, None, None, :]  # [bs, 1, 1, hidden_dim]
-        )
+        target_state_emb = self.target_state(state)[:, None, :]  # [bs, 1, hidden_dim]
         
-        use_logits = self.use_action(use_input)  # [bs * 13 * max_hand_size, 1]
-        use_logits = use_logits.squeeze(-1).reshape(use_logits.size(0), -1)  # [bs, max_hand_size * 13]
-
-        # ATTACK lane 0 logits
-        op_lane0_creatures = embeddings["op_lane0_creatures"]  # [bs, 3, creature_dim]
-        op_lane0_creatures = th.cat((null_target, op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
+        target_lane_emb = self.target_lane(lanes) + target_state_emb  # [bs, 2, hidden_dim]
+        target_lane_logits = self.target_action(target_lane_emb).squeeze(-1)  # [bs, 2]
         
-        p_lane0_creatures = embeddings["p_lane0_creatures"]  # [bs, 3, creature_dim]
+        target_null_use_emb = self.target_creature(null_use_target) + target_state_emb  # [bs, 1, hidden_dim]
+        target_null_use_logits = self.target_action(target_null_use_emb).squeeze(-1)  # [bs, 1]
         
-        state = embeddings["state"]  # [bs, state_dim]
+        target_null_attack_emb = self.target_creature(null_attack_target) + target_state_emb  # [bs, 1, hidden_dim]
+        target_null_attack_logits = self.target_action(target_null_attack_emb).squeeze(-1)  # [bs, 1]
         
-        attack_lane0_input = (
-            self.attack_source_creature(p_lane0_creatures)[:, :, None, :]  # [bs, 3, 1, hidden_dim]
-            + self.attack_target_creature(op_lane0_creatures)[:, None, :, :]  # [bs, 1, 4, hidden_dim]
-            + self.attack_state(state)[:, None, None, :]  # [bs, 1, 1, hidden_dim]
-        )
-
-        attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs, 3, 4, 1]
-        attack_lane0_logits = attack_lane0_logits.squeeze(-1).reshape(bs, -1)  # [bs, 3 * 4]
+        target_p_lane0_emb = self.target_creature(p_lane0_creatures) + target_state_emb  # [bs, 3, hidden_dim]
+        target_p_lane0_logits = self.target_action(target_p_lane0_emb).squeeze(-1)  # [bs, 3]
         
-        # ATTACK lane 1 logits
-        op_lane1_creatures = embeddings["op_lane1_creatures"]  # [bs, 3, creature_dim]
-        op_lane1_creatures = th.cat((null_target, op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
-
-        p_lane1_creatures = embeddings["p_lane1_creatures"]  # [bs, 3, creature_dim]
+        target_p_lane1_emb = self.target_creature(p_lane1_creatures) + target_state_emb  # [bs, 3, hidden_dim]
+        target_p_lane1_logits = self.target_action(target_p_lane1_emb).squeeze(-1)  # [bs, 3]
         
-        state = embeddings["state"]  # [bs, state_dim]
-
-        attack_lane1_input = (
-            self.attack_source_creature(p_lane1_creatures)[:, :, None, :]  # [bs, 3, 1, hidden_dim]
-            + self.attack_target_creature(op_lane1_creatures)[:, None, :, :]  # [bs, 1, 4, hidden_dim]
-            + self.attack_state(state)[:, None, None, :]  # [bs, 1, 1, hidden_dim]
-        )
-
-        attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs, 3, 4, 1]
-        attack_lane1_logits = attack_lane1_logits.squeeze(-1).reshape(bs, -1)  # [bs, 3 * 4]
-
-        # concat all action logits
+        target_op_lane0_emb = self.target_creature(op_lane0_creatures) + target_state_emb  # [bs, 3, hidden_dim]
+        target_op_lane0_logits = self.target_action(target_op_lane0_emb).squeeze(-1)  # [bs, 3]
+        
+        target_op_lane1_emb = self.target_creature(op_lane1_creatures) + target_state_emb  # [bs, 3, hidden_dim]
+        target_op_lane1_logits = self.target_action(target_op_lane1_emb).squeeze(-1)  # [bs, 3]
+        
+        # Source and target interaction projections
+        src_inter_hand = self.source_interaction(source_hand_emb)  # [bs, 8, inter_dim]
+        src_inter_p_lane0 = self.source_interaction(source_p_lane0_emb)  # [bs, 3, inter_dim]
+        src_inter_p_lane1 = self.source_interaction(source_p_lane1_emb)  # [bs, 3, inter_dim]
+        
+        # Action Logits Assembly
+        # 1. SUMMON logits (source: hand, target: lane)
+        tgt_inter_lane = self.target_interaction(target_lane_emb)  # [bs, 2, inter_dim]
+        summon_interaction = th.bmm(
+            src_inter_hand, tgt_inter_lane.transpose(1, 2)
+        ) * self.interaction_scale  # [bs, 8, 2]
+        
+        summon_logits = (
+            source_hand_logits[:, :, None] 
+            + target_lane_logits[:, None, :]
+            + summon_interaction
+            + self.summon_bias
+        ).reshape(bs, -1)  # [bs, 16]
+        
+        # 2. USE logits (source: hand, target: null_use, p_lane0, p_lane1, op_lane0, op_lane1)
+        use_target_embs = th.cat((
+            target_null_use_emb, target_p_lane0_emb, target_p_lane1_emb,
+            target_op_lane0_emb, target_op_lane1_emb,
+        ), dim=1)  # [bs, 13, hidden_dim]
+        
+        use_targets_logits = th.cat((
+            target_null_use_logits,
+            target_p_lane0_logits,
+            target_p_lane1_logits,
+            target_op_lane0_logits,
+            target_op_lane1_logits,
+        ), dim=1)  # [bs, 13]
+        
+        tgt_inter_use = self.target_interaction(use_target_embs)  # [bs, 13, inter_dim]
+        use_interaction = th.bmm(
+            src_inter_hand, tgt_inter_use.transpose(1, 2)
+        ) * self.interaction_scale  # [bs, 8, 13]
+        
+        use_logits = (
+            source_hand_logits[:, :, None]
+            + use_targets_logits[:, None, :]
+            + use_interaction
+            + self.use_bias
+        ).reshape(bs, -1)  # [bs, 104]
+        
+        # 3. ATTACK lane 0 logits (source: p_lane0, target: null_attack, op_lane0)
+        attack_lane0_target_embs = th.cat((
+            target_null_attack_emb, target_op_lane0_emb,
+        ), dim=1)  # [bs, 4, hidden_dim]
+        
+        attack_lane0_targets_logits = th.cat((
+            target_null_attack_logits,
+            target_op_lane0_logits,
+        ), dim=1)  # [bs, 4]
+        
+        tgt_inter_attack_l0 = self.target_interaction(attack_lane0_target_embs)  # [bs, 4, inter_dim]
+        attack_lane0_interaction = th.bmm(
+            src_inter_p_lane0, tgt_inter_attack_l0.transpose(1, 2)
+        ) * self.interaction_scale  # [bs, 3, 4]
+        
+        attack_lane0_logits = (
+            source_p_lane0_logits[:, :, None]
+            + attack_lane0_targets_logits[:, None, :]
+            + attack_lane0_interaction
+            + self.attack_bias
+        ).reshape(bs, -1)  # [bs, 12]
+        
+        # 4. ATTACK lane 1 logits (source: p_lane1, target: null_attack, op_lane1)
+        attack_lane1_target_embs = th.cat((
+            target_null_attack_emb, target_op_lane1_emb,
+        ), dim=1)  # [bs, 4, hidden_dim]
+        
+        attack_lane1_targets_logits = th.cat((
+            target_null_attack_logits,
+            target_op_lane1_logits,
+        ), dim=1)  # [bs, 4]
+        
+        tgt_inter_attack_l1 = self.target_interaction(attack_lane1_target_embs)  # [bs, 4, inter_dim]
+        attack_lane1_interaction = th.bmm(
+            src_inter_p_lane1, tgt_inter_attack_l1.transpose(1, 2)
+        ) * self.interaction_scale  # [bs, 3, 4]
+        
+        attack_lane1_logits = (
+            source_p_lane1_logits[:, :, None]
+            + attack_lane1_targets_logits[:, None, :]
+            + attack_lane1_interaction
+            + self.attack_bias
+        ).reshape(bs, -1)  # [bs, 12]
+        
+        # Concat all action logits
         logits = th.cat((
             pass_logit,
             summon_logits,
@@ -331,6 +399,7 @@ class DeepSetsLOCMNetwork(nn.Module):
             attack_lane0_logits,
             attack_lane1_logits,
         ), dim=1)  # [bs, 145]
+        
         action_mask = embeddings["action_mask"]
         
         # prevent invalid actions
@@ -340,6 +409,7 @@ class DeepSetsLOCMNetwork(nn.Module):
 
     def forward_critic(self, embeddings: dict) -> th.Tensor:
         return self.value_net(embeddings["state"])
+
 
 
 class DeepSetsRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
@@ -383,6 +453,7 @@ class DeepSetsRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
+        self.features_extractor = th.compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at BaselineLOCMNetwork
         self.action_net = nn.Identity()
@@ -392,9 +463,8 @@ class DeepSetsRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         if self.ortho_init:
             module_gains = {
                 self.mlp_extractor.pass_action: 0.01,
-                self.mlp_extractor.summon_action: 0.01,
-                self.mlp_extractor.use_action: 0.01,
-                self.mlp_extractor.attack_action: 0.01,
+                self.mlp_extractor.source_action: 0.01,
+                self.mlp_extractor.target_action: 0.01,
                 self.mlp_extractor.value_net: 1,
             }
             
@@ -403,6 +473,7 @@ class DeepSetsRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = DeepSetsLOCMNetwork(256, last_layer_dim_pi=145, last_layer_dim_vf=1)
+        self.mlp_extractor = th.compile(self.mlp_extractor)
 
     def dict_features_to_tensor(self, features: dict[str, th.Tensor]) -> th.Tensor:
         bs = features["player"].size(0)
@@ -578,6 +649,7 @@ class DeepSetsActorCriticPolicy(ActorCriticPolicy):
 
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
+        self.features_extractor = th.compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at DeepSetsLOCMNetwork
         self.action_net = nn.Identity()
@@ -587,9 +659,8 @@ class DeepSetsActorCriticPolicy(ActorCriticPolicy):
         if self.ortho_init:
             module_gains = {
                 self.mlp_extractor.pass_action: 0.01,
-                self.mlp_extractor.summon_action: 0.01,
-                self.mlp_extractor.use_action: 0.01,
-                self.mlp_extractor.attack_action: 0.01,
+                self.mlp_extractor.source_action: 0.01,
+                self.mlp_extractor.target_action: 0.01,
                 self.mlp_extractor.value_net: 1,
             }
             
@@ -598,6 +669,7 @@ class DeepSetsActorCriticPolicy(ActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = DeepSetsLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
+        self.mlp_extractor = th.compile(self.mlp_extractor)
 
 
 def build_deep_sets_network(
