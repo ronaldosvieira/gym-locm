@@ -55,9 +55,9 @@ class LOCMBattleEnv(LOCMEnv):
         hand_size_features = 1
         card_features = 17 if self.items else 13
         friendly_cards_on_board = 6
-        friendly_board_card_features = 9 if not self.dict_observations else 8
+        friendly_board_card_features = 9 if not self.dict_observations else 17
         enemy_cards_on_board = 6
-        enemy_board_card_features = 8
+        enemy_board_card_features = 8 if not self.dict_observations else 17
 
         player_features += 1 if version == "1.2" else 0
         card_features -= 1 if version == "1.2" else 0
@@ -271,19 +271,21 @@ class LOCMBattleEnv(LOCMEnv):
 
         player_hand = fill_cards(player_hand, up_to=8, features=card_features)
         player_deck = fill_cards(player_deck, up_to=30, features=card_features)
+        
+        encode_card = lambda c: self.encode_card(c, version=self.version)
 
         # encode_enemy_card_on_board is used on purpose to not include can_attack information
-        player_lane0 = list(map(self.encode_enemy_card_on_board, p0.lanes[0]))
-        player_lane0 = fill_cards(player_lane0, up_to=3, features=8)
+        player_lane0 = list(map(encode_card, p0.lanes[0]))
+        player_lane0 = fill_cards(player_lane0, up_to=3, features=17)
         
-        player_lane1 = list(map(self.encode_enemy_card_on_board, p0.lanes[1]))
-        player_lane1 = fill_cards(player_lane1, up_to=3, features=8)
+        player_lane1 = list(map(encode_card, p0.lanes[1]))
+        player_lane1 = fill_cards(player_lane1, up_to=3, features=17)
 
-        opponent_lane0 = list(map(self.encode_enemy_card_on_board, p1.lanes[0]))
-        opponent_lane0 = fill_cards(opponent_lane0, up_to=3, features=8)
+        opponent_lane0 = list(map(encode_card, p1.lanes[0]))
+        opponent_lane0 = fill_cards(opponent_lane0, up_to=3, features=17)
         
-        opponent_lane1 = list(map(self.encode_enemy_card_on_board, p1.lanes[1]))
-        opponent_lane1 = fill_cards(opponent_lane1, up_to=3, features=8)
+        opponent_lane1 = list(map(encode_card, p1.lanes[1]))
+        opponent_lane1 = fill_cards(opponent_lane1, up_to=3, features=17)
         
         encoded_state = {
             "player_stats": list(players_info[:3]) + [len(p0.hand) / 8, len(p0.deck) / 30],

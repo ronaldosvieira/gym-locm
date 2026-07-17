@@ -36,7 +36,7 @@ def encode_card(card):
     cost = card.cost / 12
     attack = card.attack / 12
     defense = max(-12, card.defense) / 12
-    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+    keywords = list(map(int, map(card.has_ability, "BCDGLW")))
     player_hp = card.player_hp / 12
     enemy_hp = card.enemy_hp / 12
     card_draw = card.card_draw / 2
