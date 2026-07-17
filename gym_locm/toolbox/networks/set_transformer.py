@@ -86,7 +86,7 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         observation_space: Dict, 
         card_dim: int = 17, 
         player_dim: int = 5, 
-        creature_dim: int = 8,
+        creature_dim: int = 17,
         card_emb_dim: int = 32,
         zone_emb_dim: int = 32,
         player_emb_dim: int = 16,
@@ -124,7 +124,7 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         self.creature_embedding = nn.Sequential(
             nn.Linear(creature_dim, 16), nn.ReLU(),
             nn.Linear(16, 16), nn.ReLU(),
-        ) # 8 * 16 + 16 * 16 = 384 parameters
+        ) # 17 * 16 + 16 * 16 = 528 parameters
         
         self.lane_embedding = nn.Sequential(
             SAB(16, 16, num_heads=4, ln=True),
@@ -240,7 +240,7 @@ class SetTransformerLOCMNetwork(nn.Module):
         feature_dim: int,
         player_dim: int = 5,
         card_dim: int = 17,
-        creature_dim: int = 8,
+        creature_dim: int = 17,
         last_layer_dim_pi: int = 145,
         last_layer_dim_vf: int = 1,
     ):

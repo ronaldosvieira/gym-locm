@@ -22,14 +22,14 @@ class SimpleeFeaturesExtractor(BaseFeaturesExtractor):
         activation_fn: type[nn.Module],
         card_dim: int = 17, 
         player_dim: int = 5, 
-        creature_dim: int = 8,
+        creature_dim: int = 17,
     ):
         input_dim = (
             2 * player_dim  # players
             + card_dim  # deck
             + 8 * card_dim  # hand cards
             + 4 * 3 * creature_dim  # lane creatures
-            # = 259
+            # = 367
         )
 
         super().__init__(observation_space, features_dim=net_arch[-1])
@@ -49,19 +49,19 @@ class SimpleeFeaturesExtractor(BaseFeaturesExtractor):
         opponent_stats = features["opponent_stats"]  # [bs, 5]
         player_deck = features["player_deck"]  # [bs, 30, 17]
         player_hand = features["player_hand"]  # [bs, 8, 17]
-        p_lane0 = features["player_lane0"]  # [bs, 3, 8]
-        p_lane1 = features["player_lane1"]  # [bs, 3, 8]
-        op_lane0 = features["opponent_lane0"]  # [bs, 3, 8]
-        op_lane1 = features["opponent_lane1"]  # [bs, 3, 8]
+        p_lane0 = features["player_lane0"]  # [bs, 3, 17]
+        p_lane1 = features["player_lane1"]  # [bs, 3, 17]
+        op_lane0 = features["opponent_lane0"]  # [bs, 3, 17]
+        op_lane1 = features["opponent_lane1"]  # [bs, 3, 17]
 
         bs = player_stats.shape[0]
 
         deck_mean = player_deck.mean(dim=1)  # [bs, 17]
         hand_flat = player_hand.view(bs, -1)  # [bs, 8*17]
-        p_lane0_flat = p_lane0.view(bs, -1)  # [bs, 3*8]
-        p_lane1_flat = p_lane1.view(bs, -1)  # [bs, 3*8]
-        op_lane0_flat = op_lane0.view(bs, -1)  # [bs, 3*8]
-        op_lane1_flat = op_lane1.view(bs, -1)  # [bs, 3*8]
+        p_lane0_flat = p_lane0.view(bs, -1)  # [bs, 3*17]
+        p_lane1_flat = p_lane1.view(bs, -1)  # [bs, 3*17]
+        op_lane0_flat = op_lane0.view(bs, -1)  # [bs, 3*17]
+        op_lane1_flat = op_lane1.view(bs, -1)  # [bs, 3*17]
 
         features_concat = th.cat((
             player_stats,

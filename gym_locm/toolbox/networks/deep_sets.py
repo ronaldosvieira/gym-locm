@@ -19,7 +19,7 @@ class DeepSetsFeaturesExtractor(BaseFeaturesExtractor):
         observation_space: Dict, 
         card_dim: int = 17, 
         player_dim: int = 5, 
-        creature_dim: int = 8,
+        creature_dim: int = 17,
         card_emb_dim: int = 32,
         zone_emb_dim: int = 32,
         player_emb_dim: int = 16,
