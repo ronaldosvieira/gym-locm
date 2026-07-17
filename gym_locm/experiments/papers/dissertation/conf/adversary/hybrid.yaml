@@ -1,0 +1,5 @@
+type: "hybrid"
+role: "alternate"
+switch_freq: 500
+num_self_play_envs: 1
+num_fixed_adversary_envs: 1

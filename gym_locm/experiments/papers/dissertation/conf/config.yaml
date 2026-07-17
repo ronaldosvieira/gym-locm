@@ -1,0 +1,29 @@
+hydra:
+  verbose:
+    - __main__
+    - gym_locm
+    
+defaults:
+  - _self_
+  - model: simple
+  - adversary: fixed
+
+# Global settings
+version: "1.5"
+task: "battle"
+seed: 42
+train_episodes: 250000
+eval_episodes: 50
+num_evals: 250
+concurrency: 1
+
+# Reward functions
+reward_functions: "win-loss"
+reward_weights: "1"
+use_average_deck: true
+
+# Logging & Paths
+no_tracking: true
+wandb_entity: "ronaldosvieira"
+wandb_project: "tese"
+path: "gym_locm/experiments/papers/dissertation/runs/test-run"

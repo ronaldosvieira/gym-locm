@@ -371,10 +371,8 @@ def build_simple_network(
 ):
     if isinstance(layers, int):
         net_arch = [neurons] * layers
-    elif isinstance(layers, dict) or isinstance(layers, list):
-        net_arch = layers
     else:
-        raise ValueError(f"Invalid type for layers: {type(layers)}.")
+        net_arch = layers
     
     activation = dict(tanh=th.nn.Tanh, relu=th.nn.ReLU, elu=th.nn.ELU)[activation]
     
