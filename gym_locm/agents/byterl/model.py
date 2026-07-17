@@ -30,6 +30,10 @@ def softmax(x):
     return np.exp(x) / np.sum(np.exp(x))
 
 
+def identity(x):
+    return x
+
+
 def _activation(activation_name):
     if activation_name == "relu":
         return relu
@@ -38,7 +42,7 @@ def _activation(activation_name):
     elif activation_name == "gelu":
         return gelu
     else:
-        return lambda x: x
+        return identity
 
 
 class fully_connected_layers:
