@@ -166,7 +166,7 @@ class LOCMBattleEnv(LOCMEnv):
         # less property accesses
         state = self.state
 
-        self.last_player_rewards[state.current_player.id] = [
+        reward_before = [
             weight * function.calculate(state, for_player=PlayerOrder.FIRST)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
@@ -177,7 +177,6 @@ class LOCMBattleEnv(LOCMEnv):
         else:
             state.was_last_action_invalid = True
 
-        reward_before = self.last_player_rewards[state.current_player.id]
         reward_after = [
             weight * function.calculate(state, for_player=PlayerOrder.FIRST)
             for function, weight in zip(self.reward_functions, self.reward_weights)
@@ -186,12 +185,9 @@ class LOCMBattleEnv(LOCMEnv):
         # build return info
         winner = state.winner
 
-        if reward_before is None:
-            raw_rewards = (0.0,) * len(self.reward_functions)
-        else:
-            raw_rewards = tuple(
-                [after - before for before, after in zip(reward_before, reward_after)]
-            )
+        raw_rewards = tuple(
+            [after - before for before, after in zip(reward_before, reward_after)]
+        )
 
         reward = sum(raw_rewards)
         terminated = winner is not None
@@ -452,6 +448,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
 
         # do the action
         state, reward, terminated, truncated, info = super().step(action)
+        total_reward = reward
 
         was_invalid = info["invalid"]
 
@@ -462,7 +459,8 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
             action = self.battle_agent.act(self.state)
 
             try:
-                state, reward, terminated, truncated, info = super().step(action)
+                state, step_reward, terminated, truncated, info = super().step(action)
+                total_reward += step_reward
             except ActionError:
                 if action == last_opponent_action:
                     # opponent is repeating the same invalid action, raise exception to avoid infinite loop
@@ -471,6 +469,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
             last_opponent_action = action
 
         info["invalid"] = was_invalid
+        reward = total_reward
 
         if not self.play_first:
             reward = -reward
@@ -561,6 +560,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         # do the action
         state, reward, terminated, truncated, info = super().step(action)
+        total_reward = reward
 
         was_invalid = info["invalid"]
 
@@ -572,15 +572,18 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
             action = self.adversary_policy(state)
 
             try:
-                state, reward, terminated, truncated, info = super().step(action)
+                state, step_reward, terminated, truncated, info = super().step(action)
+                total_reward += step_reward
             except ActionError:
                 if action == last_opponent_action:
                     # opponent is repeating the same invalid action, pass the turn instead
-                    state, reward, terminated, truncated, info = super().step(0)
+                    state, step_reward, terminated, truncated, info = super().step(0)
+                    total_reward += step_reward
 
             last_opponent_action = action
 
         info["invalid"] = was_invalid
+        reward = total_reward
 
         if not self.play_first:
             reward = -reward
