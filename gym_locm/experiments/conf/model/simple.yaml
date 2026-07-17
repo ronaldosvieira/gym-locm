@@ -1,0 +1,16 @@
+name: "simple"
+layers: [512, 256]
+neurons: 0
+lstm: false
+act_fun: "relu"
+
+# PPO Hyperparameters
+cliprange: 0.2
+ent_coef: 0.0
+gamma: 0.99
+gae_lambda: 0.95
+learning_rate: 0.0003
+n_steps: 2048
+nminibatches_divider: 32
+noptepochs: 10
+vf_coef: 0.5

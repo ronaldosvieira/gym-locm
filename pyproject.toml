@@ -29,6 +29,7 @@ dev = [
     "black>=26.1.0",
 ]
 experiments = [
+    "hydra-core>=1.3.2",
     "hyperopt>=0.2.7",
     "matplotlib>=3.10.8",
     "pandas>=3.0.0",
