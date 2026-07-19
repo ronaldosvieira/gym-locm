@@ -55,7 +55,7 @@ def encode_friendly_card_on_board(card: Creature):
     attack = card.attack / 12
     defense = card.defense / 12
     can_attack = int(card.can_attack and not card.has_attacked_this_turn)
-    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+    keywords = list(map(int, map(card.has_ability, "BCDGLW")))
     # no .area encoding is needed here
 
     return [attack, defense, can_attack] + keywords
@@ -65,7 +65,7 @@ def encode_enemy_card_on_board(card: Creature):
     """Encodes a card object into a numerical array."""
     attack = card.attack / 12
     defense = card.defense / 12
-    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+    keywords = list(map(int, map(card.has_ability, "BCDGLW")))
     # no .area encoding is needed here
 
     return [attack, defense] + keywords
@@ -116,8 +116,8 @@ class SubmitInterface:
             + self.enemy_cards_on_board * self.enemy_board_card_features
         )
         self.now_phase = Phase.DECK_BUILDING
-        self.card_set = None
-        self.cards_selected_mask = None
+        self.card_set = np.zeros((3, self.card_features), dtype=np.float32)
+        self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
 
     def env_to_agt_trans_observation(self, observation):
         """
