@@ -29,6 +29,8 @@ locm-runner = "gym_locm.toolbox.runner:run"
 dev = [
     "black>=26.1.0",
 ]
+
+[project.optional-dependencies]
 experiments = [
     "hyperopt>=0.2.7",
     "matplotlib>=3.10.8",
