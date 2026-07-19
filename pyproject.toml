@@ -46,6 +46,7 @@ native-agent = [
 ]
 render = [
     "prettytable>=3.17.0",
+    "pygame>=2.5.0",
     "sty>=1.0.6",
 ]
 toolbox = [
