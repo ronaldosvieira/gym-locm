@@ -55,7 +55,7 @@ def encode_friendly_card_on_board(card: Creature):
     attack = card.attack / 12
     defense = card.defense / 12
     can_attack = int(card.can_attack and not card.has_attacked_this_turn)
-    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+    keywords = list(map(int, map(card.has_ability, "BCDGLW")))
     # no .area encoding is needed here
 
     return [attack, defense, can_attack] + keywords
@@ -65,7 +65,7 @@ def encode_enemy_card_on_board(card: Creature):
     """Encodes a card object into a numerical array."""
     attack = card.attack / 12
     defense = card.defense / 12
-    keywords = list(map(int, map(card.keywords.__contains__, "BCDGLW")))
+    keywords = list(map(int, map(card.has_ability, "BCDGLW")))
     # no .area encoding is needed here
 
     return [attack, defense] + keywords
