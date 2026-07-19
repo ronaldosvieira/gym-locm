@@ -45,6 +45,7 @@ class LOCMEnv(gym.Env, ABC):
     ):
         self._seed = seed
         self.render_mode = render_mode
+        self.gui_renderer = None
         self.version = version
         self.episodes = 0
         self.items = items
@@ -125,6 +126,16 @@ class LOCMEnv(gym.Env, ABC):
             mode = self.render_mode
 
         # if text mode, print appropriate representation
+
+        if mode == "gui":
+            if self.gui_renderer is None:
+                try:
+                    from gym_locm.gui import GUIRenderer
+                    self.gui_renderer = GUIRenderer()
+                except ImportError:
+                    raise ImportError("To use the 'gui' rendering mode, please install gym-locm[render] (which includes pygame).")
+            self.gui_renderer.render(self.state)
+
         if mode == "text":
             if self.state.phase == Phase.DECK_BUILDING:
                 self._render_text_deck_building()
