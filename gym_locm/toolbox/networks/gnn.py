@@ -5,6 +5,7 @@ from copy import deepcopy
 import gymnasium as gym
 import numpy as np
 import torch as th
+from gym_locm.toolbox.networks.utils import safely_compile
 from torch import nn
 from torch.nn import functional as F
 
@@ -316,7 +317,7 @@ class GNNActorCriticPolicy(ActorCriticPolicy):
 
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
-        self.features_extractor = th.compile(self.features_extractor)
+        self.features_extractor = safely_compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at LOCMNetwork
         self.action_net = nn.Identity()
@@ -324,7 +325,7 @@ class GNNActorCriticPolicy(ActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = GNNLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
-        self.mlp_extractor = th.compile(self.mlp_extractor)
+        self.mlp_extractor = safely_compile(self.mlp_extractor)
 
 
 class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
@@ -333,7 +334,7 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
-        self.features_extractor = th.compile(self.features_extractor)
+        self.features_extractor = safely_compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at LOCMNetwork
         self.action_net = nn.Identity()
@@ -341,7 +342,7 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = GNNLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
-        self.mlp_extractor = th.compile(self.mlp_extractor)
+        self.mlp_extractor = safely_compile(self.mlp_extractor)
 
     def dict_features_to_tensor(self, features: dict[str, th.Tensor]) -> th.Tensor:
         bs = features["all_entities"].size(0)

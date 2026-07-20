@@ -1,4 +1,5 @@
 import torch as th
+from gym_locm.toolbox.networks.utils import safely_compile
 import torch.nn as nn
 from functools import partial
 from typing import Callable, Tuple
@@ -453,7 +454,7 @@ class DeepSetsRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
-        self.features_extractor = th.compile(self.features_extractor)
+        self.features_extractor = safely_compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at BaselineLOCMNetwork
         self.action_net = nn.Identity()
@@ -473,7 +474,7 @@ class DeepSetsRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = DeepSetsLOCMNetwork(256, last_layer_dim_pi=145, last_layer_dim_vf=1)
-        self.mlp_extractor = th.compile(self.mlp_extractor)
+        self.mlp_extractor = safely_compile(self.mlp_extractor)
 
     def dict_features_to_tensor(self, features: dict[str, th.Tensor]) -> th.Tensor:
         bs = features["player"].size(0)
@@ -649,7 +650,7 @@ class DeepSetsActorCriticPolicy(ActorCriticPolicy):
 
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
-        self.features_extractor = th.compile(self.features_extractor)
+        self.features_extractor = safely_compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at DeepSetsLOCMNetwork
         self.action_net = nn.Identity()
@@ -669,7 +670,7 @@ class DeepSetsActorCriticPolicy(ActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = DeepSetsLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
-        self.mlp_extractor = th.compile(self.mlp_extractor)
+        self.mlp_extractor = safely_compile(self.mlp_extractor)
 
 
 def build_deep_sets_network(
