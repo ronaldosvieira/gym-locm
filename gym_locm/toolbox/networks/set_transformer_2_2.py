@@ -266,6 +266,8 @@ class SetTransformerLOCMNetwork(nn.Module):
 
         self.summon_source_card = nn.Linear(128, hidden_dim)
         self.summon_target_lane = nn.Linear(128, hidden_dim)
+        self.summon_query = PMA(dim=128, num_heads=4, num_seeds=1, ln=True)
+        self.summon_context_proj = nn.Linear(128, hidden_dim)
 
         self.summon_action = nn.Sequential(
             nn.ReLU(),
@@ -275,6 +277,8 @@ class SetTransformerLOCMNetwork(nn.Module):
         
         self.use_source_card = nn.Linear(128, hidden_dim)
         self.use_target_creature = nn.Linear(128, hidden_dim)
+        self.use_query = PMA(dim=128, num_heads=4, num_seeds=1, ln=True)
+        self.use_context_proj = nn.Linear(128, hidden_dim)
 
         self.use_action = nn.Sequential(
             nn.ReLU(),
@@ -284,6 +288,8 @@ class SetTransformerLOCMNetwork(nn.Module):
 
         self.attack_source_creature = nn.Linear(128, hidden_dim)
         self.attack_target_creature = nn.Linear(128, hidden_dim)
+        self.attack_query = PMA(dim=128, num_heads=4, num_seeds=1, ln=True)
+        self.attack_context_proj = nn.Linear(128, hidden_dim)
         
         self.attack_action = nn.Sequential(
             nn.ReLU(),
@@ -328,43 +334,52 @@ class SetTransformerLOCMNetwork(nn.Module):
         pass_logit = self.pass_action(embeddings["all_entities"]).squeeze(1)  # [bs, 1]
 
         # SUMMON logits
-        # todo: trocar por um embedding de ação: hand + lane + state
         lanes = th.stack((p_lane0, p_lane1), dim=1)  # [bs, 2, lane_emb_dim]
         
         summon_card = self.summon_source_card(p_hand)  # [bs, max_hand_size, hidden_dim]
         summon_lane = self.summon_target_lane(lanes)  # [bs, 2, hidden_dim]
+        summon_ctx = self.summon_context_proj(self.summon_query(embeddings["all_entities"]))  # [bs, 1, hidden_dim]
         
         summon_input = (
             summon_card[:, :, None, :]  # [bs, max_hand_size, 1, hidden_dim]
             + summon_lane[:, None, :, :]  # [bs, 1, 2, hidden_dim]
+            + summon_ctx[:, None, :, :]  # [bs, 1, 1, hidden_dim]
         )
         
         summon_logits = self.summon_action(summon_input)  # [bs, max_hand_size, 2, 1]
         summon_logits = summon_logits.squeeze(-1).view(bs, -1)  # [bs, max_hand_size * 2]
         
         # USE logits
-        # todo: trocar por um embedding de ação: hand + creature + state
         targets = th.cat((
             op[:, None, :],
             p_lane0_creatures, p_lane1_creatures,
             op_lane0_creatures, op_lane1_creatures,
         ), dim=1)  # [bs, 13, creature_dim]
         
+        use_card = self.use_source_card(p_hand)
+        use_target = self.use_target_creature(targets)
+        use_ctx = self.use_context_proj(self.use_query(embeddings["all_entities"]))
+
         use_input = (
-            self.use_source_card(p_hand)[:, :, None, :]  # [bs, max_hand_size, 1, hidden_dim]
-            + self.use_target_creature(targets)[:, None, :, :]  # [bs, 1, 13, hidden_dim]
+            use_card[:, :, None, :]  # [bs, max_hand_size, 1, hidden_dim]
+            + use_target[:, None, :, :]  # [bs, 1, 13, hidden_dim]
+            + use_ctx[:, None, :, :]
         )
         
         use_logits = self.use_action(use_input)  # [bs * 13 * max_hand_size, 1]
         use_logits = use_logits.squeeze(-1).view(bs, -1)  # [bs, max_hand_size * 13]
 
         # ATTACK lane 0 logits
-        # todo: trocar por um embedding de ação: hand + creature + state
         targets = th.cat((op[:, None, :], op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
         
+        attack_src = self.attack_source_creature(p_lane0_creatures)
+        attack_tgt = self.attack_target_creature(targets)
+        attack_ctx = self.attack_context_proj(self.attack_query(embeddings["all_entities"]))
+
         attack_lane0_input = (
-            self.attack_source_creature(p_lane0_creatures)[:, :, None, :]  # [bs, 3, 1, hidden_dim]
-            + self.attack_target_creature(targets)[:, None, :, :]  # [bs, 1, 4, hidden_dim]
+            attack_src[:, :, None, :]  # [bs, 3, 1, hidden_dim]
+            + attack_tgt[:, None, :, :]  # [bs, 1, 4, hidden_dim]
+            + attack_ctx[:, None, :, :]
         )
 
         attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs, 3, 4, 1]
@@ -373,9 +388,13 @@ class SetTransformerLOCMNetwork(nn.Module):
         # ATTACK lane 1 logits
         targets = th.cat((op[:, None, :], op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
 
+        attack_src = self.attack_source_creature(p_lane1_creatures)
+        attack_tgt = self.attack_target_creature(targets)
+        # reuse attack_ctx since it's the same action type (attack) but different lane
         attack_lane1_input = (
-            self.attack_source_creature(p_lane1_creatures)[:, :, None, :]  # [bs, 3, 1, hidden_dim]
-            + self.attack_target_creature(targets)[:, None, :, :]  # [bs, 1, 4, hidden_dim]
+            attack_src[:, :, None, :]  # [bs, 3, 1, hidden_dim]
+            + attack_tgt[:, None, :, :]  # [bs, 1, 4, hidden_dim]
+            + attack_ctx[:, None, :, :]
         )
 
         attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs, 3, 4, 1]

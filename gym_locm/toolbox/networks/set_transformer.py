@@ -58,26 +58,21 @@ class MAB(nn.Module):
         return O
 
 
-class SAB(nn.Module):
-    def __init__(self, dim_in, dim_out, num_heads, ln=False):
-        super(SAB, self).__init__()
-        self.mab = MAB(dim_in, dim_in, dim_out, num_heads, ln=ln)
+class TransformerBlock(nn.Module):
+    def __init__(self, dim, num_heads):
+        super(TransformerBlock, self).__init__()
+        self.encoder_layer = nn.TransformerEncoderLayer(
+            d_model=dim, 
+            nhead=num_heads, 
+            dim_feedforward=dim * 4,
+            dropout=0.0,
+            activation='relu',
+            batch_first=True,
+            norm_first=True
+        )
 
     def forward(self, X):
-        return self.mab(X, X)
-
-
-class ISAB(nn.Module):
-    def __init__(self, dim_in, dim_out, num_heads, num_inds, ln=False):
-        super(ISAB, self).__init__()
-        self.I = nn.Parameter(th.Tensor(1, num_inds, dim_out))
-        nn.init.xavier_uniform_(self.I)
-        self.mab0 = MAB(dim_out, dim_in, dim_out, num_heads, ln=ln)
-        self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads, ln=ln)
-
-    def forward(self, X):
-        H = self.mab0(self.I.expand(X.size(0), -1, -1), X)
-        return self.mab1(X, H)
+        return self.encoder_layer(X)
 
 
 class PMA(nn.Module):
@@ -121,8 +116,8 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         ) # 17 * 32 + 32 * 32 = 1,568 parameters
 
         self.card_zone_embedding = nn.Sequential(
-            SAB(32, 32, num_heads=4, ln=True),
-            SAB(32, 32, num_heads=4, ln=True),
+            TransformerBlock(32, num_heads=4),
+            TransformerBlock(32, num_heads=4),
         )
 
         self.card_zone_pool = PMA(
@@ -138,8 +133,8 @@ class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
         ) # 17 * 16 + 16 * 16 = 528 parameters
         
         self.lane_embedding = nn.Sequential(
-            SAB(16, 16, num_heads=4, ln=True),
-            SAB(16, 16, num_heads=4, ln=True),
+            TransformerBlock(16, num_heads=4),
+            TransformerBlock(16, num_heads=4),
         )
 
         self.lane_pool = PMA(
