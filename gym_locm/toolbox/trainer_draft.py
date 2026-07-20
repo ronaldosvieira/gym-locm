@@ -205,7 +205,7 @@ class FixedAdversary(TrainingSession):
             self.logger.info(
                 f"Finished evaluating "
                 f"({round(end_time - start_time, 3)}s). "
-                f"Avg. reward: {mean_reward}"
+                f"Avg. rew: {mean_reward:.3f}"
             )
 
             # save the results
@@ -423,7 +423,7 @@ class SelfPlay(TrainingSession):
             self.logger.info(
                 f"Finished evaluating "
                 f"({round(end_time - start_time, 3)}s). "
-                f"Avg. reward: {mean_reward}"
+                f"Avg. rew: {mean_reward:.3f}"
             )
 
             # save the results
@@ -672,7 +672,7 @@ class AsymmetricSelfPlay(TrainingSession):
             self.logger.info(
                 f"Finished evaluating "
                 f"({round(end_time - start_time, 3)}s). "
-                f"Avg. reward: {mean_reward}"
+                f"Avg. rew: {mean_reward:.3f}"
             )
 
             # save the results

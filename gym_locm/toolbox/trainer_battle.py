@@ -216,7 +216,8 @@ class FixedAdversary(TrainingSession):
                 self.logger.info(
                     f"Finished evaluating vs {eval_adversary} "
                     f"({round(end_time - start_time, 3)}s). "
-                    f"Avg. reward: {mean_reward}"
+                    f"wr: {round(win_rate * 100, 3)}%. "
+                    f"Avg. rew: {mean_reward:.3f}"
                 )
 
                 # save the results
@@ -453,7 +454,8 @@ class SelfPlay(TrainingSession):
                 self.logger.info(
                     f"Finished evaluating vs {eval_adversary} "
                     f"({round(end_time - start_time, 3)}s). "
-                    f"Avg. reward: {mean_reward}"
+                    f"wr: {round(win_rate * 100, 3)}%. "
+                    f"Avg. rew: {mean_reward:.3f}"
                 )
 
                 # save the results
@@ -711,7 +713,8 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                 self.logger.info(
                     f"Finished evaluating vs {eval_adversary} "
                     f"({round(end_time - start_time, 3)}s). "
-                    f"Avg. reward: {mean_reward}"
+                    f"wr: {round(win_rate * 100, 3)}%. "
+                    f"Avg. rew: {mean_reward:.3f}"
                 )
 
                 # save the results
