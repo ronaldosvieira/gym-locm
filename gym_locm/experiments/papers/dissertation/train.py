@@ -8,9 +8,11 @@ from gym_locm.toolbox.networks import (
     build_simple_network, 
     build_deep_sets_network, 
     build_set_transformer_network,
+    build_gnn_network,
     load_simple_network, 
     load_deep_sets_network,
     load_set_transformer_network,
+    load_gnn_network,
 )
 from gym_locm import agents
 
@@ -19,12 +21,14 @@ MODEL_BUILDERS = {
     "simple": build_simple_network,
     "deep_sets": build_deep_sets_network,
     "set_transformer": build_set_transformer_network,
+    "gnn": build_gnn_network,
 }
 
 MODEL_LOADERS = {
     "simple": load_simple_network,
     "deep_sets": load_deep_sets_network,
     "set_transformer": load_set_transformer_network,
+    "gnn": load_gnn_network,
 }
 
 def get_env_parameters(cfg: DictConfig):
