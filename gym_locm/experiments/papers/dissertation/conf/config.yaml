@@ -22,8 +22,19 @@ reward_functions: "win-loss"
 reward_weights: "1"
 use_average_deck: true
 
+# PPO Hyperparameters
+cliprange: 0.2
+ent_coef: 0.005
+gamma: 0.99
+gae_lambda: 0.98
+learning_rate: 0.005838104376218821
+n_steps: 4096
+nminibatches_divider: 1
+noptepochs: 2
+vf_coef: 1.0
+
 # Logging & Paths
 no_tracking: true
 wandb_entity: "ronaldosvieira"
-wandb_project: "tese"
+wandb_project: "dissertation"
 path: "gym_locm/experiments/papers/dissertation/runs/test-run"
