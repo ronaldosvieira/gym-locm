@@ -31,16 +31,27 @@ class MAB(nn.Module):
         self.fc_o = nn.Linear(dim_V, dim_V)
 
     def forward(self, Q, K):
-        Q = self.fc_q(Q)
-        K, V = self.fc_k(K), self.fc_v(K)
+        bs, q_len = Q.size(0), Q.size(1)
+        k_len = K.size(1)
+
+        Q_proj = self.fc_q(Q)
+        K_proj, V_proj = self.fc_k(K), self.fc_v(K)
 
         dim_split = self.dim_V // self.num_heads
-        Q_ = th.cat(Q.split(dim_split, 2), 0)
-        K_ = th.cat(K.split(dim_split, 2), 0)
-        V_ = th.cat(V.split(dim_split, 2), 0)
 
-        A = th.softmax(Q_.bmm(K_.transpose(1,2))/math.sqrt(self.dim_V), 2)
-        O = th.cat((Q_ + A.bmm(V_)).split(Q.size(0), 0), 2)
+        # Reshape to 4D tensors for native SDPA: [bs, num_heads, seq_len, dim_split]
+        Q_ = Q_proj.view(bs, q_len, self.num_heads, dim_split).transpose(1, 2)
+        K_ = K_proj.view(bs, k_len, self.num_heads, dim_split).transpose(1, 2)
+        V_ = V_proj.view(bs, k_len, self.num_heads, dim_split).transpose(1, 2)
+
+        attn_output = F.scaled_dot_product_attention(
+            Q_, K_, V_, scale=1.0 / math.sqrt(self.dim_V)
+        )
+        
+        # Reshape back to 3D and apply residual connection
+        attn_output = attn_output.transpose(1, 2).contiguous().view(bs, q_len, self.dim_V)
+        O = Q_proj + attn_output
+
         O = O if getattr(self, 'ln0', None) is None else self.ln0(O)
         O = O + F.relu(self.fc_o(O))
         O = O if getattr(self, 'ln1', None) is None else self.ln1(O)
@@ -65,7 +76,7 @@ class ISAB(nn.Module):
         self.mab1 = MAB(dim_in, dim_out, dim_out, num_heads, ln=ln)
 
     def forward(self, X):
-        H = self.mab0(self.I.repeat(X.size(0), 1, 1), X)
+        H = self.mab0(self.I.expand(X.size(0), -1, -1), X)
         return self.mab1(X, H)
 
 
@@ -77,7 +88,7 @@ class PMA(nn.Module):
         self.mab = MAB(dim, dim, dim, num_heads, ln=ln)
 
     def forward(self, X):
-        return self.mab(self.S.repeat(X.size(0), 1, 1), X)
+        return self.mab(self.S.expand(X.size(0), -1, -1), X)
 #####
 
 class SetTransformerFeaturesExtractor(BaseFeaturesExtractor):
@@ -435,6 +446,7 @@ class SetTransformerRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
+        self.features_extractor = th.compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at BaselineLOCMNetwork
         self.action_net = nn.Identity()
@@ -455,6 +467,7 @@ class SetTransformerRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = SetTransformerLOCMNetwork(256, last_layer_dim_pi=145, last_layer_dim_vf=1)
+        self.mlp_extractor = th.compile(self.mlp_extractor)
 
     def dict_features_to_tensor(self, features: dict[str, th.Tensor]) -> th.Tensor:
         bs = features["player"].size(0)
@@ -630,6 +643,7 @@ class SetTransformerActorCriticPolicy(ActorCriticPolicy):
 
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
+        self.features_extractor = th.compile(self.features_extractor)
         
         # do not add a nn.Linear layer on top of what we return at SetTransformerLOCMNetwork
         self.action_net = nn.Identity()
@@ -650,6 +664,7 @@ class SetTransformerActorCriticPolicy(ActorCriticPolicy):
 
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = SetTransformerLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
+        self.mlp_extractor = th.compile(self.mlp_extractor)
 
 
 def build_set_transformer_network(
