@@ -12,9 +12,9 @@ defaults:
 version: "1.5"
 task: "battle"
 seed: 42
-train_episodes: 250000
+train_episodes: 150000
 eval_episodes: 50
-num_evals: 250
+num_evals: 150
 concurrency: 1
 
 # Reward functions

@@ -71,18 +71,11 @@ def get_env_parameters(cfg: DictConfig):
         # vs. OSL (Greedy)
         fixed.copy(),
         
-        # # vs. 0.5-NByteRL
-        # {
-        #     **common_params,
-        #     "deck_building_agents": (byterl, noisy_byterl),
-        #     "battle_agent": noisy_byterl,
-        # },
-        
-        # # vs. ByteRL
-        # {
-        #     **common_params,
-        #     "battle_agent": byterl,
-        # }
+        # vs. ByteRL
+        {
+            **common_params,
+            "battle_agent": byterl,
+        }
     ]
     
     return self_play, fixed, evals
@@ -100,23 +93,23 @@ def main(cfg: DictConfig):
     self_play_env_params, fixed_adversary_env_params, eval_env_params = get_env_parameters(cfg)
 
     # Calculate PPO miniblocks
-    nminibatches = cfg.model.n_steps // int(cfg.model.nminibatches_divider)
+    nminibatches = cfg.n_steps // int(cfg.nminibatches_divider)
 
     # Structure PPO model inputs
     model_params = {
         "layers": cfg.model.layers,
         "neurons": cfg.model.neurons,
-        "n_steps": cfg.model.n_steps,
+        "n_steps": cfg.n_steps,
         "nminibatches": nminibatches,
-        "noptepochs": cfg.model.noptepochs,
-        "cliprange": cfg.model.cliprange,
-        "vf_coef": cfg.model.vf_coef,
-        "ent_coef": cfg.model.ent_coef,
+        "noptepochs": cfg.noptepochs,
+        "cliprange": cfg.cliprange,
+        "vf_coef": cfg.vf_coef,
+        "ent_coef": cfg.ent_coef,
         "activation": cfg.model.act_fun,
-        "learning_rate": cfg.model.learning_rate,
-        "gae_lambda": cfg.model.gae_lambda,
+        "learning_rate": cfg.learning_rate,
+        "gae_lambda": cfg.gae_lambda,
         "tensorboard_log": os.path.join(cfg.path, "tf_logs"),
-        "gamma": cfg.model.gamma,
+        "gamma": cfg.gamma,
         "lstm": cfg.model.lstm,
     }
 
@@ -136,7 +129,7 @@ def main(cfg: DictConfig):
 
     # Track with W&B
     run = None
-    if cfg.task == "battle" and not cfg.no_tracking:
+    if cfg.task == "battle" and not cfg.get("no_tracking", False):
         # Convert DictConfig to primitive dict for W&B logging
         wandb_config = OmegaConf.to_container(cfg, resolve=True)
         run = wandb.init(
