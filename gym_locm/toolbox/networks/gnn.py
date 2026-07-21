@@ -1,4 +1,5 @@
 import math
+from functools import partial
 from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 from copy import deepcopy
 
@@ -14,7 +15,18 @@ from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 
-from gym_locm.toolbox.networks.set_transformer import PMA
+
+class MeanPool(nn.Module):
+    """Mean pooling over the sequence dimension.
+    Lightweight drop-in replacement for PMA when the input size is fixed."""
+    def __init__(self, dim, ln=True):
+        super().__init__()
+        self.proj = nn.Linear(dim, dim)
+        self.norm = nn.LayerNorm(dim) if ln else nn.Identity()
+
+    def forward(self, X):
+        # X: [bs, n, dim] -> [bs, 1, dim]
+        return self.norm(self.proj(X.mean(dim=1, keepdim=True)))
 
 class HeteroGNNLayer(nn.Module):
     def __init__(self, hidden_dim):
@@ -37,9 +49,8 @@ class HeteroGNNLayer(nn.Module):
             # message passing: A @ X
             msg = th.bmm(A, X)
             out = out + self.W[edge_type](msg)
-            
-        out = self.norm(out)
-        out = F.relu(out)
+
+        out = X + F.relu(self.norm(out))  # residual connection
         return out
 
 
@@ -62,6 +73,7 @@ class GNNFeaturesExtractor(BaseFeaturesExtractor):
 
         # Initial projections to project everything to hidden_dim
         self.player_proj = nn.Linear(player_features, self.hidden_dim)
+        self.opponent_proj = nn.Linear(player_features, self.hidden_dim)
         self.card_proj = nn.Linear(card_features, self.hidden_dim)
         self.creature_proj = nn.Linear(creature_features, self.hidden_dim)
         
@@ -73,13 +85,24 @@ class GNNFeaturesExtractor(BaseFeaturesExtractor):
             HeteroGNNLayer(self.hidden_dim) for _ in range(self.num_layers)
         ])
 
+        # Static structural adjacency (registered as buffer to avoid recomputation)
+        A_struct = th.zeros(25, 25)
+        A_struct[2:17, 0] = 1   # Deck, Hand, P_Lanes belong to Player
+        A_struct[17:23, 1] = 1  # Op_Lanes belong to Opponent
+        A_struct[11:14, 23] = 1 # P_Lane0 in Lane0
+        A_struct[17:20, 23] = 1 # Op_Lane0 in Lane0
+        A_struct[14:17, 24] = 1 # P_Lane1 in Lane1
+        A_struct[20:23, 24] = 1 # Op_Lane1 in Lane1
+        A_struct = A_struct + A_struct.t()
+        self.register_buffer("A_struct_static", A_struct)
+
     def forward(self, observations) -> dict[str, th.Tensor]:
         bs = observations["player_stats"].size(0)
         device = observations["player_stats"].device
 
         # Project all raw features to hidden_dim
         p = self.player_proj(observations["player_stats"]).unsqueeze(1)  # [bs, 1, hidden]
-        op = self.player_proj(observations["opponent_stats"]).unsqueeze(1) # [bs, 1, hidden]
+        op = self.opponent_proj(observations["opponent_stats"]).unsqueeze(1) # [bs, 1, hidden]
         
         deck = self.card_proj(observations["player_deck"]).mean(dim=1, keepdim=True) # [bs, 1, hidden]
         hand = self.card_proj(observations["player_hand"]) # [bs, 8, hidden]
@@ -130,14 +153,7 @@ class GNNFeaturesExtractor(BaseFeaturesExtractor):
         A_attack[:, 14:17, 20:23] = mask_attack[:, 3:6, 1:4]
         A_attack = A_attack + A_attack.transpose(1, 2)
 
-        A_struct = th.zeros((bs, 25, 25), device=device)
-        A_struct[:, 2:17, 0] = 1 # Deck, Hand, P_Lanes belong to Player
-        A_struct[:, 17:23, 1] = 1 # Op_Lanes belong to Opponent
-        A_struct[:, 11:14, 23] = 1 # P_Lane0 in Lane0
-        A_struct[:, 17:20, 23] = 1 # Op_Lane0 in Lane0
-        A_struct[:, 14:17, 24] = 1 # P_Lane1 in Lane1
-        A_struct[:, 20:23, 24] = 1 # Op_Lane1 in Lane1
-        A_struct = A_struct + A_struct.transpose(1, 2)
+        A_struct = self.A_struct_static.unsqueeze(0).expand(bs, -1, -1)
 
         A_dict = {
             "summon": A_summon,
@@ -163,14 +179,14 @@ class GNNLOCMNetwork(nn.Module):
         hidden_dim = features_dim # features_dim is our hidden_dim
 
         self.pass_action = nn.Sequential(
-            PMA(dim=hidden_dim, num_heads=4, num_seeds=1, ln=True),
+            MeanPool(dim=hidden_dim),
             nn.Linear(hidden_dim, 64), nn.ReLU(),
             nn.Linear(64, 1)
         )
 
         self.summon_source_card = nn.Linear(hidden_dim, hidden_dim)
         self.summon_target_lane = nn.Linear(hidden_dim, hidden_dim)
-        self.summon_query = PMA(dim=hidden_dim, num_heads=4, num_seeds=1, ln=True)
+        self.summon_query = MeanPool(dim=hidden_dim)
         self.summon_context_proj = nn.Linear(hidden_dim, hidden_dim)
 
         self.summon_action = nn.Sequential(
@@ -181,7 +197,7 @@ class GNNLOCMNetwork(nn.Module):
         
         self.use_source_card = nn.Linear(hidden_dim, hidden_dim)
         self.use_target_creature = nn.Linear(hidden_dim, hidden_dim)
-        self.use_query = PMA(dim=hidden_dim, num_heads=4, num_seeds=1, ln=True)
+        self.use_query = MeanPool(dim=hidden_dim)
         self.use_context_proj = nn.Linear(hidden_dim, hidden_dim)
 
         self.use_action = nn.Sequential(
@@ -192,7 +208,7 @@ class GNNLOCMNetwork(nn.Module):
 
         self.attack_source_creature = nn.Linear(hidden_dim, hidden_dim)
         self.attack_target_creature = nn.Linear(hidden_dim, hidden_dim)
-        self.attack_query = PMA(dim=hidden_dim, num_heads=4, num_seeds=1, ln=True)
+        self.attack_query = MeanPool(dim=hidden_dim)
         self.attack_context_proj = nn.Linear(hidden_dim, hidden_dim)
         
         self.attack_action = nn.Sequential(
@@ -202,7 +218,7 @@ class GNNLOCMNetwork(nn.Module):
         )
 
         self.value_net = nn.Sequential(
-            PMA(dim=hidden_dim, num_heads=4, num_seeds=1, ln=True),
+            MeanPool(dim=hidden_dim),
             nn.Linear(hidden_dim, 64), nn.ReLU(),
             nn.Linear(64, last_layer_dim_vf)
         )
@@ -323,12 +339,29 @@ class GNNActorCriticPolicy(ActorCriticPolicy):
         self.action_net = nn.Identity()
         self.value_net = nn.Identity()
 
+        # Orthogonal initialization for stable PPO training
+        if self.ortho_init:
+            action_modules = [
+                self.mlp_extractor.pass_action,
+                self.mlp_extractor.summon_action,
+                self.mlp_extractor.use_action,
+                self.mlp_extractor.attack_action,
+            ]
+            for module in action_modules:
+                module.apply(partial(self.init_weights, gain=0.01))
+            self.mlp_extractor.value_net.apply(partial(self.init_weights, gain=1.0))
+
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = GNNLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
         self.mlp_extractor = safely_compile(self.mlp_extractor)
 
 
 class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
+    """Recurrent GNN policy.
+    
+    NOTE: The LSTM hidden size must equal 25 * features_dim (e.g. 25 * 128 = 3200)
+    for the entity tensor reshape to work correctly.
+    """
     def __init__(self, *args, **kwargs):
         super(GNNRecurrentActorCriticPolicy, self).__init__(*args, **kwargs)
         
@@ -340,22 +373,37 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         self.action_net = nn.Identity()
         self.value_net = nn.Identity()
 
+        # Orthogonal initialization for stable PPO training
+        if self.ortho_init:
+            action_modules = [
+                self.mlp_extractor.pass_action,
+                self.mlp_extractor.summon_action,
+                self.mlp_extractor.use_action,
+                self.mlp_extractor.attack_action,
+            ]
+            for module in action_modules:
+                module.apply(partial(self.init_weights, gain=0.01))
+            self.mlp_extractor.value_net.apply(partial(self.init_weights, gain=1.0))
+
     def _build_mlp_extractor(self) -> None:
         self.mlp_extractor = GNNLOCMNetwork(self.features_dim, last_layer_dim_pi=145, last_layer_dim_vf=1)
         self.mlp_extractor = safely_compile(self.mlp_extractor)
 
-    def dict_features_to_tensor(self, features: dict[str, th.Tensor]) -> th.Tensor:
+    def _flatten_entities(self, features: dict[str, th.Tensor]) -> th.Tensor:
         bs = features["all_entities"].size(0)
-        # flatten the entities to a single vector to pass through LSTM
         return features["all_entities"].view(bs, -1)
 
-    def tensor_features_to_dict(self, features: th.Tensor) -> dict[str, th.Tensor]:
-        bs = features.size(0)
-        return {"all_entities": features.view(bs, 25, -1)}
+    def _unflatten_entities(self, tensor: th.Tensor, action_mask=None) -> dict[str, th.Tensor]:
+        bs = tensor.size(0)
+        result = {"all_entities": tensor.view(bs, 25, -1)}
+        if action_mask is not None:
+            result["action_mask"] = action_mask
+        return result
 
     def forward(self, obs, lstm_states, episodes_starts, deterministic=False):
         features = self.extract_features(obs)
-        features_tensor = self.dict_features_to_tensor(features)
+        action_mask = features.get("action_mask")
+        features_tensor = self._flatten_entities(features)
         
         if self.lstm.batch_first:
             features_tensor = features_tensor.unsqueeze(1)
@@ -369,7 +417,7 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         else:
             lstm_output = lstm_output.squeeze(0)
             
-        features = self.tensor_features_to_dict(lstm_output)
+        features = self._unflatten_entities(lstm_output, action_mask)
         
         latent_pi, latent_vf = self.mlp_extractor(features)
         
@@ -382,7 +430,8 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def get_distribution(self, obs, lstm_states, episodes_starts):
         features = self.extract_features(obs)
-        features_tensor = self.dict_features_to_tensor(features)
+        action_mask = features.get("action_mask")
+        features_tensor = self._flatten_entities(features)
         
         if self.lstm.batch_first:
             features_tensor = features_tensor.unsqueeze(1)
@@ -396,14 +445,14 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         else:
             lstm_output = lstm_output.squeeze(0)
             
-        features = self.tensor_features_to_dict(lstm_output)
+        features = self._unflatten_entities(lstm_output, action_mask)
         
         latent_pi = self.mlp_extractor.forward_actor(features)
         return self._get_action_dist_from_latent(latent_pi)
 
     def predict_values(self, obs, lstm_states, episodes_starts):
         features = self.extract_features(obs)
-        features_tensor = self.dict_features_to_tensor(features)
+        features_tensor = self._flatten_entities(features)
         
         if self.lstm.batch_first:
             features_tensor = features_tensor.unsqueeze(1)
@@ -417,14 +466,15 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         else:
             lstm_output = lstm_output.squeeze(0)
             
-        features = self.tensor_features_to_dict(lstm_output)
+        features = self._unflatten_entities(lstm_output)
         
         latent_vf = self.mlp_extractor.forward_critic(features)
         return self.value_net(latent_vf)
 
     def evaluate_actions(self, obs, actions, lstm_states, episodes_starts):
         features = self.extract_features(obs)
-        features_tensor = self.dict_features_to_tensor(features)
+        action_mask = features.get("action_mask")
+        features_tensor = self._flatten_entities(features)
         
         if self.lstm.batch_first:
             features_tensor = features_tensor.unsqueeze(1)
@@ -438,7 +488,7 @@ class GNNRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         else:
             lstm_output = lstm_output.squeeze(0)
             
-        features = self.tensor_features_to_dict(lstm_output)
+        features = self._unflatten_entities(lstm_output, action_mask)
         
         latent_pi, latent_vf = self.mlp_extractor(features)
         
