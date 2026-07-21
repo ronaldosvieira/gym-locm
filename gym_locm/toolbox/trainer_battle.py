@@ -49,10 +49,22 @@ class TrainingSession:
         # initialize results
         self.checkpoints = []
         self.win_rates = []
+        self.win_rates_1p = []
+        self.win_rates_2p = []
         self.episode_lengths = []
         self.battle_lengths = []
         self.health_diffs = []
         self.action_histograms = []
+        
+        self.turn_manas = []
+        self.turn_hand_sizes = []
+        self.lane_board_values = []
+        self.lane_balances = []
+        self.favorable_trades_ratios = []
+        self.face_attacks = []
+        self.creature_attacks = []
+        self.skipped_dominant_actions = []
+
         self.start_time, self.end_time = None, None
         self.wandb_run = wandb_run
 
@@ -199,14 +211,7 @@ class FixedAdversary(TrainingSession):
                 if evaluator.seed is not None:
                     evaluator.seed = self.seed + self.train_episodes
 
-                (
-                    win_rate,
-                    mean_reward,
-                    ep_length,
-                    battle_length,
-                    health_diff,
-                    act_hist,
-                ) = evaluator.run(
+                results = evaluator.run(
                     agent,
                     play_first=self.role == "first",
                     alternate_roles=self.role == "alternate",
@@ -216,17 +221,27 @@ class FixedAdversary(TrainingSession):
                 self.logger.info(
                     f"Finished evaluating vs {eval_adversary} "
                     f"({round(end_time - start_time, 3)}s). "
-                    f"wr: {round(win_rate * 100, 3)}%. "
-                    f"Avg. rew: {mean_reward:.3f}"
+                    f"wr: {round(results['win_rate'] * 100, 3)}%. "
+                    f"Avg. rew: {results['mean_reward']:.3f}"
                 )
 
                 # save the results
                 self.checkpoints.append(episodes_so_far)
-                self.win_rates.append(win_rate)
-                self.episode_lengths.append(ep_length)
-                self.battle_lengths.append(battle_length)
-                self.action_histograms.append(act_hist)
-                self.health_diffs.append(health_diff)
+                self.win_rates.append(results["win_rate"])
+                self.win_rates_1p.append(results["win_rate_1p"])
+                self.win_rates_2p.append(results["win_rate_2p"])
+                self.episode_lengths.append(results["ep_length"])
+                self.battle_lengths.append(results["battle_length"])
+                self.health_diffs.append(results["health_diff"])
+                self.action_histograms.append(results["act_hist"])
+                self.turn_manas.append(results["mean_turn_mana"])
+                self.turn_hand_sizes.append(results["mean_turn_hand_size"])
+                self.lane_board_values.append(results["mean_lane_board_value"])
+                self.lane_balances.append(results["mean_lane_balance"])
+                self.face_attacks.append(results["mean_face_attacks"])
+                self.creature_attacks.append(results["mean_creature_attacks"])
+                self.favorable_trades_ratios.append(results["favorable_trades_ratio"])
+                self.skipped_dominant_actions.append(results["mean_skipped_dominant_actions"])
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -235,7 +250,23 @@ class FixedAdversary(TrainingSession):
                     info = dict()
 
                     info["checkpoint"] = episodes_so_far
-                    info[panel_name + "/mean_reward"] = mean_reward
+                    info[panel_name + "/mean_reward"] = results["mean_reward"]
+                    info[panel_name + "/win_rate"] = results["win_rate"]
+                    info[panel_name + "/win_rate_1p"] = results["win_rate_1p"]
+                    info[panel_name + "/win_rate_2p"] = results["win_rate_2p"]
+                    info[panel_name + "/mean_ep_length"] = results["ep_length"]
+                    info[panel_name + "/mean_battle_length"] = results["battle_length"]
+                    info[panel_name + "/mean_health_diff"] = results["health_diff"]
+                    info[panel_name + "/mean_turn_mana"] = results["mean_turn_mana"]
+                    info[panel_name + "/mean_turn_hand_size"] = results["mean_turn_hand_size"]
+                    info[panel_name + "/mean_lane_board_value"] = results["mean_lane_board_value"]
+                    info[panel_name + "/mean_lane_balance"] = results["mean_lane_balance"]
+                    info[panel_name + "/mean_face_attacks"] = results["mean_face_attacks"]
+                    info[panel_name + "/mean_creature_attacks"] = results["mean_creature_attacks"]
+                    info[panel_name + "/favorable_trades_ratio"] = results["favorable_trades_ratio"]
+                    info[panel_name + "/mean_skipped_dominant_actions"] = results["mean_skipped_dominant_actions"]
+
+                    act_hist = results["act_hist"]
                     info[panel_name + "/win_rate"] = win_rate
                     info[panel_name + "/mean_ep_length"] = ep_length
                     info[panel_name + "/mean_battle_length"] = battle_length
@@ -437,14 +468,7 @@ class SelfPlay(TrainingSession):
                 if evaluator.seed is not None:
                     evaluator.seed = self.seed + self.train_episodes
 
-                (
-                    win_rate,
-                    mean_reward,
-                    ep_length,
-                    battle_length,
-                    health_diff,
-                    act_hist,
-                ) = evaluator.run(
+                results = evaluator.run(
                     agent,
                     play_first=self.role == "first",
                     alternate_roles=self.role == "alternate",
@@ -454,17 +478,27 @@ class SelfPlay(TrainingSession):
                 self.logger.info(
                     f"Finished evaluating vs {eval_adversary} "
                     f"({round(end_time - start_time, 3)}s). "
-                    f"wr: {round(win_rate * 100, 3)}%. "
-                    f"Avg. rew: {mean_reward:.3f}"
+                    f"wr: {round(results['win_rate'] * 100, 3)}%. "
+                    f"Avg. rew: {results['mean_reward']:.3f}"
                 )
 
                 # save the results
                 self.checkpoints.append(episodes_so_far)
-                self.win_rates.append(win_rate)
-                self.episode_lengths.append(ep_length)
-                self.battle_lengths.append(battle_length)
-                self.action_histograms.append(act_hist)
-                self.health_diffs.append(health_diff)
+                self.win_rates.append(results["win_rate"])
+                self.win_rates_1p.append(results["win_rate_1p"])
+                self.win_rates_2p.append(results["win_rate_2p"])
+                self.episode_lengths.append(results["ep_length"])
+                self.battle_lengths.append(results["battle_length"])
+                self.health_diffs.append(results["health_diff"])
+                self.action_histograms.append(results["act_hist"])
+                self.turn_manas.append(results["mean_turn_mana"])
+                self.turn_hand_sizes.append(results["mean_turn_hand_size"])
+                self.lane_board_values.append(results["mean_lane_board_value"])
+                self.lane_balances.append(results["mean_lane_balance"])
+                self.face_attacks.append(results["mean_face_attacks"])
+                self.creature_attacks.append(results["mean_creature_attacks"])
+                self.favorable_trades_ratios.append(results["favorable_trades_ratio"])
+                self.skipped_dominant_actions.append(results["mean_skipped_dominant_actions"])
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -473,11 +507,23 @@ class SelfPlay(TrainingSession):
                     info = dict()
 
                     info["checkpoint"] = episodes_so_far
-                    info[panel_name + "/mean_reward"] = mean_reward
-                    info[panel_name + "/win_rate"] = win_rate
-                    info[panel_name + "/mean_ep_length"] = ep_length
-                    info[panel_name + "/mean_battle_length"] = battle_length
-                    info[panel_name + "/mean_health_diff"] = health_diff
+                    info[panel_name + "/mean_reward"] = results["mean_reward"]
+                    info[panel_name + "/win_rate"] = results["win_rate"]
+                    info[panel_name + "/win_rate_1p"] = results["win_rate_1p"]
+                    info[panel_name + "/win_rate_2p"] = results["win_rate_2p"]
+                    info[panel_name + "/mean_ep_length"] = results["ep_length"]
+                    info[panel_name + "/mean_battle_length"] = results["battle_length"]
+                    info[panel_name + "/mean_health_diff"] = results["health_diff"]
+                    info[panel_name + "/mean_turn_mana"] = results["mean_turn_mana"]
+                    info[panel_name + "/mean_turn_hand_size"] = results["mean_turn_hand_size"]
+                    info[panel_name + "/mean_lane_board_value"] = results["mean_lane_board_value"]
+                    info[panel_name + "/mean_lane_balance"] = results["mean_lane_balance"]
+                    info[panel_name + "/mean_face_attacks"] = results["mean_face_attacks"]
+                    info[panel_name + "/mean_creature_attacks"] = results["mean_creature_attacks"]
+                    info[panel_name + "/favorable_trades_ratio"] = results["favorable_trades_ratio"]
+                    info[panel_name + "/mean_skipped_dominant_actions"] = results["mean_skipped_dominant_actions"]
+
+                    act_hist = results["act_hist"]
 
                     info[panel_name + "/pass_actions"] = act_hist[0]
                     info[panel_name + "/summon_actions"] = sum(act_hist[1:17])
@@ -696,14 +742,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                 if evaluator.seed is not None:
                     evaluator.seed = self.seed + self.train_episodes
 
-                (
-                    win_rate,
-                    mean_reward,
-                    ep_length,
-                    battle_length,
-                    health_diff,
-                    act_hist,
-                ) = evaluator.run(
+                results = evaluator.run(
                     agent,
                     play_first=self.role == "first",
                     alternate_roles=self.role == "alternate",
@@ -713,17 +752,27 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                 self.logger.info(
                     f"Finished evaluating vs {eval_adversary} "
                     f"({round(end_time - start_time, 3)}s). "
-                    f"wr: {round(win_rate * 100, 3)}%. "
-                    f"Avg. rew: {mean_reward:.3f}"
+                    f"wr: {round(results['win_rate'] * 100, 3)}%. "
+                    f"Avg. rew: {results['mean_reward']:.3f}"
                 )
 
                 # save the results
                 self.checkpoints.append(episodes_so_far)
-                self.win_rates.append(win_rate)
-                self.episode_lengths.append(ep_length)
-                self.battle_lengths.append(battle_length)
-                self.action_histograms.append(act_hist)
-                self.health_diffs.append(health_diff)
+                self.win_rates.append(results["win_rate"])
+                self.win_rates_1p.append(results["win_rate_1p"])
+                self.win_rates_2p.append(results["win_rate_2p"])
+                self.episode_lengths.append(results["ep_length"])
+                self.battle_lengths.append(results["battle_length"])
+                self.health_diffs.append(results["health_diff"])
+                self.action_histograms.append(results["act_hist"])
+                self.turn_manas.append(results["mean_turn_mana"])
+                self.turn_hand_sizes.append(results["mean_turn_hand_size"])
+                self.lane_board_values.append(results["mean_lane_board_value"])
+                self.lane_balances.append(results["mean_lane_balance"])
+                self.face_attacks.append(results["mean_face_attacks"])
+                self.creature_attacks.append(results["mean_creature_attacks"])
+                self.favorable_trades_ratios.append(results["favorable_trades_ratio"])
+                self.skipped_dominant_actions.append(results["mean_skipped_dominant_actions"])
 
                 # upload stats to wandb, if enabled
                 if self.wandb_run:
@@ -732,11 +781,23 @@ class FixedAndSelfPlayHybrid(TrainingSession):
                     info = dict()
 
                     info["checkpoint"] = episodes_so_far
-                    info[panel_name + "/mean_reward"] = mean_reward
-                    info[panel_name + "/win_rate"] = win_rate
-                    info[panel_name + "/mean_ep_length"] = ep_length
-                    info[panel_name + "/mean_battle_length"] = battle_length
-                    info[panel_name + "/mean_health_diff"] = health_diff
+                    info[panel_name + "/mean_reward"] = results["mean_reward"]
+                    info[panel_name + "/win_rate"] = results["win_rate"]
+                    info[panel_name + "/win_rate_1p"] = results["win_rate_1p"]
+                    info[panel_name + "/win_rate_2p"] = results["win_rate_2p"]
+                    info[panel_name + "/mean_ep_length"] = results["ep_length"]
+                    info[panel_name + "/mean_battle_length"] = results["battle_length"]
+                    info[panel_name + "/mean_health_diff"] = results["health_diff"]
+                    info[panel_name + "/mean_turn_mana"] = results["mean_turn_mana"]
+                    info[panel_name + "/mean_turn_hand_size"] = results["mean_turn_hand_size"]
+                    info[panel_name + "/mean_lane_board_value"] = results["mean_lane_board_value"]
+                    info[panel_name + "/mean_lane_balance"] = results["mean_lane_balance"]
+                    info[panel_name + "/mean_face_attacks"] = results["mean_face_attacks"]
+                    info[panel_name + "/mean_creature_attacks"] = results["mean_creature_attacks"]
+                    info[panel_name + "/favorable_trades_ratio"] = results["favorable_trades_ratio"]
+                    info[panel_name + "/mean_skipped_dominant_actions"] = results["mean_skipped_dominant_actions"]
+
+                    act_hist = results["act_hist"]
 
                     info[panel_name + "/pass_actions"] = act_hist[0]
                     info[panel_name + "/summon_actions"] = sum(act_hist[1:17])
@@ -865,11 +926,23 @@ class Evaluator:
         # initialize metrics
         episodes_so_far = 0
         episode_wins = [[] for _ in range(self.env.num_envs)]
+        episode_wins_1p = [[] for _ in range(self.env.num_envs)]
+        episode_wins_2p = [[] for _ in range(self.env.num_envs)]
         episode_rewards = [[0.0] for _ in range(self.env.num_envs)]
         episode_health_diff = [[] for _ in range(self.env.num_envs)]
         episode_lengths = [[0] for _ in range(self.env.num_envs)]
         episode_turns = [[] for _ in range(self.env.num_envs)]
         action_histogram = [0] * self.env.action_space.n
+
+        episode_turn_mana = [[] for _ in range(self.env.num_envs)]
+        episode_turn_hand_size = [[] for _ in range(self.env.num_envs)]
+        episode_lane_board_value = [[] for _ in range(self.env.num_envs)]
+        episode_lane_balance = [[] for _ in range(self.env.num_envs)]
+        
+        episode_face_attacks = [[0] for _ in range(self.env.num_envs)]
+        episode_creature_attacks = [[0] for _ in range(self.env.num_envs)]
+        episode_favorable_trades = [[0] for _ in range(self.env.num_envs)]
+        episode_skipped_dominant_actions = [[0] for _ in range(self.env.num_envs)]
 
         # run the episodes
         while True:
@@ -900,12 +973,39 @@ class Evaluator:
                 episode_rewards[i][-1] += rewards[i]
                 episode_lengths[i][-1] += 1
 
+                if "turn_mana" in infos[i]:
+                    episode_turn_mana[i].append(infos[i]["turn_mana"])
+                    episode_turn_hand_size[i].append(infos[i]["turn_hand_size"])
+                    episode_lane_board_value[i].append(infos[i]["lane0_value"] + infos[i]["lane1_value"])
+                    episode_lane_balance[i].append(abs(infos[i]["lane0_value"] - infos[i]["lane1_value"]))
+                
+                if infos[i].get("skipped_dominant_action"):
+                    episode_skipped_dominant_actions[i][-1] += 1
+                
+                if infos[i].get("face_attack"):
+                    episode_face_attacks[i][-1] += 1
+                elif infos[i].get("creature_attack"):
+                    episode_creature_attacks[i][-1] += 1
+                    if infos[i].get("favorable_trade"):
+                        episode_favorable_trades[i][-1] += 1
+
                 if dones[i]:
-                    episode_wins[i].append(1 if infos[i]["winner"] == roles[i] else 0)
+                    win = 1 if infos[i]["winner"] == roles[i] else 0
+                    episode_wins[i].append(win)
+                    if roles[i] == 0:
+                        episode_wins_1p[i].append(win)
+                    else:
+                        episode_wins_2p[i].append(win)
+
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
                     episode_turns[i].append(infos[i]["turn"])
                     episode_health_diff[i].append(infos[i]["health_diff"][roles[i]])
+                    
+                    episode_face_attacks[i].append(0)
+                    episode_creature_attacks[i].append(0)
+                    episode_favorable_trades[i].append(0)
+                    episode_skipped_dominant_actions[i].append(0)
 
                     episodes_so_far += 1
 
@@ -919,11 +1019,18 @@ class Evaluator:
         all_turns = [turn for turns in episode_turns for turn in turns]
         all_health_diff = [health for health_diffs in episode_health_diff for health in health_diffs]
         all_wins = [win for wins in episode_wins for win in wins]
-
-        # todo: fix -- sometimes we miss self.episodes by one
-        # assert len(all_rewards) == self.episodes
-        # assert len(all_lengths) == self.episodes
-        # assert len(all_turns) == self.episodes
+        all_wins_1p = [win for wins in episode_wins_1p for win in wins]
+        all_wins_2p = [win for wins in episode_wins_2p for win in wins]
+        
+        all_turn_mana = [m for m_list in episode_turn_mana for m in m_list]
+        all_turn_hand_size = [s for s_list in episode_turn_hand_size for s in s_list]
+        all_lane_board_value = [v for v_list in episode_lane_board_value for v in v_list]
+        all_lane_balance = [b for b_list in episode_lane_balance for b in b_list]
+        
+        all_face_attacks = [fa for fa_list in episode_face_attacks for fa in fa_list[:-1]]
+        all_creature_attacks = [ca for ca_list in episode_creature_attacks for ca in ca_list[:-1]]
+        all_favorable_trades = [ft for ft_list in episode_favorable_trades for ft in ft_list[:-1]]
+        all_skipped_dominant = [sd for sd_list in episode_skipped_dominant_actions for sd in sd_list[:-1]]
 
         # transform the action histogram in a probability distribution
         action_histogram = [
@@ -936,14 +1043,38 @@ class Evaluator:
         all_lengths = all_lengths[: self.episodes]
         all_turns = all_turns[: self.episodes]
         all_health_diff = all_health_diff[: self.episodes]
+        
+        # calculate derived means safely
+        mean_turn_mana = mean(all_turn_mana) if all_turn_mana else 0.0
+        mean_turn_hand_size = mean(all_turn_hand_size) if all_turn_hand_size else 0.0
+        mean_lane_board_value = mean(all_lane_board_value) if all_lane_board_value else 0.0
+        mean_lane_balance = mean(all_lane_balance) if all_lane_balance else 0.0
+        
+        mean_face_attacks = mean(all_face_attacks) if all_face_attacks else 0.0
+        mean_creature_attacks = mean(all_creature_attacks) if all_creature_attacks else 0.0
+        favorable_trades_ratio = sum(all_favorable_trades) / sum(all_creature_attacks) if sum(all_creature_attacks) > 0 else 0.0
+        mean_skipped_dominant = mean(all_skipped_dominant) if all_skipped_dominant else 0.0
+        
+        win_rate_1p = mean(all_wins_1p) if all_wins_1p else 0.0
+        win_rate_2p = mean(all_wins_2p) if all_wins_2p else 0.0
 
-        return (
-            mean(all_wins),
-            mean(all_rewards),
-            mean(all_lengths),
-            mean(all_turns),
-            mean(all_health_diff),
-            action_histogram,
+        return dict(
+            win_rate=mean(all_wins),
+            win_rate_1p=win_rate_1p,
+            win_rate_2p=win_rate_2p,
+            mean_reward=mean(all_rewards),
+            ep_length=mean(all_lengths),
+            battle_length=mean(all_turns),
+            health_diff=mean(all_health_diff),
+            act_hist=action_histogram,
+            mean_turn_mana=mean_turn_mana,
+            mean_turn_hand_size=mean_turn_hand_size,
+            mean_lane_board_value=mean_lane_board_value,
+            mean_lane_balance=mean_lane_balance,
+            mean_face_attacks=mean_face_attacks,
+            mean_creature_attacks=mean_creature_attacks,
+            favorable_trades_ratio=favorable_trades_ratio,
+            mean_skipped_dominant_actions=mean_skipped_dominant
         )
 
     def close(self):
