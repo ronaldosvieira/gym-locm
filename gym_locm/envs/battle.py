@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 
 from gym_locm.agents import RandomDraftAgent, RandomBattleAgent
-from gym_locm.engine import Phase, Action, PlayerOrder
+from gym_locm.engine import Phase, Action, PlayerOrder, ActionType
 from gym_locm.envs.base_env import LOCMEnv
 from gym_locm.exceptions import GameIsEndedError, MalformedActionError, ActionError
 
@@ -171,6 +171,43 @@ class LOCMBattleEnv(LOCMEnv):
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
+        # pre-action metrics capture
+        is_pass = False
+        is_attack = False
+        unspent_mana, hand_size, lane0_val, lane1_val = 0, 0, 0, 0
+        skipped_dominant_action = False
+
+        if action is not None:
+            if action.type == ActionType.PASS:
+                is_pass = True
+                cp = state.current_player
+                unspent_mana = cp.mana
+                hand_size = len(cp.hand)
+                lane0_val = sum(c.attack + c.defense for c in cp.lanes[0])
+                lane1_val = sum(c.attack + c.defense for c in cp.lanes[1])
+                
+                # Check for skipped dominant actions
+                for a in state.available_actions:
+                    if a.type == ActionType.ATTACK:
+                        if a.target is None:  # Face attack available
+                            skipped_dominant_action = True
+                            break
+                        # Check if attacking 0-attack creature
+                        op = state.opposing_player
+                        target_card = None
+                        for lane in op.lanes:
+                            for c in lane:
+                                if c.instance_id == a.target:
+                                    target_card = c
+                                    break
+                            if target_card is not None:
+                                break
+                        if target_card is not None and target_card.attack == 0:
+                            skipped_dominant_action = True
+                            break
+            elif action.type == ActionType.ATTACK:
+                is_attack = True
+
         # execute the action
         if action is not None:
             state.act(action)
@@ -202,6 +239,25 @@ class LOCMBattleEnv(LOCMEnv):
                 state.players[1].health - state.players[0].health,
             )
         }
+
+        # inject new metrics into info
+        if action is not None and not state.was_last_action_invalid:
+            if is_pass:
+                info["turn_mana"] = unspent_mana
+                info["turn_hand_size"] = hand_size
+                info["lane0_value"] = lane0_val
+                info["lane1_value"] = lane1_val
+                if skipped_dominant_action:
+                    info["skipped_dominant_action"] = True
+            elif is_attack:
+                if action.resolved_target is None:
+                    info["face_attack"] = True
+                else:
+                    info["creature_attack"] = True
+                    attacker = action.resolved_origin
+                    defender = action.resolved_target
+                    if getattr(defender, 'is_dead', False) and not getattr(attacker, 'is_dead', False):
+                        info["favorable_trade"] = True
 
         if self.return_action_mask:
             info["action_mask"] = self.state.action_mask
