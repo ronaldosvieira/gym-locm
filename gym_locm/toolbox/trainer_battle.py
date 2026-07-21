@@ -267,10 +267,10 @@ class FixedAdversary(TrainingSession):
                     info[panel_name + "/mean_skipped_dominant_actions"] = results["mean_skipped_dominant_actions"]
 
                     act_hist = results["act_hist"]
-                    info[panel_name + "/win_rate"] = win_rate
-                    info[panel_name + "/mean_ep_length"] = ep_length
-                    info[panel_name + "/mean_battle_length"] = battle_length
-                    info[panel_name + "/mean_health_diff"] = health_diff
+                    info[panel_name + "/win_rate"] = results["win_rate"]
+                    info[panel_name + "/mean_ep_length"] = results["ep_length"]
+                    info[panel_name + "/mean_battle_length"] = results["battle_length"]
+                    info[panel_name + "/mean_health_diff"] = results["health_diff"]
 
                     info[panel_name + "/pass_actions"] = act_hist[0]
                     info[panel_name + "/summon_actions"] = sum(act_hist[1:17])
