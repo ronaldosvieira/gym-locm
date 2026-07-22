@@ -37,4 +37,5 @@ vf_coef: 1.0
 no_tracking: true
 wandb_entity: "ronaldosvieira"
 wandb_project: "dissertation"
+wandb_group: null
 path: "gym_locm/experiments/papers/dissertation/runs/test-run"

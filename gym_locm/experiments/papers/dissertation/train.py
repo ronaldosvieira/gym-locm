@@ -135,6 +135,7 @@ def main(cfg: DictConfig):
         run = wandb.init(
             project=cfg.wandb_project,
             entity=cfg.wandb_entity,
+            group=cfg.get("wandb_group", None),
             sync_tensorboard=True,
             config=wandb_config,
         )
