@@ -593,7 +593,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         # if playing second, have first player play
         if not self.play_first:
-            while self.state.current_player.id != PlayerOrder.SECOND:
+            while self.state.current_player.id != PlayerOrder.SECOND and self.state.winner is None:
                 state = self.encode_state()
                 action = self.adversary_policy(state)
 
