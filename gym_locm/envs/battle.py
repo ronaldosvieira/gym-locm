@@ -593,7 +593,7 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
 
         # if playing second, have first player play
         if not self.play_first:
-            while self.state.current_player.id != PlayerOrder.SECOND:
+            while self.state.current_player.id != PlayerOrder.SECOND and self.state.winner is None:
                 state = self.encode_state()
                 action = self.adversary_policy(state)
 
@@ -605,6 +605,10 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
                         state, reward, terminated, truncated, info = super().step(0)
 
                 last_opponent_action = action
+
+            # in case the opponent manages to win on the first turn (good job!), discard the match and start another
+            if self.state.winner is not None:
+                return self.reset(seed=seed, options=options)
 
         self.rewards_single_player.append(0.0)
 
