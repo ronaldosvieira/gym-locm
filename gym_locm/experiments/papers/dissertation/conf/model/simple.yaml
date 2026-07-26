@@ -1,6 +1,6 @@
 name: "simple"
 actor_critic: "simple"
-layers: [512, 256]
-neurons: 0
+layers: 1
+neurons: 501
 lstm: false
 act_fun: "relu"
