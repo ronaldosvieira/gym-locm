@@ -78,6 +78,14 @@ class SetTransformerFeaturesExtractor(LOCMFeaturesExtractor):
         )
 
     @property
+    def hand_cards_dim(self) -> int:
+        return self._zone_emb_dim
+        
+    @property
+    def creature_tokens_dim(self) -> int:
+        return self._lane_emb_dim
+
+    @property
     def card_emb_dim(self) -> int:
         return self._zone_emb_dim
         
@@ -90,7 +98,11 @@ class SetTransformerFeaturesExtractor(LOCMFeaturesExtractor):
         return self._lane_emb_dim
         
     @property
-    def state_emb_dim(self) -> int:
+    def lane_dim(self) -> int:
+        return self._lane_emb_dim
+        
+    @property
+    def state_dim(self) -> int:
         return self._state_emb_dim
 
     def forward(self, observations) -> dict[str, th.Tensor]:

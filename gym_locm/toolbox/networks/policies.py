@@ -76,11 +76,11 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
             kwargs = {}
 
         # Auto-populate dimension kwargs from the feature extractor
-        if hasattr(feat_ext, 'state_emb_dim'):
-            kwargs.setdefault('state_dim', feat_ext.state_emb_dim)
-            kwargs.setdefault('card_emb_dim', feat_ext.card_emb_dim)
-            kwargs.setdefault('creature_emb_dim', feat_ext.creature_emb_dim)
-            kwargs.setdefault('lane_emb_dim', feat_ext.lane_emb_dim)
+        if hasattr(feat_ext, 'state_dim'):
+            kwargs.setdefault('state_dim', feat_ext.state_dim)
+            kwargs.setdefault('card_emb_dim', feat_ext.hand_cards_dim)
+            kwargs.setdefault('creature_emb_dim', feat_ext.creature_tokens_dim)
+            kwargs.setdefault('lane_emb_dim', feat_ext.lane_dim)
         else:
             # Simple feature extractor: only has features_dim
             kwargs.setdefault('feature_dim', feat_ext.features_dim)
@@ -164,12 +164,12 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         # For LSTM, the actor-critic receives lstm_hidden_size as state_dim
         # (since the LSTM replaces the state/latent vector)
         feat_ext = self.features_extractor
-        if hasattr(feat_ext, 'state_emb_dim'):
+        if hasattr(feat_ext, 'state_dim'):
             # Entity-level extractor: LSTM processes state, output replaces state
             kwargs.setdefault('state_dim', self.lstm_hidden_size)
-            kwargs.setdefault('card_emb_dim', feat_ext.card_emb_dim)
-            kwargs.setdefault('creature_emb_dim', feat_ext.creature_emb_dim)
-            kwargs.setdefault('lane_emb_dim', feat_ext.lane_emb_dim)
+            kwargs.setdefault('card_emb_dim', feat_ext.hand_cards_dim)
+            kwargs.setdefault('creature_emb_dim', feat_ext.creature_tokens_dim)
+            kwargs.setdefault('lane_emb_dim', feat_ext.lane_dim)
         else:
             # Simple extractor: LSTM processes latent, output replaces latent
             kwargs.setdefault('feature_dim', self.lstm_hidden_size)
@@ -184,7 +184,7 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
     @property
     def _is_simple_extractor(self):
         """Check if feature extractor uses simple format ({latent, action_mask})."""
-        return not hasattr(self.features_extractor, 'state_emb_dim')
+        return not hasattr(self.features_extractor, 'state_dim')
 
     def _extract_lstm_input(self, features):
         """Extract the tensor that goes through the LSTM."""

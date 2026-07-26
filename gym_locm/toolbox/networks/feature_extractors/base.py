@@ -27,24 +27,24 @@ class LOCMFeaturesExtractor(BaseFeaturesExtractor):
 
     @property
     @abstractmethod
-    def card_emb_dim(self) -> int:
+    def hand_cards_dim(self) -> int:
         """Dimension of hand card embeddings."""
         ...
 
     @property
     @abstractmethod
-    def creature_emb_dim(self) -> int:
+    def creature_tokens_dim(self) -> int:
         """Dimension of lane creature embeddings."""
         ...
 
     @property
     @abstractmethod
-    def lane_emb_dim(self) -> int:
+    def lane_dim(self) -> int:
         """Dimension of pooled lane embeddings."""
         ...
 
     @property
     @abstractmethod
-    def state_emb_dim(self) -> int:
+    def state_dim(self) -> int:
         """Dimension of the global state embedding."""
         ...

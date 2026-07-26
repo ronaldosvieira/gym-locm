@@ -30,6 +30,7 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         )  # features_dim is used to calculate LSTM input size
 
         self._card_emb_dim = card_emb_dim
+        self._zone_emb_dim = zone_emb_dim
         self._creature_emb_dim = creature_emb_dim
         self._lane_emb_dim = lane_emb_dim
         self._state_emb_dim = state_emb_dim
@@ -64,19 +65,19 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         ) # 160 * 256 + 256 * 256 = 106,496 parameters
 
     @property
-    def card_emb_dim(self) -> int:
-        return self._card_emb_dim
+    def hand_cards_dim(self) -> int:
+        return self._zone_emb_dim
         
     @property
-    def creature_emb_dim(self) -> int:
+    def creature_tokens_dim(self) -> int:
         return self._creature_emb_dim
         
     @property
-    def lane_emb_dim(self) -> int:
+    def lane_dim(self) -> int:
         return self._lane_emb_dim
         
     @property
-    def state_emb_dim(self) -> int:
+    def state_dim(self) -> int:
         return self._state_emb_dim
 
     def forward(self, observations) -> dict[str, th.Tensor]:

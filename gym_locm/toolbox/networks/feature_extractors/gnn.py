@@ -77,19 +77,19 @@ class GNNFeaturesExtractor(LOCMFeaturesExtractor):
         self.state_pooling = MeanPool(dim=self.hidden_dim)
 
     @property
-    def card_emb_dim(self) -> int:
+    def hand_cards_dim(self) -> int:
         return self.hidden_dim
 
     @property
-    def creature_emb_dim(self) -> int:
+    def creature_tokens_dim(self) -> int:
         return self.hidden_dim
 
     @property
-    def lane_emb_dim(self) -> int:
+    def lane_dim(self) -> int:
         return self.hidden_dim
 
     @property
-    def state_emb_dim(self) -> int:
+    def state_dim(self) -> int:
         return self.hidden_dim
 
     def forward(self, observations) -> dict[str, th.Tensor]:

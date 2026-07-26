@@ -73,6 +73,22 @@ class SetTransformer21FeaturesExtractor(LOCMFeaturesExtractor):
         )
 
     @property
+    def hand_cards_dim(self) -> int:
+        return 64
+
+    @property
+    def creature_tokens_dim(self) -> int:
+        return 64
+
+    @property
+    def lane_dim(self) -> int:
+        return 64
+
+    @property
+    def state_dim(self) -> int:
+        return 64
+
+    @property
     def card_emb_dim(self) -> int:
         return 64
         

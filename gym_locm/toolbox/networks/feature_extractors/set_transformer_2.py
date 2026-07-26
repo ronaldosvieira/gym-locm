@@ -50,19 +50,19 @@ class SetTransformer2FeaturesExtractor(LOCMFeaturesExtractor):
         self.state_pooling = PMA(dim=64, num_heads=4, num_seeds=1, ln=True)
 
     @property
-    def card_emb_dim(self) -> int:
+    def hand_cards_dim(self) -> int:
         return self._emb_dim
 
     @property
-    def creature_emb_dim(self) -> int:
+    def creature_tokens_dim(self) -> int:
         return self._emb_dim
 
     @property
-    def lane_emb_dim(self) -> int:
+    def lane_dim(self) -> int:
         return self._emb_dim
 
     @property
-    def state_emb_dim(self) -> int:
+    def state_dim(self) -> int:
         return self._emb_dim
 
     def forward(self, observations) -> dict[str, th.Tensor]:
