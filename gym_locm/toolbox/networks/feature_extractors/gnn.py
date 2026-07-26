@@ -36,7 +36,7 @@ class GNNFeaturesExtractor(LOCMFeaturesExtractor):
     def __init__(
         self,
         observation_space: gym.Space,
-        features_dim: int = 128,
+        features_dim: int = 64,
         num_layers: int = 3,
         **kwargs,
     ):

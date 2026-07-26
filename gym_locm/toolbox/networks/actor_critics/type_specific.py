@@ -19,7 +19,7 @@ class TypeSpecificLOCMNetwork(LOCMActorCriticNetwork):
         self.pass_action = nn.Sequential(
             nn.Linear(state_dim, hidden_dim), nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
-            nn.Linear(hidden_dim // 2, last_layer_dim_vf)
+            nn.Linear(hidden_dim // 2, 1)
         )
         
         self.summon_source_card = nn.Linear(card_emb_dim, hidden_dim)

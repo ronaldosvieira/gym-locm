@@ -14,20 +14,14 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         card_emb_dim: int = 32,
         zone_emb_dim: int = 32,
         player_emb_dim: int = 16,
-        creature_emb_dim: int = 16,
-        lane_emb_dim: int = 16,
-        state_emb_dim: int = 256,
+        creature_emb_dim: int = 32,
+        lane_emb_dim: int = 64,
+        state_emb_dim: int = 128,
     ):
-        features_dim = (
-            2 * player_emb_dim  # players
-            + 30 * card_emb_dim  # deck cards
-            + zone_emb_dim  # deck
-            + 8 * card_emb_dim  # hand cards
-            + zone_emb_dim  # hand
-            + 4 * 3 * creature_emb_dim  # lane creatures
-            + 4 * lane_emb_dim  # lanes
-            + state_emb_dim  # whole state
-            # = 1824
+        state_input_dim = (
+            2 * player_emb_dim
+            + 2 * zone_emb_dim
+            + 4 * lane_emb_dim
         )
 
         super().__init__(
@@ -41,32 +35,32 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         self._state_emb_dim = state_emb_dim
 
         self.player_embedding = nn.Sequential(
-            nn.Linear(player_dim, 16), nn.ReLU(),
-            nn.Linear(16, 16), nn.ReLU(),
+            nn.Linear(player_dim, player_emb_dim), nn.ReLU(),
+            nn.Linear(player_emb_dim, player_emb_dim), nn.ReLU(),
         ) # 5 * 16 + 16 * 16 = 336 parameters
 
         self.card_embedding = nn.Sequential(
-            nn.Linear(card_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(card_dim, card_emb_dim), nn.ReLU(),
+            nn.Linear(card_emb_dim, card_emb_dim), nn.ReLU(),
         ) # 17 * 32 + 32 * 32 = 1,568 parameters
         
         self.card_zone_embedding = nn.Sequential(
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(card_emb_dim, zone_emb_dim), nn.ReLU(),
         ) # 32 * 32 = 1,024 parameters
 
         self.creature_embedding = nn.Sequential(
-            nn.Linear(creature_dim, 16), nn.ReLU(),
-            nn.Linear(16, 16), nn.ReLU(),
+            nn.Linear(creature_dim, creature_emb_dim), nn.ReLU(),
+            nn.Linear(creature_emb_dim, creature_emb_dim), nn.ReLU(),
         ) # 8 * 16 + 16 * 16 = 384 parameters
         
         self.lane_embedding = nn.Sequential(
-            nn.Linear(16, 16), nn.ReLU(),
+            nn.Linear(creature_emb_dim, lane_emb_dim), nn.ReLU(),
         ) # 16 * 16 = 256 parameters
         
         # 2 * 16 player + 32 hand + 32 deck + 4 * 16 lane = 160 features
         self.state_embedding = nn.Sequential(
-            nn.Linear(160, 256), nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
+            nn.Linear(state_input_dim, state_emb_dim), nn.ReLU(),
+            nn.Linear(state_emb_dim, state_emb_dim), nn.ReLU(),
         ) # 160 * 256 + 256 * 256 = 106,496 parameters
 
     @property

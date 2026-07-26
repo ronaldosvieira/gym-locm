@@ -16,9 +16,9 @@ class SetTransformerFeaturesExtractor(LOCMFeaturesExtractor):
         card_emb_dim: int = 32,
         zone_emb_dim: int = 32,
         player_emb_dim: int = 16,
-        creature_emb_dim: int = 16,
-        lane_emb_dim: int = 16,
-        state_emb_dim: int = 256,
+        creature_emb_dim: int = 32,
+        lane_emb_dim: int = 64,
+        state_emb_dim: int = 128,
     ):
         super().__init__(
             observation_space,
@@ -27,61 +27,63 @@ class SetTransformerFeaturesExtractor(LOCMFeaturesExtractor):
         
         self._card_emb_dim = card_emb_dim
         self._creature_emb_dim = creature_emb_dim
+        self._zone_emb_dim = zone_emb_dim
         self._lane_emb_dim = lane_emb_dim
         self._state_emb_dim = state_emb_dim
 
         self.player_embedding = nn.Sequential(
-            nn.Linear(player_dim, 16), nn.ReLU(),
-            nn.Linear(16, 16), nn.ReLU(),
+            nn.Linear(player_dim, player_emb_dim), nn.ReLU(),
+            nn.Linear(player_emb_dim, player_emb_dim), nn.ReLU(),
         ) # 5 * 16 + 16 * 16 = 336 parameters
 
         self.card_embedding = nn.Sequential(
-            nn.Linear(card_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(card_dim, card_emb_dim), nn.ReLU(),
+            nn.Linear(card_emb_dim, card_emb_dim), nn.ReLU(),
         ) # 17 * 32 + 32 * 32 = 1,568 parameters
 
         self.card_zone_embedding = nn.Sequential(
-            SAB(32, 32, num_heads=4, ln=True),
-            SAB(32, 32, num_heads=4, ln=True),
+            SAB(card_emb_dim, zone_emb_dim, num_heads=4, ln=True),
+            SAB(zone_emb_dim, zone_emb_dim, num_heads=4, ln=True),
         )
 
         self.card_zone_pool = PMA(
-            dim=32,
+            dim=zone_emb_dim,
             num_heads=4,
             num_seeds=1,
             ln=True
         )
 
         self.creature_embedding = nn.Sequential(
-            nn.Linear(creature_dim, 16), nn.ReLU(),
-            nn.Linear(16, 16), nn.ReLU(),
+            nn.Linear(creature_dim, creature_emb_dim), nn.ReLU(),
+            nn.Linear(creature_emb_dim, creature_emb_dim), nn.ReLU(),
         ) # 17 * 16 + 16 * 16 = 528 parameters
         
         self.lane_embedding = nn.Sequential(
-            SAB(16, 16, num_heads=4, ln=True),
-            SAB(16, 16, num_heads=4, ln=True),
+            SAB(creature_emb_dim, lane_emb_dim, num_heads=4, ln=True),
+            SAB(lane_emb_dim, lane_emb_dim, num_heads=4, ln=True),
         )
 
         self.lane_pool = PMA(
-            dim=16,
+            dim=lane_emb_dim,
             num_heads=4,
             num_seeds=1,
             ln=True
         )
         
-        # 2 * 16 player + 32 hand + 32 deck + 4 * 16 lane = 160 features
+        # 2 * player + 2 * zone + 4 * lane
+        state_input_dim = 2 * player_emb_dim + 2 * zone_emb_dim + 4 * lane_emb_dim
         self.state_embedding = nn.Sequential(
-            nn.Linear(160, 256), nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
-        ) # 160 * 256 + 256 * 256 = 106,496 parameters
+            nn.Linear(state_input_dim, state_emb_dim), nn.ReLU(),
+            nn.Linear(state_emb_dim, state_emb_dim), nn.ReLU(),
+        )
 
     @property
     def card_emb_dim(self) -> int:
-        return self._card_emb_dim
+        return self._zone_emb_dim
         
     @property
     def creature_emb_dim(self) -> int:
-        return self._creature_emb_dim
+        return self._lane_emb_dim
         
     @property
     def lane_emb_dim(self) -> int:

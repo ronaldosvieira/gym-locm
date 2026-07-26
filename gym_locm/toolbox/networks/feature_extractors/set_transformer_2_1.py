@@ -26,67 +26,67 @@ class SetTransformer21FeaturesExtractor(LOCMFeaturesExtractor):
         )  # features_dim is used to calculate LSTM input size
 
         self.player_embedding = nn.Sequential(
-            nn.Linear(player_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(player_dim, 64), nn.ReLU(),
+            nn.Linear(64, 64), nn.ReLU(),
         )
 
         self.card_embedding = nn.Sequential(
-            nn.Linear(card_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(card_dim, 64), nn.ReLU(),
+            nn.Linear(64, 64), nn.ReLU(),
         )
         
         self.creature_embedding = nn.Sequential(
-            nn.Linear(creature_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(creature_dim, 64), nn.ReLU(),
+            nn.Linear(64, 64), nn.ReLU(),
         )
         
         self.deck_embedding = nn.Sequential(
-            SAB(32, 32, num_heads=4, ln=True),
-            SAB(32, 32, num_heads=4, ln=True),
-            PMA(dim=32, num_heads=4, num_seeds=4, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            PMA(dim=64, num_heads=4, num_seeds=4, ln=True),
         )
         
         self.lane_embedding = nn.Sequential(
-            SAB(32, 32, num_heads=4, ln=True),
-            SAB(32, 32, num_heads=4, ln=True),
-            PMA(dim=32, num_heads=4, num_seeds=1, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            PMA(dim=64, num_heads=4, num_seeds=1, ln=True),
         )
         
-        self.player_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.opponent_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.card_in_hand_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.card_in_deck_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.lane0_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.lane1_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.friendly_creature_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
-        self.enemy_creature_enc = nn.Parameter(th.randn(1, 1, 32) * 0.02)
+        self.player_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.opponent_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.card_in_hand_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.card_in_deck_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.lane0_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.lane1_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.friendly_creature_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
+        self.enemy_creature_enc = nn.Parameter(th.randn(1, 1, 64) * 0.02)
 
         self.global_embedding = nn.Sequential(
-            SAB(32, 128, num_heads=4, ln=True),
-            SAB(128, 128, num_heads=4, ln=True),
-            SAB(128, 128, num_heads=4, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
         )
         
         self.state_embedding = nn.Sequential(
-            SAB(128, 128, num_heads=4, ln=True),
-            PMA(dim=128, num_heads=4, num_seeds=1, ln=True),
+            SAB(64, 64, num_heads=4, ln=True),
+            PMA(dim=64, num_heads=4, num_seeds=1, ln=True),
         )
 
     @property
     def card_emb_dim(self) -> int:
-        return 128
+        return 64
         
     @property
     def creature_emb_dim(self) -> int:
-        return 128
+        return 64
         
     @property
     def lane_emb_dim(self) -> int:
-        return 128
+        return 64
         
     @property
     def state_emb_dim(self) -> int:
-        return 128
+        return 64
 
     def forward(self, observations) -> dict[str, th.Tensor]:
         # embedding of both players

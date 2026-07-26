@@ -17,9 +17,9 @@ class BilinearLOCMNetwork(LOCMActorCriticNetwork):
         # PASS action head
         # input: state (state_dim)
         self.pass_action = nn.Sequential(
-            nn.Linear(state_dim, 64), nn.ReLU(),
-            nn.Linear(64, 32), nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(state_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1)
         )
         
         # SOURCE head
@@ -29,8 +29,8 @@ class BilinearLOCMNetwork(LOCMActorCriticNetwork):
         
         self.source_action = nn.Sequential(
             nn.ReLU(),
-            nn.Linear(hidden_dim, 32), nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1)
         )
         
         # TARGET head
@@ -40,8 +40,8 @@ class BilinearLOCMNetwork(LOCMActorCriticNetwork):
         
         self.target_action = nn.Sequential(
             nn.ReLU(),
-            nn.Linear(hidden_dim, 32), nn.ReLU(),
-            nn.Linear(32, 1)
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1)
         )
         
         # Low-rank bilinear interaction between source and target
@@ -57,9 +57,9 @@ class BilinearLOCMNetwork(LOCMActorCriticNetwork):
         # value function head
         # input: state (state_dim)
         self.value_net = nn.Sequential(
-            nn.Linear(state_dim, 64), nn.ReLU(),
-            nn.Linear(64, 32), nn.ReLU(),
-            nn.Linear(32, last_layer_dim_vf)
+            nn.Linear(state_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, last_layer_dim_vf)
         )
 
         self.null_use_target = nn.Parameter(

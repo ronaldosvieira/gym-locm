@@ -25,25 +25,25 @@ class SetTransformer2FeaturesExtractor(LOCMFeaturesExtractor):
         self._emb_dim = 64
 
         self.player_embedding = nn.Sequential(
-            nn.Linear(player_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(player_dim, self._emb_dim), nn.ReLU(),
+            nn.Linear(self._emb_dim, self._emb_dim), nn.ReLU(),
         )
 
         self.card_embedding = nn.Sequential(
-            nn.Linear(card_dim, 32), nn.ReLU(),
-            nn.Linear(32, 32), nn.ReLU(),
+            nn.Linear(card_dim, self._emb_dim), nn.ReLU(),
+            nn.Linear(self._emb_dim, self._emb_dim), nn.ReLU(),
         )
         
         self.deck_embedding = nn.Sequential(
-            SAB(32, 32, num_heads=4),
-            SAB(32, 32, num_heads=4),
-            PMA(dim=32, num_heads=4, num_seeds=1)
+            SAB(self._emb_dim, self._emb_dim, num_heads=4),
+            SAB(self._emb_dim, self._emb_dim, num_heads=4),
+            PMA(dim=self._emb_dim, num_heads=4, num_seeds=1)
         )
 
         self.global_embedding = nn.Sequential(
-            SAB(40, 64, num_heads=4),
-            SAB(64, 64, num_heads=4),
-            SAB(64, 64, num_heads=4),
+            SAB(self._emb_dim + 8, self._emb_dim, num_heads=4),
+            SAB(self._emb_dim, self._emb_dim, num_heads=4),
+            SAB(self._emb_dim, self._emb_dim, num_heads=4),
         )
 
         self.lane_pooling = PMA(dim=64, num_heads=4, num_seeds=1, ln=True)

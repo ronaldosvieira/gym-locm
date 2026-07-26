@@ -62,15 +62,15 @@ class AutoregressiveLOCMNetwork(LOCMActorCriticNetwork):
         self.source_creature_proj = nn.Linear(creature_emb_dim, hidden_dim)
         self.source_score = nn.Sequential(
             nn.ReLU(),
-            nn.Linear(hidden_dim, 32), nn.ReLU(),
-            nn.Linear(32, 1),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1),
         )
 
         # PASS source: dedicated head since PASS has no target
         self.pass_source = nn.Sequential(
             nn.Linear(state_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, 32), nn.ReLU(),
-            nn.Linear(32, 1),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1),
         )
 
         # ── Source embedding for conditioning ──
@@ -87,8 +87,8 @@ class AutoregressiveLOCMNetwork(LOCMActorCriticNetwork):
         self.target_source_cond = nn.Linear(hidden_dim, hidden_dim)  # conditions on source emb
         self.target_score = nn.Sequential(
             nn.ReLU(),
-            nn.Linear(hidden_dim, 32), nn.ReLU(),
-            nn.Linear(32, 1),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, 1),
         )
 
         # Learnable null target embeddings
@@ -101,9 +101,9 @@ class AutoregressiveLOCMNetwork(LOCMActorCriticNetwork):
 
         # ── Value function head ──
         self.value_net = nn.Sequential(
-            nn.Linear(state_dim, 64), nn.ReLU(),
-            nn.Linear(64, 32), nn.ReLU(),
-            nn.Linear(32, last_layer_dim_vf),
+            nn.Linear(state_dim, hidden_dim), nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim // 2), nn.ReLU(),
+            nn.Linear(hidden_dim // 2, last_layer_dim_vf),
         )
 
     def forward_actor(self, embeddings: dict) -> th.Tensor:
