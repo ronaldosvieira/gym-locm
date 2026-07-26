@@ -1,4 +1,5 @@
 name: "set_transformer"
+actor_critic: "type_specific"
 layers: 0
 neurons: 0
 lstm: false

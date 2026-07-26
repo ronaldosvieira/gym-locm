@@ -1,34 +1,22 @@
 import os
+from functools import partial
+
 import hydra
 from omegaconf import DictConfig, OmegaConf
 import wandb
 
 from gym_locm.toolbox.trainer_battle import SelfPlay, FixedAdversary, FixedAndSelfPlayHybrid
-from gym_locm.toolbox.networks import (
-    build_simple_network, 
-    build_deep_sets_network, 
-    build_set_transformer_network,
-    build_gnn_network,
-    load_simple_network, 
-    load_deep_sets_network,
-    load_set_transformer_network,
-    load_gnn_network,
-)
+from gym_locm.toolbox.networks import build_network, load_network
 from gym_locm import agents
 
-# Map model name strings to their builder functions
-MODEL_BUILDERS = {
-    "simple": build_simple_network,
-    "deep_sets": build_deep_sets_network,
-    "set_transformer": build_set_transformer_network,
-    "gnn": build_gnn_network,
-}
-
-MODEL_LOADERS = {
-    "simple": load_simple_network,
-    "deep_sets": load_deep_sets_network,
-    "set_transformer": load_set_transformer_network,
-    "gnn": load_gnn_network,
+# Default actor-critic pairing for each feature extractor (legacy compat)
+DEFAULT_ACTOR_CRITICS = {
+    "simple": "simple",
+    "deep_sets": "bilinear",
+    "set_transformer": "type_specific",
+    "set_transformer_2": "type_specific",
+    "set_transformer_2_1": "type_specific",
+    "gnn": "type_specific",
 }
 
 def get_env_parameters(cfg: DictConfig):
@@ -113,19 +101,19 @@ def main(cfg: DictConfig):
         "lstm": cfg.model.lstm,
     }
 
+    # Resolve feature extractor and actor-critic names
+    fe_name = cfg.model.name
+    ac_name = cfg.model.get("actor_critic", DEFAULT_ACTOR_CRITICS.get(fe_name))
+    if ac_name is None:
+        raise ValueError(f"Unknown model architecture: {fe_name}")
+
     # Fetch builder or loader
     load_path = cfg.model.get("load_path", None)
     if load_path:
-        loader_fn = MODEL_LOADERS.get(cfg.model.name)
-        if not loader_fn:
-            raise ValueError(f"Unknown model architecture for loading: {cfg.model.name}")
         print(f"Loading pre-trained network from: {load_path}")
-        model_builder = loader_fn(load_path, lstm=cfg.model.lstm)
+        model_builder = load_network(load_path, feature_extractor=fe_name, actor_critic=ac_name, lstm=cfg.model.lstm)
     else:
-        builder_fn = MODEL_BUILDERS.get(cfg.model.name)
-        if not builder_fn:
-            raise ValueError(f"Unknown model architecture: {cfg.model.name}")
-        model_builder = builder_fn
+        model_builder = partial(build_network, feature_extractor=fe_name, actor_critic=ac_name)
 
     # Track with W&B
     run = None

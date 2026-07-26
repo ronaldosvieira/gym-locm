@@ -1,4 +1,5 @@
 name: "simple"
+actor_critic: "simple"
 layers: [512, 256]
 neurons: 0
 lstm: false
