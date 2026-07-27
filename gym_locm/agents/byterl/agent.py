@@ -194,10 +194,25 @@ class SubmitInterface:
                 dtype=np.float32,
             )
 
-            if len(p0.deck) + len(p0.hand) == 30:  # find mask for last card
+            # note: gym-locm addition - if the first use of the agent is in battle (other agent has played the deck building phase)
+            if self.card_set is None:
+                card_set_list = list(map(encode_card, state.deck_building_phase._constructed_cards))
+                self.card_set = np.array(card_set_list, dtype=np.float32)
+
+            # commented this out - this works only if it's first turn of the battle phase, but not for subsequent turns
+            # general case code added below
+            # if len(p0.deck) + len(p0.hand) == 30:  # find mask for last card
+            #     self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
+            #     for card in p0.hand + p0.deck:
+            #         self.cards_selected_mask[card.id] = 1
+                  
+            if self.cards_selected_mask is None:
                 self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
-                for card in p0.hand + p0.deck:
-                    self.cards_selected_mask[card.id] = 1
+                for i in range(state.deck_building_phase.k):
+                    if state.deck_building_phase._choices[state.current_player.id][i] > 0:
+                        self.cards_selected_mask[i] = 1
+            # note: end of gym-locm addition
+                    
             cur_player_obs = OrderedDict(
                 [
                     ("cb_phase_mask", np.array([0], dtype=np.float32)),
