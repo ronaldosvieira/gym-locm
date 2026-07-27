@@ -48,7 +48,7 @@ def get_env_parameters(cfg: DictConfig):
     # Instantiate agents
     byterl = agents.ByteRL()
     greedy = agents.GreedyBattleAgent()
-    noisy_byterl = agents.NoisyByteRL(temperature=0.5)
+    adversary_agent = agents.parse_battle_agent(cfg.adversary.battle_agent)()
 
     common_params = {
         "deck_building_agents": (byterl, byterl),
@@ -64,12 +64,15 @@ def get_env_parameters(cfg: DictConfig):
     
     # 2. Fixed Adversary parameters
     fixed = common_params.copy()
-    fixed["battle_agent"] = greedy
+    fixed["battle_agent"] = adversary_agent
     
     # 3. Evaluation environments parameters
     evals = [
         # vs. OSL (Greedy)
-        fixed.copy(),
+        {
+            **common_params,
+            "battle_agent": greedy,
+        },
         
         # vs. ByteRL
         {
