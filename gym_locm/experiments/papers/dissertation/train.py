@@ -9,14 +9,13 @@ from gym_locm.toolbox.trainer_battle import SelfPlay, FixedAdversary, FixedAndSe
 from gym_locm.toolbox.networks import build_network, load_network
 from gym_locm import agents
 
-# Default actor-critic pairing for each feature extractor (legacy compat)
+# Default actor-critic pairing for each feature extractor
 DEFAULT_ACTOR_CRITICS = {
     "simple": "simple",
     "deep_sets": "bilinear",
-    "set_transformer": "type_specific",
-    "set_transformer_2": "type_specific",
-    "set_transformer_2_1": "type_specific",
-    "gnn": "type_specific",
+    "zone_attn": "typed",
+    "full_attn": "typed",
+    "gnn": "typed",
 }
 
 def get_env_parameters(cfg: DictConfig):
@@ -102,6 +101,12 @@ def main(cfg: DictConfig):
         "tensorboard_log": os.path.join(cfg.path, "tf_logs"),
         "gamma": cfg.gamma,
         "lstm": cfg.model.lstm,
+        "feature_extractor_kwargs": OmegaConf.to_container(
+            cfg.model.get("feature_extractor_kwargs", {}), resolve=True
+        ) or None,
+        "actor_critic_kwargs": OmegaConf.to_container(
+            cfg.model.get("actor_critic_kwargs", {}), resolve=True
+        ) or None,
     }
 
     # Resolve feature extractor and actor-critic names

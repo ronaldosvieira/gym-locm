@@ -1,4 +1,4 @@
-name: "gnn"
+name: "zone_attn"
 actor_critic: "typed"
 layers: 0
 neurons: 0
