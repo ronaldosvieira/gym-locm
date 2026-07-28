@@ -36,12 +36,14 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
         lr_schedule: Callable[[float], float],
         actor_critic_class=None,
         actor_critic_kwargs=None,
+        compile_model: bool = True,
         *args,
         **kwargs,
     ):
         # Store actor-critic config before super().__init__ calls _build_mlp_extractor
         self._actor_critic_class = actor_critic_class
         self._actor_critic_kwargs = actor_critic_kwargs or {}
+        self._compile_model = compile_model
 
         super().__init__(
             observation_space,
@@ -53,7 +55,8 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
 
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
-        self.features_extractor = safely_compile(self.features_extractor)
+        if self._compile_model:
+            self.features_extractor = safely_compile(self.features_extractor)
 
         # Bypass SB3's default output layers — our mlp_extractor outputs final logits/values
         self.action_net = nn.Identity()
@@ -90,7 +93,8 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
             last_layer_dim_vf=1,
             **kwargs,
         )
-        self.mlp_extractor = safely_compile(self.mlp_extractor)
+        if self._compile_model:
+            self.mlp_extractor = safely_compile(self.mlp_extractor)
 
 
 class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
@@ -111,6 +115,7 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         net_arch: list[int] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         lstm_hidden_size: int = 256,
+        compile_model: bool = True,
         *args,
         **kwargs,
     ):
@@ -126,6 +131,7 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         self.lstm_hidden_size = lstm_hidden_size
         self._actor_critic_class = actor_critic_class
         self._actor_critic_kwargs = actor_critic_kwargs or {}
+        self._compile_model = compile_model
 
         super().__init__(
             observation_space,
@@ -142,7 +148,8 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def _build(self, lr_schedule: Callable[[float], float]) -> None:
         super()._build(lr_schedule)
-        self.features_extractor = safely_compile(self.features_extractor)
+        if self._compile_model:
+            self.features_extractor = safely_compile(self.features_extractor)
 
         # Bypass SB3's default output layers
         self.action_net = nn.Identity()
@@ -179,7 +186,8 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
             last_layer_dim_vf=1,
             **kwargs,
         )
-        self.mlp_extractor = safely_compile(self.mlp_extractor)
+        if self._compile_model:
+            self.mlp_extractor = safely_compile(self.mlp_extractor)
 
     @property
     def _is_simple_extractor(self):

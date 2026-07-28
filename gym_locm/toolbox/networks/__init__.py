@@ -6,8 +6,8 @@ Usage:
     
     model = build_network(
         env, seed,
-        feature_extractor="set_transformer",
-        actor_critic="type_specific",
+        feature_extractor="zone_attn",
+        actor_critic="typed",
         lstm=256,  # or False for no LSTM
         n_steps=512,
         nminibatches=256,
@@ -31,8 +31,8 @@ from gym_locm.toolbox.networks.policies import (
 
 # Valid combinations: simple FE can only be paired with simple AC
 _SIMPLE_ONLY_AC = {"simple"}
-_ENTITY_LEVEL_FE = {"deep_sets", "set_transformer", "set_transformer_2", "set_transformer_2_1", "gnn"}
-_ENTITY_LEVEL_AC = {"type_specific", "bilinear", "autoregressive"}
+_ENTITY_LEVEL_FE = {"deep_sets", "zone_attn", "full_attn", "gnn"}
+_ENTITY_LEVEL_AC = {"typed", "bilinear", "conditional"}
 
 
 def build_network(
@@ -59,15 +59,16 @@ def build_network(
     neurons=None,
     layers=None,
     activation=None,
+    compile_model: bool = True,
 ):
     """Build a PPO or RecurrentPPO model with the specified architecture.
     
     Args:
         env: Vectorized environment.
         seed: Random seed.
-        feature_extractor: One of "simple", "deep_sets", "set_transformer",
-            "set_transformer_2", "set_transformer_2_1", "gnn".
-        actor_critic: One of "simple", "type_specific", "bilinear", "autoregressive".
+        feature_extractor: One of "simple", "deep_sets", "zone_attn",
+            "full_attn", "gnn".
+        actor_critic: One of "simple", "typed", "bilinear", "conditional".
         n_steps: Number of steps per rollout.
         nminibatches: Batch size.
         noptepochs: Number of optimization epochs.
@@ -124,6 +125,7 @@ def build_network(
         features_extractor_kwargs=fe_kwargs,
         actor_critic_class=ac_class,
         actor_critic_kwargs=ac_kwargs,
+        compile_model=compile_model,
     )
 
     if lstm:
