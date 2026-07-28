@@ -1,19 +1,16 @@
+"""
+Typed actor-critic for LOCM. Uses separate per-action-type MLPs (SUMMON, USE, ATTACK, PASS) to compute action logits. Each action-type head processes an additive combination of projected source, target, and state embeddings.
+"""
 import torch as th
 import torch.nn as nn
-from typing import Tuple, List
 
 from gym_locm.toolbox.networks.actor_critics.base import LOCMActorCriticNetwork
 
 
-class TypeSpecificLOCMNetwork(LOCMActorCriticNetwork):
+class TypedLOCMNetwork(LOCMActorCriticNetwork):
     def __init__(self, state_dim: int, card_emb_dim: int, creature_emb_dim: int, lane_emb_dim: int, 
                  hidden_dim: int = 64, last_layer_dim_pi: int = 145, last_layer_dim_vf: int = 1):
-        super().__init__()
-
-        # IMPORTANT:
-        # Save output dimensions, used to create the distributions
-        self.latent_dim_pi = last_layer_dim_pi
-        self.latent_dim_vf = last_layer_dim_vf
+        super().__init__(last_layer_dim_pi, last_layer_dim_vf)
         
         # input: state
         self.pass_action = nn.Sequential(
@@ -64,10 +61,10 @@ class TypeSpecificLOCMNetwork(LOCMActorCriticNetwork):
             th.randn(1, 1, creature_emb_dim) * 0.02
         )  # for the "no target" option in use and attack actions
 
-    def get_policy_modules(self) -> List[nn.Module]:
+    def get_policy_modules(self) -> list[nn.Module]:
         return [self.pass_action, self.summon_action, self.use_action, self.attack_action]
 
-    def get_value_modules(self) -> List[nn.Module]:
+    def get_value_modules(self) -> list[nn.Module]:
         return [self.value_net]
 
     def forward_actor(self, embeddings: dict) -> th.Tensor:

@@ -7,11 +7,9 @@ and produce:
 - 1-dim value estimate (critic)
 """
 
-import torch.nn as nn
-from typing import Tuple
-from abc import abstractmethod
-
 import torch as th
+import torch.nn as nn
+from abc import abstractmethod
 
 
 class LOCMActorCriticNetwork(nn.Module):
@@ -23,7 +21,7 @@ class LOCMActorCriticNetwork(nn.Module):
         self.latent_dim_pi = last_layer_dim_pi
         self.latent_dim_vf = last_layer_dim_vf
 
-    def forward(self, features: dict) -> Tuple[th.Tensor, th.Tensor]:
+    def forward(self, features: dict) -> tuple[th.Tensor, th.Tensor]:
         """
         :return: (latent_policy, latent_value) tensors.
         """

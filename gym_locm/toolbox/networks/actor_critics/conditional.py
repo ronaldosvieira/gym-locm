@@ -1,8 +1,8 @@
 """
-Autoregressive actor-critic for LOCM.
+Conditional actor-critic for LOCM.
 
 Inspired by the Hearthstone paper (arXiv 2303.05197), this decomposes actions
-into source entity selection followed by target entity selection:
+into source entity selection followed by source-CONDITIONED target selection:
 
     logit(action) = f_source(src) + f_target(tgt | src)
 
@@ -23,22 +23,20 @@ Target entities (conditioned on source type):
     - ATTACK L0: {opponent_direct, 3 op_lane0} = 4 targets
     - ATTACK L1: {opponent_direct, 3 op_lane1} = 4 targets
 
-The full 145-dim logit vector is computed in a SINGLE forward pass — no
-sequential autoregressive sampling during training. The factored structure
+The full 145-dim logit vector is computed in a SINGLE forward pass — no sequential sampling — all logits computed in parallel. The factored structure
 provides source-conditioned target scoring while maintaining compatibility
 with SB3's standard PPO and action masking.
 """
 
 import torch as th
 import torch.nn as nn
-from typing import Tuple
 
 from gym_locm.toolbox.networks.actor_critics.base import LOCMActorCriticNetwork
 
 
-class AutoregressiveLOCMNetwork(LOCMActorCriticNetwork):
+class ConditionalLOCMNetwork(LOCMActorCriticNetwork):
     """
-    Autoregressive action decomposition: source selection + conditioned target selection.
+    Conditional action decomposition: source selection + conditioned target selection.
     
     Computes logit(action_i) = source_score(src_i) + target_score(tgt_i | src_i, state)
     """

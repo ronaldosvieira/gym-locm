@@ -1,11 +1,13 @@
+"""Actor-critic network registry for LOCM battle networks."""
+
 from gym_locm.toolbox.networks.actor_critics.simple import SimpleLOCMNetwork
-from gym_locm.toolbox.networks.actor_critics.type_specific import TypeSpecificLOCMNetwork
+from gym_locm.toolbox.networks.actor_critics.typed import TypedLOCMNetwork
 from gym_locm.toolbox.networks.actor_critics.bilinear import BilinearLOCMNetwork
-from gym_locm.toolbox.networks.actor_critics.autoregressive import AutoregressiveLOCMNetwork
+from gym_locm.toolbox.networks.actor_critics.conditional import ConditionalLOCMNetwork
 
 ACTOR_CRITICS = {
     "simple": SimpleLOCMNetwork,
-    "type_specific": TypeSpecificLOCMNetwork,
+    "typed": TypedLOCMNetwork,
     "bilinear": BilinearLOCMNetwork,
-    "autoregressive": AutoregressiveLOCMNetwork,
+    "conditional": ConditionalLOCMNetwork,
 }
