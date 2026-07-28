@@ -1,8 +1,8 @@
 """
 Conditional actor-critic for LOCM.
 
-Inspired by the Hearthstone paper (arXiv 2303.05197), this decomposes actions
-into source entity selection followed by source-CONDITIONED target selection:
+Decomposes actions into source entity selection followed 
+by source-conditioned target selection:
 
     logit(action) = f_source(src) + f_target(tgt | src)
 
