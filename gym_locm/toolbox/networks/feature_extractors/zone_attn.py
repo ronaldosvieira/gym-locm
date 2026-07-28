@@ -1,15 +1,19 @@
+"""
+Zone-local attention feature extractor — applies Set Attention Blocks (SABs) independently
+within each game zone (hand, deck, lanes) without cross-zone attention.
+"""
 import torch as th
 import torch.nn as nn
-from gymnasium.spaces import Dict
+from gymnasium.spaces import Space
 
 from gym_locm.toolbox.networks.feature_extractors.base import LOCMFeaturesExtractor
 from gym_locm.toolbox.networks.attention import SAB, PMA
 
 
-class SetTransformerFeaturesExtractor(LOCMFeaturesExtractor):
+class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
     def __init__(
         self,
-        observation_space: Dict,
+        observation_space: Space,
         card_dim: int = 17,
         player_dim: int = 5,
         creature_dim: int = 17,
@@ -83,18 +87,6 @@ class SetTransformerFeaturesExtractor(LOCMFeaturesExtractor):
         
     @property
     def creature_tokens_dim(self) -> int:
-        return self._lane_emb_dim
-
-    @property
-    def card_emb_dim(self) -> int:
-        return self._zone_emb_dim
-        
-    @property
-    def creature_emb_dim(self) -> int:
-        return self._lane_emb_dim
-        
-    @property
-    def lane_emb_dim(self) -> int:
         return self._lane_emb_dim
         
     @property

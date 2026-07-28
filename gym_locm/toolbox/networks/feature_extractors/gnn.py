@@ -1,24 +1,34 @@
+"""
+Graph Neural Network (GNN) feature extractor for LOCM.
+
+Heterogeneous message-passing GNN that models the game state as a graph
+of 25 nodes (players, deck, hand cards, lane creatures, lane summary nodes)
+connected by typed edges (summon, use, attack, structural).
+"""
+
 import torch as th
-from torch import nn
-from torch.nn import functional as F
+import torch.nn as nn
+import torch.nn.functional as F
 import gymnasium as gym
-from typing import Tuple
 
 from gym_locm.toolbox.networks.feature_extractors.base import LOCMFeaturesExtractor
 from gym_locm.toolbox.networks.attention import MeanPool
 
+
 class HeteroGNNLayer(nn.Module):
+    """Single heterogeneous GNN message-passing layer with typed edges."""
+
     def __init__(self, hidden_dim):
         super().__init__()
         self.edge_types = ["summon", "use", "attack", "struct"]
-        
+
         self.W = nn.ModuleDict({
-            edge_type: nn.Linear(hidden_dim, hidden_dim, bias=False) 
+            edge_type: nn.Linear(hidden_dim, hidden_dim, bias=False)
             for edge_type in self.edge_types
         })
         self.W_self = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.norm = nn.LayerNorm(hidden_dim)
-        
+
     def forward(self, X, A_dict):
         # X: [bs, 25, hidden_dim]
         # A_dict: dict of edge_type -> [bs, 25, 25] float tensor
@@ -32,7 +42,10 @@ class HeteroGNNLayer(nn.Module):
         out = X + F.relu(self.norm(out))  # residual connection
         return out
 
+
 class GNNFeaturesExtractor(LOCMFeaturesExtractor):
+    """Heterogeneous GNN feature extractor with action-mask-derived adjacencies."""
+
     def __init__(
         self,
         observation_space: gym.Space,
@@ -54,7 +67,7 @@ class GNNFeaturesExtractor(LOCMFeaturesExtractor):
         self.opponent_proj = nn.Linear(player_features, self.hidden_dim)
         self.card_proj = nn.Linear(card_features, self.hidden_dim)
         self.creature_proj = nn.Linear(creature_features, self.hidden_dim)
-        
+
         # Learnable nodes for the two lanes
         self.lane0_node = nn.Parameter(th.randn(1, 1, self.hidden_dim))
         self.lane1_node = nn.Parameter(th.randn(1, 1, self.hidden_dim))
@@ -99,10 +112,10 @@ class GNNFeaturesExtractor(LOCMFeaturesExtractor):
         # Project all raw features to hidden_dim
         p = self.player_proj(observations["player_stats"]).unsqueeze(1)  # [bs, 1, hidden]
         op = self.opponent_proj(observations["opponent_stats"]).unsqueeze(1) # [bs, 1, hidden]
-        
+
         deck = self.card_proj(observations["player_deck"]).mean(dim=1, keepdim=True) # [bs, 1, hidden]
         hand = self.card_proj(observations["player_hand"]) # [bs, 8, hidden]
-        
+
         p_lane0 = self.creature_proj(observations["player_lane0"]) # [bs, 3, hidden]
         p_lane1 = self.creature_proj(observations["player_lane1"]) # [bs, 3, hidden]
         op_lane0 = self.creature_proj(observations["opponent_lane0"]) # [bs, 3, hidden]

@@ -1,17 +1,27 @@
+"""
+Simple (MLP) feature extractor for LOCM.
+
+Concatenates all observations into a flat vector and passes through an MLP.
+Only compatible with SimpleLOCMNetwork actor-critic.
+"""
+
 import torch as th
 import torch.nn as nn
+import gymnasium as gym
 
-from gymnasium.spaces import Dict
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
+
 class SimpleFeaturesExtractor(BaseFeaturesExtractor):
+    """Flat MLP feature extractor — concatenates all observations into a single vector."""
+
     def __init__(
-        self, 
-        observation_space: Dict, 
+        self,
+        observation_space: gym.Space,
         net_arch: list[int],
         activation_fn: type[nn.Module],
-        card_dim: int = 17, 
-        player_dim: int = 5, 
+        card_dim: int = 17,
+        player_dim: int = 5,
         creature_dim: int = 17,
     ):
         input_dim = (
@@ -25,7 +35,7 @@ class SimpleFeaturesExtractor(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim=net_arch[-1])
 
         net_arch = [input_dim] + net_arch
-        
+
         layers = []
 
         for i in range(len(net_arch) - 1):
