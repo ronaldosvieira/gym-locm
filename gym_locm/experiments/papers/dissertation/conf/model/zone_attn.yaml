@@ -1,4 +1,5 @@
-name: "set_transformer"
+name: "zone_attn"
+actor_critic: "typed"
 layers: 0
 neurons: 0
 lstm: false

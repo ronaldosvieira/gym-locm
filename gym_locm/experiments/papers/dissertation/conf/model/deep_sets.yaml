@@ -1,4 +1,5 @@
 name: "deep_sets"
+actor_critic: "typed"
 layers: 0
 neurons: 0
 lstm: false

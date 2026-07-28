@@ -1,0 +1,8 @@
+name: "full_attn"
+actor_critic: "typed"
+layers: 0
+neurons: 0
+lstm: false
+act_fun: "relu"
+feature_extractor_kwargs:
+  emb_dim: 64  # override via CLI: model.feature_extractor_kwargs.emb_dim=128
