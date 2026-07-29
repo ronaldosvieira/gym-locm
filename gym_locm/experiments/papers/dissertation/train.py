@@ -101,12 +101,14 @@ def main(cfg: DictConfig):
         "tensorboard_log": os.path.join(cfg.path, "tf_logs"),
         "gamma": cfg.gamma,
         "lstm": cfg.model.lstm,
-        "feature_extractor_kwargs": OmegaConf.to_container(
-            cfg.model.get("feature_extractor_kwargs", {}), resolve=True
-        ) or None,
-        "actor_critic_kwargs": OmegaConf.to_container(
-            cfg.model.get("actor_critic_kwargs", {}), resolve=True
-        ) or None,
+        "feature_extractor_kwargs": (
+            OmegaConf.to_container(cfg.model.feature_extractor_kwargs, resolve=True)
+            if cfg.model.get("feature_extractor_kwargs") is not None else None
+        ),
+        "actor_critic_kwargs": (
+            OmegaConf.to_container(cfg.model.actor_critic_kwargs, resolve=True)
+            if cfg.model.get("actor_critic_kwargs") is not None else None
+        ),
     }
 
     # Resolve feature extractor and actor-critic names
