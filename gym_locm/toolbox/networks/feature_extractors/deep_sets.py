@@ -26,7 +26,7 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         player_emb_dim: int = 16,
         creature_emb_dim: int = 32,
         lane_emb_dim: int = 64,
-        state_emb_dim: int = 128,
+        state_emb_dim: int = 256,
     ):
         state_input_dim = (
             2 * player_emb_dim
