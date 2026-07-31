@@ -251,7 +251,7 @@ class BilinearLOCMNetwork(LOCMActorCriticNetwork):
         return self.value_net(embeddings["state"])
 
     def get_policy_modules(self) -> list[nn.Module]:
-        return [self.pass_action, self.source_action, self.target_action]
+        return [self.pass_action[-1], self.source_action[-1], self.target_action[-1]]
 
     def get_value_modules(self) -> list[nn.Module]:
-        return [self.value_net]
+        return [self.value_net[-1]]

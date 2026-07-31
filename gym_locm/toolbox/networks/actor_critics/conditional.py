@@ -243,7 +243,7 @@ class ConditionalLOCMNetwork(LOCMActorCriticNetwork):
         return self.value_net(embeddings["state"])
 
     def get_policy_modules(self) -> list[nn.Module]:
-        return [self.source_score, self.target_score, self.pass_source]
+        return [self.source_score[-1], self.target_score[-1], self.pass_source[-1]]
 
     def get_value_modules(self) -> list[nn.Module]:
-        return [self.value_net]
+        return [self.value_net[-1]]

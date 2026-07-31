@@ -62,10 +62,10 @@ class TypedLOCMNetwork(LOCMActorCriticNetwork):
         )  # for the "no target" option in use and attack actions
 
     def get_policy_modules(self) -> list[nn.Module]:
-        return [self.pass_action, self.summon_action, self.use_action, self.attack_action]
+        return [self.pass_action[-1], self.summon_action[-1], self.use_action[-1], self.attack_action[-1]]
 
     def get_value_modules(self) -> list[nn.Module]:
-        return [self.value_net]
+        return [self.value_net[-1]]
 
     def forward_actor(self, embeddings: dict) -> th.Tensor:
         bs = embeddings["state"].size(0)
