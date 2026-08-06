@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import os
 
 from gym_locm.engine import State, PlayerOrder, Creature
 
@@ -110,6 +111,78 @@ class CoacRewardFunction(RewardFunction):
         return min(1, max(-1, reward))
 
 
+DISTILLED_VF_URL = "https://raw.githubusercontent.com/ronaldosvieira/byterl-vf-distillation/refs/heads/master/byterl_vf.npz"
+
+class ByteRLValueRewardFunction(RewardFunction):
+    """
+    Reward function that uses a distilled NumPy MLP to approximate the value
+    of a given state according to the ByteRL agent. 
+    """
+    def __init__(self):
+        super().__init__()
+        self.weights = None
+        self.env = None
+
+    def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
+        if getattr(state, 'version', "1.2") != "1.5":
+            raise ValueError("ByteRLValueRewardFunction is only supported for LOCM 1.5.")
+            
+        if self.weights is None:
+            import numpy as np
+            import os
+            import urllib.request
+            
+            model_path = os.path.join(
+                os.path.dirname(__file__),
+                "byterl_vf.npz"
+            )
+            
+            if not os.path.exists(model_path):
+                print(f"Distilled ByteRL VF weights not found at {model_path}.")
+                print(f"Downloading weights from {DISTILLED_VF_URL}...")
+                urllib.request.urlretrieve(DISTILLED_VF_URL, model_path)
+                print("Download complete.")
+                
+            self.weights = np.load(model_path)
+            
+            # We need an encoder to get the flat state. We can use a dummy env.
+            from gym_locm.envs.battle import LOCMBattleEnv
+            self.env = LOCMBattleEnv(version="1.5")
+            
+        # We need to construct the 265-dim observation from the state
+        # The true state has to be encoded by the battle env encoder
+        self.env.state = state.clone()
+        obs = self.env.encode_state()
+        
+        import numpy as np
+        
+        def relu(x):
+            return np.maximum(0, x)
+            
+        x = obs
+        
+        num_layers = int(self.weights['num_layers'][0])
+        
+        # Loop through hidden layers
+        for i in range(num_layers):
+            x = np.dot(x, self.weights[f'w{i+1}'].T) + self.weights[f'b{i+1}']
+            x = relu(x)
+            
+        # Final output layer
+        x = np.dot(x, self.weights[f'w{num_layers+1}'].T) + self.weights[f'b{num_layers+1}']
+        
+        value = float(x[0]) if isinstance(x, np.ndarray) and x.size > 0 else float(x)
+            
+        # If calculating for the opposing player, negate the value
+        # Note: ByteRL value is trained from the perspective of the current player.
+        # So we should be careful here. For potential based shaping: F(s, s') = V(s') - V(s)
+        # We just return the state's value for the given player
+        if state.current_player.id == for_player:
+            return value
+        else:
+            return -value
+
+
 available_rewards = {
     "win-loss": WinLossRewardFunction,
     "player-health": PlayerHealthRewardFunction,
@@ -117,6 +190,7 @@ available_rewards = {
     "player-board-presence": PlayerBoardPresenceRewardFunction,
     "opponent-board-presence": OpponentBoardPresenceRewardFunction,
     "coac": CoacRewardFunction,
+    "byterl-vf": ByteRLValueRewardFunction,
 }
 
 
