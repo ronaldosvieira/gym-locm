@@ -135,7 +135,7 @@ class State:
         cloned_state.deck_building_phase = self.deck_building_phase.clone(cloned_state)
         cloned_state.battle_phase = self.battle_phase.clone(cloned_state)
 
-        if self.phase == Phase.BATTLE:
+        if self.phase in (Phase.BATTLE, Phase.ENDED):
             cloned_state._phase = cloned_state.battle_phase
         elif self.phase == Phase.DECK_BUILDING:
             cloned_state._phase = cloned_state.deck_building_phase

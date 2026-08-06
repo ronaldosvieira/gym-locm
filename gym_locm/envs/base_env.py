@@ -553,7 +553,7 @@ class LOCMEnv(gym.Env, ABC):
         """Encodes a state object into a numerical matrix."""
         if self.state.phase == Phase.DECK_BUILDING:
             return self._encode_state_deck_building()
-        elif self.state.phase == Phase.BATTLE:
+        elif self.state.phase == Phase.BATTLE or self.state.phase == Phase.ENDED:
             return self._encode_state_battle()
 
     @abstractmethod
