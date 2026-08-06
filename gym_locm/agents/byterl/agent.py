@@ -446,6 +446,11 @@ class ByterlAgent(Agent):
             weights["self/bt_action_head/action/logits/weights:0"],
             weights["self/bt_action_head/action/logits/biases:0"],
         )
+        self.vf_head = fully_connected_layers(
+            weights["self/vf/values/weights:0"],
+            weights["self/vf/values/biases:0"],
+            activation=None
+        )
         self.cb_hs_new = None
         self.bt_hs_new = None
         self.intf = SubmitInterface()
@@ -586,3 +591,94 @@ class ByterlAgent(Agent):
                 cb_action_num = self.np_random.choice(len(action_prob), p=action_prob)
             
             return self.intf.convert_to_locm_action(state, cb_action_num)
+
+    def value(self, state):
+        obs = self.intf.env_to_agt_trans_observation(state)
+
+        card_set = np.expand_dims(obs["card_set"], axis=0)
+        cards_fm = self._raw_card_feature_map(card_set)
+
+        selected_mask = np.expand_dims(obs["cards_selected_mask"], axis=-1)
+        selected_mask = np.tile(selected_mask, [1, 1, 32])
+
+        sel_cards_fm = cards_fm * selected_mask
+        sel_cards_emb = np.mean(sel_cards_fm, axis=1, keepdims=True)
+        sel_cards_emb_to_return = np.squeeze(sel_cards_emb, axis=1)
+
+        selected_cards_embed = sel_cards_emb_to_return
+
+        # (bs, 30, card_dim)
+        deck_cards = np.expand_dims(obs["deck_cards"], axis=0)
+        deck_cards_embed = self._raw_card_feature_map(deck_cards)
+        deck_cards_embed = np.mean(deck_cards_embed, axis=1)  # (bs, card_dim)
+
+        # (bs, 8, card_dim)
+        hand_cards = np.expand_dims(obs["hand_cards"], axis=0)
+        hand_cards_embed = self._raw_card_feature_map(hand_cards)
+        hand_cards_embed = np.reshape(
+            hand_cards_embed, shape=(1, -1)
+        )  # (bs, 8*card_dim)
+
+        # (bs, 3, dim)
+        me_lane0_cards = np.expand_dims(obs["me_lane0_cards"], axis=0)
+        me_lane0_cards_embed = self.shared_me_lane_card_embed_cv(me_lane0_cards)
+        me_lane0_cards_embed = np.reshape(
+            me_lane0_cards_embed, shape=(1, -1)
+        )  # (bs, 3*dim)
+
+        # (bs, 3, dim)
+        me_lane1_cards = np.expand_dims(obs["me_lane1_cards"], axis=0)
+        me_lane1_cards_embed = self.shared_me_lane_card_embed_cv(me_lane1_cards)
+        me_lane1_cards_embed = np.reshape(
+            me_lane1_cards_embed, shape=(1, -1)
+        )  # (bs, 3*dim)
+
+        # (bs, 3, dim)
+        oppo_lane0_cards = np.expand_dims(obs["oppo_lane0_cards"], axis=0)
+        oppo_lane0_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane0_cards)
+        oppo_lane0_cards_embed = np.reshape(
+            oppo_lane0_cards_embed, shape=(1, -1)
+        )  # (bs, 3*dim)
+
+        # (bs, 3, dim)
+        oppo_lane1_cards = np.expand_dims(obs["oppo_lane1_cards"], axis=0)
+        oppo_lane1_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane1_cards)
+        oppo_lane1_cards_embed = np.reshape(
+            oppo_lane1_cards_embed, shape=(1, -1)
+        )  # (bs, 3*dim)
+
+        # (bs, dim)
+        player = np.expand_dims(obs["player"], axis=0)
+        player_embed = self.shared_player_embed_fc(player)
+
+        # (bs, dim)
+        oppo_player = np.expand_dims(obs["oppo_player"], axis=0)
+        oppo_player_embed = self.shared_player_embed_fc(oppo_player)
+
+        #  # (bs, 10*card_dim+14*bt_base_dim)
+        bt_embed = np.concatenate(
+            [
+                deck_cards_embed,
+                hand_cards_embed,
+                me_lane0_cards_embed,
+                me_lane1_cards_embed,
+                oppo_lane0_cards_embed,
+                oppo_lane1_cards_embed,
+                player_embed,
+                oppo_player_embed,
+            ],
+            axis=-1,
+        )
+
+        bt_embed = np.concatenate([bt_embed, selected_cards_embed], axis=-1)
+
+        bt_embed = self.bt_fc0(bt_embed)
+        bt_embed = self.bt_fc1(bt_embed)
+        bt_embed = self.bt_fc2(bt_embed)
+
+        bt_lstm_embed, _ = self.bt_lstm_embed(bt_embed, self.bt_hs_new)
+        
+        vf_input = np.concatenate([bt_lstm_embed, selected_cards_embed], axis=-1)
+        value = self.vf_head(vf_input)
+        
+        return float(np.squeeze(value))
