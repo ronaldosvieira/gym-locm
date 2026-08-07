@@ -26,7 +26,7 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         player_emb_dim: int = 16,
         creature_emb_dim: int = 32,
         lane_emb_dim: int = 64,
-        state_emb_dim: int = 256,
+        state_emb_dim: int = 128,
     ):
         state_input_dim = (
             2 * player_emb_dim
@@ -48,31 +48,30 @@ class DeepSetsFeaturesExtractor(LOCMFeaturesExtractor):
         self.player_embedding = nn.Sequential(
             nn.Linear(player_dim, player_emb_dim), nn.ReLU(),
             nn.Linear(player_emb_dim, player_emb_dim), nn.ReLU(),
-        ) # 5 * 16 + 16 * 16 = 336 parameters
+        )
 
         self.card_embedding = nn.Sequential(
             nn.Linear(card_dim, card_emb_dim), nn.ReLU(),
             nn.Linear(card_emb_dim, card_emb_dim), nn.ReLU(),
-        ) # 17 * 32 + 32 * 32 = 1,568 parameters
+        )
 
         self.card_zone_embedding = nn.Sequential(
             nn.Linear(card_emb_dim, zone_emb_dim), nn.ReLU(),
-        ) # 32 * 32 = 1,024 parameters
+        )
 
         self.creature_embedding = nn.Sequential(
             nn.Linear(creature_dim, creature_emb_dim), nn.ReLU(),
             nn.Linear(creature_emb_dim, creature_emb_dim), nn.ReLU(),
-        ) # 8 * 16 + 16 * 16 = 384 parameters
+        )
 
         self.lane_embedding = nn.Sequential(
             nn.Linear(creature_emb_dim, lane_emb_dim), nn.ReLU(),
-        ) # 16 * 16 = 256 parameters
+        )
 
-        # 2 * 16 player + 32 hand + 32 deck + 4 * 16 lane = 160 features
         self.state_embedding = nn.Sequential(
             nn.Linear(state_input_dim, state_emb_dim), nn.ReLU(),
             nn.Linear(state_emb_dim, state_emb_dim), nn.ReLU(),
-        ) # 160 * 256 + 256 * 256 = 106,496 parameters
+        )
 
     @property
     def hand_cards_dim(self) -> int:

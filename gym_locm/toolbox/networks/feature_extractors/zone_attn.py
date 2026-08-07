@@ -38,12 +38,12 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
         self.player_embedding = nn.Sequential(
             nn.Linear(player_dim, player_emb_dim), nn.ReLU(),
             nn.Linear(player_emb_dim, player_emb_dim), nn.ReLU(),
-        ) # 5 * 16 + 16 * 16 = 336 parameters
+        )
 
         self.card_embedding = nn.Sequential(
             nn.Linear(card_dim, card_emb_dim), nn.ReLU(),
             nn.Linear(card_emb_dim, card_emb_dim), nn.ReLU(),
-        ) # 17 * 32 + 32 * 32 = 1,568 parameters
+        )
 
         self.card_zone_embedding = nn.Sequential(
             SAB(card_emb_dim, zone_emb_dim, num_heads=4, ln=True),
@@ -60,7 +60,7 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
         self.creature_embedding = nn.Sequential(
             nn.Linear(creature_dim, creature_emb_dim), nn.ReLU(),
             nn.Linear(creature_emb_dim, creature_emb_dim), nn.ReLU(),
-        ) # 17 * 16 + 16 * 16 = 528 parameters
+        )
         
         self.lane_embedding = nn.Sequential(
             SAB(creature_emb_dim, lane_emb_dim, num_heads=4, ln=True),
@@ -74,7 +74,6 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
             ln=True
         )
         
-        # 2 * player + 2 * zone + 4 * lane
         state_input_dim = 2 * player_emb_dim + 2 * zone_emb_dim + 4 * lane_emb_dim
         self.state_embedding = nn.Sequential(
             nn.Linear(state_input_dim, state_emb_dim), nn.ReLU(),
