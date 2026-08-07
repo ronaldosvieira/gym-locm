@@ -47,7 +47,6 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
 
         self.card_zone_embedding = nn.Sequential(
             SAB(card_emb_dim, zone_emb_dim, num_heads=4, ln=True),
-            SAB(zone_emb_dim, zone_emb_dim, num_heads=4, ln=True),
         )
 
         self.card_zone_pool = PMA(
@@ -64,7 +63,6 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
         
         self.lane_embedding = nn.Sequential(
             SAB(creature_emb_dim, lane_emb_dim, num_heads=4, ln=True),
-            SAB(lane_emb_dim, lane_emb_dim, num_heads=4, ln=True),
         )
 
         self.lane_pool = PMA(

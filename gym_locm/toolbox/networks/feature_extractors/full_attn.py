@@ -45,12 +45,10 @@ class FullAttnFeaturesExtractor(LOCMFeaturesExtractor):
         
         self.deck_embedding = nn.Sequential(
             SAB(emb_dim, emb_dim, num_heads=4, ln=True),
-            SAB(emb_dim, emb_dim, num_heads=4, ln=True),
             PMA(dim=emb_dim, num_heads=4, num_seeds=4, ln=True),
         )
         
         self.lane_embedding = nn.Sequential(
-            SAB(emb_dim, emb_dim, num_heads=4, ln=True),
             SAB(emb_dim, emb_dim, num_heads=4, ln=True),
             PMA(dim=emb_dim, num_heads=4, num_seeds=1, ln=True),
         )
@@ -67,11 +65,9 @@ class FullAttnFeaturesExtractor(LOCMFeaturesExtractor):
         self.global_embedding = nn.Sequential(
             SAB(emb_dim, emb_dim, num_heads=4, ln=True),
             SAB(emb_dim, emb_dim, num_heads=4, ln=True),
-            SAB(emb_dim, emb_dim, num_heads=4, ln=True),
         )
         
         self.state_embedding = nn.Sequential(
-            SAB(emb_dim, emb_dim, num_heads=4, ln=True),
             PMA(dim=emb_dim, num_heads=4, num_seeds=1, ln=True),
         )
 
