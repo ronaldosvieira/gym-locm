@@ -43,7 +43,7 @@ class LOCMConstructedEnv(LOCMEnv):
         self.battle_agents = battle_agents
 
         for battle_agent in self.battle_agents:
-            battle_agent.seed(seed)
+            battle_agent.seed(self._seed)
 
         self.evaluation_battles = evaluation_battles
 

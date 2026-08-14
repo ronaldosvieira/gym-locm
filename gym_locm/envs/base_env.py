@@ -43,7 +43,15 @@ class LOCMEnv(gym.Env, ABC):
         reward_weights=(1.0,),
         render_mode="native",
     ):
-        self._seed = seed
+        # Handle list-based seed cycling
+        if isinstance(seed, (list, tuple)):
+            self._seed_list = list(seed)
+            self._seed_index = 0
+            self._seed = self._seed_list[0]
+        else:
+            self._seed_list = None
+            self._seed_index = 0
+            self._seed = seed
         self.render_mode = render_mode
         self.version = version
         self.episodes = 0
@@ -70,13 +78,20 @@ class LOCMEnv(gym.Env, ABC):
         self.reward_range = (-sum(reward_weights), sum(reward_weights))
 
         self.state = State(
-            seed=seed, items=items, version=version, deck_building_kwargs=dict(k=k, n=n)
+            seed=self._seed, items=items, version=version, deck_building_kwargs=dict(k=k, n=n)
         )
 
     def seed(self, seed=None):
         """Sets a seed for random choices in the game."""
-        self._seed = seed
-        self.state.seed(seed)
+        if isinstance(seed, (list, tuple)):
+            self._seed_list = list(seed)
+            self._seed_index = 0
+            self._seed = self._seed_list[0]
+        else:
+            self._seed_list = None
+            self._seed_index = 0
+            self._seed = seed
+        self.state.seed(self._seed)
 
     def reset(
         self, *, seed: int | None = None, options: dict | None = None
@@ -104,8 +119,13 @@ class LOCMEnv(gym.Env, ABC):
             # apply random state
             self.state.rng = rng
         else:
-            # start a brand new game with next seed
-            self._seed += 1
+            if self._seed_list is not None:
+                # cycle to next seed in the list
+                self._seed_index = (self._seed_index + 1) % len(self._seed_list)
+                self._seed = self._seed_list[self._seed_index]
+            else:
+                # original behavior: increment
+                self._seed += 1
 
             self.state = State(
                 seed=self._seed,

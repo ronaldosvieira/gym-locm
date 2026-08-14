@@ -43,7 +43,7 @@ class LOCMBattleEnv(LOCMEnv):
 
         for agent in self.deck_building_agents:
             agent.reset()
-            agent.seed(seed)
+            agent.seed(self._seed)
 
         self.return_action_mask = return_action_mask
         self.use_average_deck = use_average_deck
