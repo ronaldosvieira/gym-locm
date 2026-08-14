@@ -42,7 +42,7 @@ class RandomAgent(Agent):
         pass
 
     def act(self, state):
-        index = int(len(state.available_actions) * random.random())
+        index = int(len(state.available_actions) * self.random.random())
 
         return state.available_actions[index]
     
