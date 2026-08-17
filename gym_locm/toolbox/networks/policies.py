@@ -93,7 +93,7 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
             last_layer_dim_vf=1,
             **kwargs,
         )
-        if self._compile_model and not self.mlp_extractor.is_autoregressive:
+        if self._compile_model:
             self.mlp_extractor = safely_compile(self.mlp_extractor)
 
     def forward(self, obs: th.Tensor, deterministic: bool = False):
@@ -226,7 +226,7 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
             last_layer_dim_vf=1,
             **kwargs,
         )
-        if self._compile_model and not self.mlp_extractor.is_autoregressive:
+        if self._compile_model:
             self.mlp_extractor = safely_compile(self.mlp_extractor)
 
     @property
