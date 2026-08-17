@@ -152,6 +152,7 @@ class AutoRegressiveLOCMNetwork(LOCMActorCriticNetwork):
 
     def _derive_masks(self, action_mask):
         bs = action_mask.shape[0]
+        action_mask = action_mask.bool()  # ensure bool; SB3 may pass float obs
         
         # Reshape flat mask into per-type-action 2D masks
         pass_mask = action_mask[:, 0:1]  # [bs, 1]
