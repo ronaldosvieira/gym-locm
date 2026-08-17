@@ -112,6 +112,13 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
 
+    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+        if self.mlp_extractor.is_autoregressive:
+            features = self.extract_features(observation, self.features_extractor)
+            actions, _ = self.mlp_extractor.sample_actions(features, deterministic)
+            return actions
+        return super()._predict(observation, deterministic)
+
     def evaluate_actions(
         self, obs: th.Tensor, actions: th.Tensor
     ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
