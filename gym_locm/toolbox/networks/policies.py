@@ -96,6 +96,46 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
         if self._compile_model:
             self.mlp_extractor = safely_compile(self.mlp_extractor)
 
+    def forward(self, obs: th.Tensor, deterministic: bool = False):
+        features = self.extract_features(obs, self.features_extractor)
+        
+        if self.mlp_extractor.is_autoregressive:
+            actions, log_prob = self.mlp_extractor.sample_actions(features, deterministic)
+            latent_vf = self.mlp_extractor.forward_critic(features)
+            values = self.value_net(latent_vf)
+            return actions, values, log_prob
+        
+        latent_pi, latent_vf = self.mlp_extractor(features)
+        values = self.value_net(latent_vf)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        return actions, values, log_prob
+
+    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+        if self.mlp_extractor.is_autoregressive:
+            features = self.extract_features(observation, self.features_extractor)
+            actions, _ = self.mlp_extractor.sample_actions(features, deterministic)
+            return actions
+        return super()._predict(observation, deterministic)
+
+    def evaluate_actions(
+        self, obs: th.Tensor, actions: th.Tensor
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
+        features = self.extract_features(obs, self.features_extractor)
+        latent_vf = self.mlp_extractor.forward_critic(features)
+        values = self.value_net(latent_vf)
+        
+        if self.mlp_extractor.is_autoregressive:
+            log_prob, entropy = self.mlp_extractor.evaluate_autoregressive(features, actions)
+            return values, log_prob, entropy
+        
+        latent_pi = self.mlp_extractor.forward_actor(features)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        log_prob = distribution.log_prob(actions)
+        entropy = distribution.entropy()
+        return values, log_prob, entropy
+
 
 class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
     """Unified recurrent policy for RecurrentPPO (LSTM).
@@ -228,15 +268,18 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
 
         features_pi = self._replace_lstm_output(dict(features), latent_pi, action_mask)
-        latent_pi = self.mlp_extractor.forward_actor(features_pi)
-
         features_vf = self._replace_lstm_output(dict(features), latent_vf, action_mask)
         latent_vf = self.mlp_extractor.forward_critic(features_vf)
-
         values = self.value_net(latent_vf)
-        distribution = self._get_action_dist_from_latent(latent_pi)
-        actions = distribution.get_actions(deterministic=deterministic)
-        log_prob = distribution.log_prob(actions)
+
+        if self.mlp_extractor.is_autoregressive:
+            actions, log_prob = self.mlp_extractor.sample_actions(features_pi, deterministic)
+        else:
+            latent_pi = self.mlp_extractor.forward_actor(features_pi)
+            distribution = self._get_action_dist_from_latent(latent_pi)
+            actions = distribution.get_actions(deterministic=deterministic)
+            log_prob = distribution.log_prob(actions)
+
         return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
 
     def get_distribution(
@@ -245,6 +288,11 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         lstm_states: tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
     ) -> tuple[Distribution, tuple[th.Tensor, ...]]:
+        if self.mlp_extractor.is_autoregressive:
+            raise NotImplementedError(
+                "get_distribution is not supported for auto-regressive policies. "
+                "Use forward() or evaluate_actions() instead."
+            )
         features = super(ActorCriticPolicy, self).extract_features(obs, self.pi_features_extractor)
         lstm_input, action_mask = self._extract_lstm_input(features)
         latent_pi, lstm_states = self._process_sequence(
@@ -290,13 +338,18 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         )
         latent_vf = latent_pi.detach()
 
-        features_pi = self._replace_lstm_output(dict(features), latent_pi, action_mask)
-        latent_pi = self.mlp_extractor.forward_actor(features_pi)
-
         features_vf = self._replace_lstm_output(dict(features), latent_vf, action_mask)
         latent_vf = self.mlp_extractor.forward_critic(features_vf)
-
-        distribution = self._get_action_dist_from_latent(latent_pi)
-        log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
-        return values, log_prob, distribution.entropy()
+
+        features_pi = self._replace_lstm_output(dict(features), latent_pi, action_mask)
+
+        if self.mlp_extractor.is_autoregressive:
+            log_prob, entropy = self.mlp_extractor.evaluate_autoregressive(features_pi, actions)
+        else:
+            latent_pi = self.mlp_extractor.forward_actor(features_pi)
+            distribution = self._get_action_dist_from_latent(latent_pi)
+            log_prob = distribution.log_prob(actions)
+            entropy = distribution.entropy()
+
+        return values, log_prob, entropy

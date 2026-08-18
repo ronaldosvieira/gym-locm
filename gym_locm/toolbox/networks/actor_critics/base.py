@@ -46,3 +46,30 @@ class LOCMActorCriticNetwork(nn.Module):
     def get_value_modules(self) -> list[nn.Module]:
         """Return modules that should receive value init gain (1.0)."""
         ...
+
+    @property
+    def is_autoregressive(self) -> bool:
+        """Whether this actor-critic uses auto-regressive action decomposition."""
+        return False
+
+    def sample_actions(
+        self, features: dict, deterministic: bool = False
+    ) -> tuple[th.Tensor, th.Tensor]:
+        """Auto-regressive action sampling.
+        
+        Returns:
+            actions: [bs] flat action indices
+            log_probs: [bs] log-probabilities
+        """
+        raise NotImplementedError("sample_actions is only available for auto-regressive actor-critics")
+
+    def evaluate_autoregressive(
+        self, features: dict, actions: th.Tensor
+    ) -> tuple[th.Tensor, th.Tensor]:
+        """Evaluate actions using auto-regressive decomposition.
+        
+        Returns:
+            log_probs: [bs] log-probabilities
+            entropy: [bs] entropy estimate
+        """
+        raise NotImplementedError("evaluate_autoregressive is only available for auto-regressive actor-critics")

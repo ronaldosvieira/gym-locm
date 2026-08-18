@@ -32,7 +32,7 @@ from gym_locm.toolbox.networks.policies import (
 # Valid combinations: simple FE can only be paired with simple AC
 _SIMPLE_ONLY_AC = {"simple"}
 _ENTITY_LEVEL_FE = {"deep_sets", "zone_attn", "full_attn", "gnn"}
-_ENTITY_LEVEL_AC = {"typed", "bilinear", "conditional"}
+_ENTITY_LEVEL_AC = {"typed", "bilinear", "conditional", "autoreg"}
 
 
 def build_network(
