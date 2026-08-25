@@ -42,9 +42,10 @@ if verbose:
 
 
 class TrainingSession:
-    def __init__(self, task, params, path, seed, wandb_run=None):
+    def __init__(self, task, params, path, seed, wandb_run=None, profile_gpu: bool = False):
         # initialize logger
         self.logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
+        self.profile_gpu = profile_gpu
 
         # initialize results
         self.checkpoints = []
@@ -109,9 +110,10 @@ class FixedAdversary(TrainingSession):
         seed,
         num_envs=1,
         wandb_run=None,
+        profile_gpu: bool = False,
     ):
         super(FixedAdversary, self).__init__(
-            task, model_params, path, seed, wandb_run=wandb_run
+            task, model_params, path, seed, wandb_run=wandb_run, profile_gpu=profile_gpu
         )
 
         # log start time
@@ -301,6 +303,9 @@ class FixedAdversary(TrainingSession):
             RolloutEndLogger(self.wandb_run)
         ]
 
+        if self.profile_gpu:
+            callbacks.append(GPUMemoryLogger(self.wandb_run))
+
         if self.wandb_run:
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
@@ -347,9 +352,10 @@ class SelfPlay(TrainingSession):
         seed,
         num_envs=1,
         wandb_run=None,
+        profile_gpu: bool = False,
     ):
         super(SelfPlay, self).__init__(
-            task, model_params, path, seed, wandb_run=wandb_run
+            task, model_params, path, seed, wandb_run=wandb_run, profile_gpu=profile_gpu
         )
 
         # log start time
@@ -564,6 +570,9 @@ class SelfPlay(TrainingSession):
             RolloutEndLogger(self.wandb_run)
         ]
 
+        if self.profile_gpu:
+            callbacks.append(GPUMemoryLogger(self.wandb_run))
+
         if self.wandb_run:
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
 
@@ -612,9 +621,10 @@ class FixedAndSelfPlayHybrid(TrainingSession):
         num_self_play_envs=1,
         num_fixed_adversary_envs=1,
         wandb_run=None,
+        profile_gpu: bool = False,
     ):
         super(FixedAndSelfPlayHybrid, self).__init__(
-            task, model_params, path, seed, wandb_run=wandb_run
+            task, model_params, path, seed, wandb_run=wandb_run, profile_gpu=profile_gpu
         )
 
         # log start time
@@ -837,6 +847,9 @@ class FixedAndSelfPlayHybrid(TrainingSession):
             TrainingCallback(self._training_callback),
             RolloutEndLogger(self.wandb_run)
         ]
+
+        if self.profile_gpu:
+            callbacks.append(GPUMemoryLogger(self.wandb_run))
 
         if self.wandb_run:
             callbacks.append(WandbCallback(gradient_save_freq=0, verbose=0))
@@ -1144,6 +1157,62 @@ class RolloutEndLogger(BaseCallback):
         # reset training env rewards
         for i in range(self.training_env.num_envs):
             self.training_env.set_attr("rewards_single_player", [], indices=[i])
+
+
+class GPUMemoryLogger(BaseCallback):
+    """Logs CUDA memory usage at rollout boundaries (and optionally per training step).
+
+    Reports three numbers every rollout:
+      - allocated:  memory actively used by live tensors
+      - reserved:   memory held in PyTorch's cache (allocated + fragmented free blocks)
+      - fragmented: reserved - allocated (free blocks PyTorch can't return to the OS)
+
+    Set ``per_step=True`` to also log after every single environment step; this lets
+    you distinguish memory growth that happens during rollout collection vs. during
+    the PPO training update.
+    """
+
+    def __init__(self, wandb_run=None, per_step: bool = False, verbose: int = 0):
+        super().__init__(verbose)
+        self.mem_logger = logging.getLogger(f"{__name__}.{type(self).__name__}")
+        self.wandb_run = wandb_run
+        self.per_step = per_step
+        self._rollout_count = 0
+
+    def _cuda_stats(self) -> dict:
+        if not th.cuda.is_available():
+            return {}
+        alloc_mb = th.cuda.memory_allocated() / 1024 ** 2
+        reserved_mb = th.cuda.memory_reserved() / 1024 ** 2
+        return {
+            "gpu_mem/allocated_mb": alloc_mb,
+            "gpu_mem/reserved_mb": reserved_mb,
+            "gpu_mem/fragmented_mb": reserved_mb - alloc_mb,
+        }
+
+    def _log(self, tag: str, stats: dict) -> None:
+        if not stats:
+            return
+        alloc = stats["gpu_mem/allocated_mb"]
+        reserved = stats["gpu_mem/reserved_mb"]
+        frag = stats["gpu_mem/fragmented_mb"]
+        self.mem_logger.debug(
+            f"[{tag}] alloc={alloc:.1f} MB  reserved={reserved:.1f} MB  fragmented={frag:.1f} MB"
+        )
+        if self.wandb_run:
+            self.wandb_run.log({f"{tag}/{k}": v for k, v in stats.items()})
+
+    def _on_step(self) -> bool:
+        if self.per_step:
+            self._log("step", self._cuda_stats())
+        return True
+
+    def _on_rollout_start(self) -> None:
+        self._log("rollout_start", self._cuda_stats())
+
+    def _on_rollout_end(self) -> None:
+        self._rollout_count += 1
+        self._log(f"rollout_end/{self._rollout_count}", self._cuda_stats())
 
 
 def save_model_as_json(model, act_fun, path):

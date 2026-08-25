@@ -5,7 +5,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import wandb
 
-from gym_locm.toolbox.trainer_battle import SelfPlay, FixedAdversary, FixedAndSelfPlayHybrid
+from gym_locm.toolbox.trainer_battle import SelfPlay, FixedAdversary, FixedAndSelfPlayHybrid, GPUMemoryLogger
 from gym_locm.toolbox.networks import build_network, load_network
 from gym_locm import agents
 
@@ -139,6 +139,8 @@ def main(cfg: DictConfig):
         )
 
     # Initialize and execute the chosen adversary scheme
+    profile_gpu = cfg.get("profile_gpu", False)
+
     if cfg.adversary.type == "self-play":
         trainer = SelfPlay(
             cfg.task,
@@ -155,6 +157,7 @@ def main(cfg: DictConfig):
             cfg.seed,
             cfg.concurrency,
             wandb_run=run,
+            profile_gpu=profile_gpu,
         )
     elif cfg.adversary.type == "fixed":
         trainer = FixedAdversary(
@@ -171,6 +174,7 @@ def main(cfg: DictConfig):
             cfg.seed,
             cfg.concurrency,
             wandb_run=run,
+            profile_gpu=profile_gpu,
         )
     elif cfg.adversary.type == "hybrid":
         trainer = FixedAndSelfPlayHybrid(
@@ -190,6 +194,7 @@ def main(cfg: DictConfig):
             cfg.adversary.num_self_play_envs,
             cfg.adversary.num_fixed_adversary_envs,
             wandb_run=run,
+            profile_gpu=profile_gpu,
         )
     else:
         raise ValueError(f"Invalid adversary setting: {cfg.adversary.type}")
