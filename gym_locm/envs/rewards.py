@@ -69,10 +69,11 @@ class CoacRewardFunction(RewardFunction):
         return score
 
     @staticmethod
-    def eval_state(state) -> int:
+    def eval_state(state, for_player: PlayerOrder = PlayerOrder.FIRST) -> int:
         score = 0
 
-        player, enemy = state.current_player, state.opposing_player
+        player = state.players[for_player]
+        enemy = state.players[for_player.opposing()]
 
         for lane in player.lanes:
             for creature in lane:
@@ -103,9 +104,7 @@ class CoacRewardFunction(RewardFunction):
         return score
 
     def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
-        signal = 1 if state.current_player.id == for_player else -1
-
-        reward = signal * CoacRewardFunction.eval_state(state) / 2000
+        reward = CoacRewardFunction.eval_state(state, for_player) / 2000
 
         return min(1, max(-1, reward))
 

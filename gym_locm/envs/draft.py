@@ -44,6 +44,7 @@ class LOCMDraftEnv(LOCMEnv):
         self.choices = ([], [])
         self.draft_ordering = list(range(3))
         self.rewards = [0.0]
+        self.reward_player = PlayerOrder.FIRST
 
         self.battle_agents = battle_agents
 
@@ -125,7 +126,7 @@ class LOCMDraftEnv(LOCMEnv):
         current_player_id = state.current_player.id
 
         reward_before = [
-            weight * function.calculate(state, for_player=PlayerOrder.FIRST)
+            weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
@@ -143,7 +144,7 @@ class LOCMDraftEnv(LOCMEnv):
         state.act(action)
 
         reward_after = [
-            weight * function.calculate(state, for_player=PlayerOrder.FIRST)
+            weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
@@ -288,6 +289,7 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         # also init the draft agent and the new parameter
         self.draft_agent = draft_agent
         self.play_first = play_first
+        self.reward_player = PlayerOrder.FIRST if play_first else PlayerOrder.SECOND
 
         self.rewards_single_player = []
 
@@ -324,7 +326,7 @@ class LOCMDraftSingleEnv(LOCMDraftEnv):
         else:
             _, reward1, _, _, _ = super().step(self.draft_agent.act(self.state))
             state, reward2, terminated, truncated, info = super().step(action)
-            reward = -(reward1 + reward2)
+            reward = reward1 + reward2
             info["drafted"] = info["drafted"][1]
             info["drawn"] = [d[1] for d in info["drawn"]]
 
@@ -346,6 +348,7 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
 
         # also init the new parameters
         self.play_first = play_first
+        self.reward_player = PlayerOrder.FIRST if play_first else PlayerOrder.SECOND
         self.adversary_policy = adversary_policy
 
         self.rewards_single_player = []
@@ -373,7 +376,7 @@ class LOCMDraftSelfPlayEnv(LOCMDraftEnv):
         else:
             _, reward1, _, _, _ = super().step(self.adversary_policy(obs))
             state, reward2, terminated, truncated, info = super().step(action)
-            reward = -(reward1 + reward2)
+            reward = reward1 + reward2
             info["drafted"] = info["drafted"][1]
             info["drawn"] = [d[1] for d in info["drawn"]]
 
