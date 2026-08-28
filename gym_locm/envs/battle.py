@@ -37,6 +37,7 @@ class LOCMBattleEnv(LOCMEnv):
         )
 
         self.rewards = [0.0]
+        self.reward_player = PlayerOrder.FIRST
 
         self.version = version
         self.deck_building_agents = deck_building_agents
@@ -167,7 +168,7 @@ class LOCMBattleEnv(LOCMEnv):
         state = self.state
 
         reward_before = [
-            weight * function.calculate(state, for_player=PlayerOrder.FIRST)
+            weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
@@ -215,7 +216,7 @@ class LOCMBattleEnv(LOCMEnv):
             state.was_last_action_invalid = True
 
         reward_after = [
-            weight * function.calculate(state, for_player=PlayerOrder.FIRST)
+            weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
@@ -527,9 +528,6 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         info["invalid"] = was_invalid
         reward = total_reward
 
-        if not self.play_first:
-            reward = -reward
-
         try:
             self.rewards_single_player[-1] += reward
         except IndexError:
@@ -552,6 +550,7 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
                 self.deck_building_agents[1],
                 self.deck_building_agents[0],
             )
+            self.reward_player = PlayerOrder.FIRST if value else PlayerOrder.SECOND
 
 
 class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
@@ -645,9 +644,6 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
         info["invalid"] = was_invalid
         reward = total_reward
 
-        if not self.play_first:
-            reward = -reward
-
         try:
             self.rewards_single_player[-1] += reward
         except IndexError:
@@ -670,3 +666,4 @@ class LOCMBattleSelfPlayEnv(LOCMBattleEnv):
                 self.deck_building_agents[1],
                 self.deck_building_agents[0],
             )
+            self.reward_player = PlayerOrder.FIRST if value else PlayerOrder.SECOND

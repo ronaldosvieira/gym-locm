@@ -39,6 +39,7 @@ class LOCMConstructedEnv(LOCMEnv):
         self.choices = ([], [])
         self.draft_ordering = list(range(self.k))
         self.rewards = [0.0]
+        self.reward_player = PlayerOrder.FIRST
 
         self.battle_agents = battle_agents
 
@@ -111,7 +112,7 @@ class LOCMConstructedEnv(LOCMEnv):
         current_player_id = state.current_player.id
 
         self.last_player_rewards[state.current_player.id] = [
-            weight * function.calculate(state, for_player=current_player_id)
+            weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
@@ -130,7 +131,7 @@ class LOCMConstructedEnv(LOCMEnv):
 
         reward_before = self.last_player_rewards[state.current_player.id]
         reward_after = [
-            weight * function.calculate(state, for_player=current_player_id)
+            weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
         ]
 
@@ -242,6 +243,7 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
         # also init the constructed agent and the new parameter
         self.constructed_agent = constructed_agent
         self.play_first = play_first
+        self.reward_player = PlayerOrder.FIRST if play_first else PlayerOrder.SECOND
 
         self.rewards_single_player = []
 
@@ -287,9 +289,6 @@ class LOCMConstructedSingleEnv(LOCMConstructedEnv):
                     self.constructed_agent.act(self.state)
                 )
 
-        if not self.play_first:
-            reward = -reward
-
         try:
             self.rewards_single_player[-1] += reward
         except IndexError:
@@ -308,6 +307,7 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
 
         # also init the new parameters
         self.play_first = play_first
+        self.reward_player = PlayerOrder.FIRST if play_first else PlayerOrder.SECOND
         self.adversary_policy = adversary_policy
 
         self.rewards_single_player = []
@@ -345,9 +345,6 @@ class LOCMConstructedSelfPlayEnv(LOCMConstructedEnv):
                 state, reward, terminated, truncated, info = super().step(
                     self.adversary_policy(state)
                 )
-
-        if not self.play_first:
-            reward = -reward
 
         try:
             self.rewards_single_player[-1] += reward
