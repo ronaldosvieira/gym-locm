@@ -29,6 +29,11 @@ class OpponentHealthRewardFunction(RewardFunction):
         return -max(0, state.players[for_player.opposing()].health) / 30
 
 
+class HealthDiffRewardFunction(RewardFunction):
+    def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
+        return (state.players[for_player].health - state.players[for_player.opposing()].health) / 30
+
+
 class PlayerBoardPresenceRewardFunction(RewardFunction):
     def calculate(self, state: State, for_player: PlayerOrder = PlayerOrder.FIRST):
         return sum(
@@ -113,6 +118,7 @@ available_rewards = {
     "win-loss": WinLossRewardFunction,
     "player-health": PlayerHealthRewardFunction,
     "opponent-health": OpponentHealthRewardFunction,
+    "health-diff": HealthDiffRewardFunction,
     "player-board-presence": PlayerBoardPresenceRewardFunction,
     "opponent-board-presence": OpponentBoardPresenceRewardFunction,
     "coac": CoacRewardFunction,
