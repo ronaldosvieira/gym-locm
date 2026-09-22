@@ -151,9 +151,13 @@ class LOCMBattleEnv(LOCMEnv):
             raise GameIsEndedError()
 
         # check if an action object or an integer was passed
+        # Capture the raw integer action_id before decoding so that
+        # action-based reward functions can look up their probability index.
+        action_id = None
         if not isinstance(action, Action):
             try:
-                action = int(action)
+                action_id = int(action)
+                action = action_id
             except ValueError:
                 error = (
                     f"Action should be an action object "
@@ -162,14 +166,27 @@ class LOCMBattleEnv(LOCMEnv):
 
                 raise MalformedActionError(error)
 
-            action = self.decode_action(action)
+            action = self.decode_action(action_id)
 
         # less property accesses
         state = self.state
 
+        # ------------------------------------------------------------------
+        # Pre-action reward calculations
+        # ------------------------------------------------------------------
+        # Delta-based functions: compute value before the action is taken.
         reward_before = [
             weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
+            if not function.is_action_based()
+        ]
+        # Action-based functions: compute reward from (pre-action state, action_id).
+        action_based_rewards = [
+            weight * function.calculate_action_reward(
+                state, action_id, for_player=self.reward_player
+            )
+            for function, weight in zip(self.reward_functions, self.reward_weights)
+            if function.is_action_based()
         ]
 
         # pre-action metrics capture
@@ -215,16 +232,27 @@ class LOCMBattleEnv(LOCMEnv):
         else:
             state.was_last_action_invalid = True
 
+        # Post-action: delta-based functions only.
         reward_after = [
             weight * function.calculate(state, for_player=self.reward_player)
             for function, weight in zip(self.reward_functions, self.reward_weights)
+            if not function.is_action_based()
         ]
 
         # build return info
         winner = state.winner
 
+        # Combine into a tuple that preserves the original function-declaration
+        # order: action-based entries come from action_based_rewards; delta-based
+        # entries are computed as (after − before).
+        _ab_iter = iter(action_based_rewards)
+        _delta_before_iter = iter(reward_before)
+        _delta_after_iter = iter(reward_after)
         raw_rewards = tuple(
-            [after - before for before, after in zip(reward_before, reward_after)]
+            next(_ab_iter)
+            if fn.is_action_based()
+            else next(_delta_after_iter) - next(_delta_before_iter)
+            for fn in self.reward_functions
         )
 
         reward = sum(raw_rewards)
@@ -281,6 +309,10 @@ class LOCMBattleEnv(LOCMEnv):
         for agent in self.deck_building_agents:
             agent.reset()
             agent.seed(self._seed)
+
+        # reset any per-episode state held by reward functions (e.g. LSTM)
+        for fn in self.reward_functions:
+            fn.reset()
 
         self._play_through_deck_building_phase()
         self._update_player_decks()

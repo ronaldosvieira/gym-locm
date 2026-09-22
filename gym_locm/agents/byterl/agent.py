@@ -446,6 +446,11 @@ class ByterlAgent(Agent):
             weights["self/bt_action_head/action/logits/weights:0"],
             weights["self/bt_action_head/action/logits/biases:0"],
         )
+        self.vf_head = fully_connected_layers(
+            weights["self/vf/values/weights:0"],
+            weights["self/vf/values/biases:0"],
+            activation=None,
+        )
         self.cb_hs_new = None
         self.bt_hs_new = None
         self.intf = SubmitInterface()
@@ -455,16 +460,11 @@ class ByterlAgent(Agent):
         outputs = self.shared_raw_card_embed_cv1(x)
         return outputs
 
-    def seed(self, seed):
-        self.np_random = np.random.RandomState(seed)
+    def _bt_embed(self, state):
+        """Run the shared forward pass and return (bt_lstm_embed, obs).
 
-    def reset(self, **kwargs):
-        self.cb_hs_new = None
-        self.bt_hs_new = None
-        self.intf = SubmitInterface()
-
-    def act(self, state):
-
+        Advances self.bt_hs_new in-place, exactly as act() does.
+        """
         obs = self.intf.env_to_agt_trans_observation(state)
 
         card_set = np.expand_dims(obs["card_set"], axis=0)
@@ -484,58 +484,39 @@ class ByterlAgent(Agent):
 
         can_sel_mask = np.expand_dims(obs["cards_can_select_mask"], axis=-1)
         can_sel_mask = np.tile(can_sel_mask, [1, 1, 64])
-        cb_fm = x * can_sel_mask  # (bs, n_cards, 2*card_dim)
+        cb_fm = x * can_sel_mask
         selected_cards_embed = sel_cards_emb_to_return
 
-        # (bs, 30, card_dim)
         deck_cards = np.expand_dims(obs["deck_cards"], axis=0)
         deck_cards_embed = self._raw_card_feature_map(deck_cards)
-        deck_cards_embed = np.mean(deck_cards_embed, axis=1)  # (bs, card_dim)
+        deck_cards_embed = np.mean(deck_cards_embed, axis=1)
 
-        # (bs, 8, card_dim)
         hand_cards = np.expand_dims(obs["hand_cards"], axis=0)
         hand_cards_embed = self._raw_card_feature_map(hand_cards)
-        hand_cards_embed = np.reshape(
-            hand_cards_embed, shape=(1, -1)
-        )  # (bs, 8*card_dim)
+        hand_cards_embed = np.reshape(hand_cards_embed, shape=(1, -1))
 
-        # (bs, 3, dim)
         me_lane0_cards = np.expand_dims(obs["me_lane0_cards"], axis=0)
         me_lane0_cards_embed = self.shared_me_lane_card_embed_cv(me_lane0_cards)
-        me_lane0_cards_embed = np.reshape(
-            me_lane0_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
+        me_lane0_cards_embed = np.reshape(me_lane0_cards_embed, shape=(1, -1))
 
-        # (bs, 3, dim)
         me_lane1_cards = np.expand_dims(obs["me_lane1_cards"], axis=0)
         me_lane1_cards_embed = self.shared_me_lane_card_embed_cv(me_lane1_cards)
-        me_lane1_cards_embed = np.reshape(
-            me_lane1_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
+        me_lane1_cards_embed = np.reshape(me_lane1_cards_embed, shape=(1, -1))
 
-        # (bs, 3, dim)
         oppo_lane0_cards = np.expand_dims(obs["oppo_lane0_cards"], axis=0)
         oppo_lane0_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane0_cards)
-        oppo_lane0_cards_embed = np.reshape(
-            oppo_lane0_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
+        oppo_lane0_cards_embed = np.reshape(oppo_lane0_cards_embed, shape=(1, -1))
 
-        # (bs, 3, dim)
         oppo_lane1_cards = np.expand_dims(obs["oppo_lane1_cards"], axis=0)
         oppo_lane1_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane1_cards)
-        oppo_lane1_cards_embed = np.reshape(
-            oppo_lane1_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
+        oppo_lane1_cards_embed = np.reshape(oppo_lane1_cards_embed, shape=(1, -1))
 
-        # (bs, dim)
         player = np.expand_dims(obs["player"], axis=0)
         player_embed = self.shared_player_embed_fc(player)
 
-        # (bs, dim)
         oppo_player = np.expand_dims(obs["oppo_player"], axis=0)
         oppo_player_embed = self.shared_player_embed_fc(oppo_player)
 
-        #  # (bs, 10*card_dim+14*bt_base_dim)
         bt_embed = np.concatenate(
             [
                 deck_cards_embed,
@@ -549,17 +530,60 @@ class ByterlAgent(Agent):
             ],
             axis=-1,
         )
-
         bt_embed = np.concatenate([bt_embed, selected_cards_embed], axis=-1)
-
         bt_embed = self.bt_fc0(bt_embed)
         bt_embed = self.bt_fc1(bt_embed)
         bt_embed = self.bt_fc2(bt_embed)
 
         bt_lstm_embed, self.bt_hs_new = self.bt_lstm_embed(bt_embed, self.bt_hs_new)
+        # bt_lstm_embed: projected LSTM output m, shape (1, 256).
+        # The VF head expects concat(bt_lstm_embed, cb_embed) = shape (1, 288),
+        # where cb_embed is the selected_cards_embed (mean of selected card features).
+        return bt_lstm_embed, obs, cb_fm, selected_cards_embed
+
+    def get_value(self, state) -> float:
+        """Return the raw VF scalar for the current player's position.
+
+        The LSTM hidden state is advanced as a side-effect, consistent with
+        how act() advances it. Call get_value() OR act() for a given step,
+        not both, to avoid double-advancing the LSTM state.
+        """
+        bt_lstm_embed, _, _, cb_embed = self._bt_embed(state)
+        # VF head input: concat(bt_lstm_embed, cb_embed) → (1, 288)
+        vf_input = np.concatenate([bt_lstm_embed, cb_embed], axis=-1)
+        value = self.vf_head(vf_input)
+        return float(np.squeeze(value))
+
+    def get_policy_probs(self, state) -> np.ndarray:
+        """Return ByteRL's softmax action-probability vector for the given state.
+
+        Advances self.bt_hs_new in-place, exactly as act() and get_value() do.
+        Call exactly one of act() / get_value() / get_policy_probs() per step
+        to avoid double-advancing the LSTM state.
+
+        Returns:
+            probs: float32 array of shape (145,) summing to 1.0.
+                   Invalid (masked-out) actions receive 0 probability.
+        """
+        bt_lstm_embed, obs, _, _ = self._bt_embed(state)
+        logits = self.bt_action_head(bt_lstm_embed, obs["bt_action_mask"])
+        probs = softmax(logits)
+        return probs
+
+    def seed(self, seed):
+        self.np_random = np.random.RandomState(seed)
+
+    def reset(self, **kwargs):
+        self.cb_hs_new = None
+        self.bt_hs_new = None
+        self.intf = SubmitInterface()
+
+    def act(self, state):
+        bt_lstm_embed, obs, cb_fm, _ = self._bt_embed(state)
+
         if state.phase == Phase.BATTLE:
             bt_action_logit = self.bt_action_head(bt_lstm_embed, obs["bt_action_mask"])
-            
+
             if self.temperature == 0.0:
                 bt_action_num = np.argmax(bt_action_logit, -1)
             else:
@@ -575,14 +599,15 @@ class ByterlAgent(Agent):
             cb_action_logit = self.cb_action_head(
                 cb_fm, obs["cb_action_mask"], obs["cards_can_select_mask"]
             )
-            
+
             if self.temperature == 0.0:
                 cb_action_num = np.argmax(cb_action_logit, -1)
             else:
                 action_prob = cb_action_logit / self.temperature
                 action_prob = softmax(action_prob, -1)
                 # action_prob = np.nan_to_num(action_prob, nan=0.0)
-                
+
                 cb_action_num = self.np_random.choice(len(action_prob), p=action_prob)
-            
+
             return self.intf.convert_to_locm_action(state, cb_action_num)
+

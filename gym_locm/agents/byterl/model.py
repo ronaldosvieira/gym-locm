@@ -14,7 +14,9 @@ def relu(x):
 
 
 def tanh(x):
-    return (np.exp(x) - np.exp(-x)) / (np.exp(x) + np.exp(-x))
+    # np.tanh is numerically stable for all finite inputs; the hand-rolled
+    # form (exp(x)-exp(-x))/(exp(x)+exp(-x)) overflows to NaN for |x|>~709.
+    return np.tanh(x)
 
 
 def gelu(x):
@@ -23,11 +25,14 @@ def gelu(x):
 
 
 def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
+    # Stable sigmoid: avoid exp(-x) overflow for large negative x.
+    return np.where(x >= 0, 1 / (1 + np.exp(-x)), np.exp(x) / (1 + np.exp(x)))
 
 
 def softmax(x):
-    return np.exp(x) / np.sum(np.exp(x))
+    # Subtract max for numerical stability before exponentiating.
+    e = np.exp(x - np.max(x))
+    return e / np.sum(e)
 
 
 def identity(x):
