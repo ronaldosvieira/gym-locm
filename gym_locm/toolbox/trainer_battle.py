@@ -108,6 +108,10 @@ class FixedAdversary(TrainingSession):
         path,
         seed,
         num_envs=1,
+        lr_decay=None,
+        lr_final=0.0,
+        cr_decay=None,
+        cr_final=0.0,
         wandb_run=None,
     ):
         super(FixedAdversary, self).__init__(
@@ -173,6 +177,14 @@ class FixedAdversary(TrainingSession):
         ]
         self.role = role
 
+        # decay schedule params (episode-based, applied in _training_callback)
+        self.lr_decay = lr_decay
+        self.lr_initial = float(model_params["learning_rate"])
+        self.lr_final = lr_final
+        self.cr_decay = cr_decay
+        self.cr_initial = float(model_params["cliprange"])
+        self.cr_final = cr_final
+
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
 
@@ -187,6 +199,16 @@ class FixedAdversary(TrainingSession):
     def _training_callback(self, _locals=None, _globals=None):
         model = self.model
         episodes_so_far = sum(self.env.get_attr("episodes"))
+
+        # Update decay schedules based on episode progress (exact — no timestep estimation needed)
+        if self.lr_decay == "linear" or self.cr_decay == "linear":
+            progress = min(episodes_so_far / self.train_episodes, 1.0)
+            if self.lr_decay == "linear":
+                current_lr = self.lr_initial + (self.lr_final - self.lr_initial) * progress
+                self.model.lr_schedule = lambda _, lr=current_lr: lr
+            if self.cr_decay == "linear":
+                current_cr = self.cr_initial + (self.cr_final - self.cr_initial) * progress
+                self.model.clip_range = lambda _, cr=current_cr: cr
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
@@ -346,6 +368,10 @@ class SelfPlay(TrainingSession):
         path,
         seed,
         num_envs=1,
+        lr_decay=None,
+        lr_final=0.0,
+        cr_decay=None,
+        cr_final=0.0,
         wandb_run=None,
     ):
         super(SelfPlay, self).__init__(
@@ -429,6 +455,14 @@ class SelfPlay(TrainingSession):
         ]
         self.role = role
 
+        # decay schedule params (episode-based, applied in _training_callback)
+        self.lr_decay = lr_decay
+        self.lr_initial = float(model_params["learning_rate"])
+        self.lr_final = lr_final
+        self.cr_decay = cr_decay
+        self.cr_initial = float(model_params["cliprange"])
+        self.cr_final = cr_final
+
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
         self.model.last_switch, self.model.next_switch = None, self.switch_frequency
@@ -444,6 +478,16 @@ class SelfPlay(TrainingSession):
     def _training_callback(self, _locals=None, _globals=None):
         model = self.model
         episodes_so_far = sum(self.env.get_attr("episodes"))
+
+        # Update decay schedules based on episode progress (exact — no timestep estimation needed)
+        if self.lr_decay == "linear" or self.cr_decay == "linear":
+            progress = min(episodes_so_far / self.train_episodes, 1.0)
+            if self.lr_decay == "linear":
+                current_lr = self.lr_initial + (self.lr_final - self.lr_initial) * progress
+                self.model.lr_schedule = lambda _, lr=current_lr: lr
+            if self.cr_decay == "linear":
+                current_cr = self.cr_initial + (self.cr_final - self.cr_initial) * progress
+                self.model.clip_range = lambda _, cr=current_cr: cr
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:
@@ -611,6 +655,10 @@ class FixedAndSelfPlayHybrid(TrainingSession):
         seed,
         num_self_play_envs=1,
         num_fixed_adversary_envs=1,
+        lr_decay=None,
+        lr_final=0.0,
+        cr_decay=None,
+        cr_final=0.0,
         wandb_run=None,
     ):
         super(FixedAndSelfPlayHybrid, self).__init__(
@@ -703,6 +751,14 @@ class FixedAndSelfPlayHybrid(TrainingSession):
         ]
         self.role = role
 
+        # decay schedule params (episode-based, applied in _training_callback)
+        self.lr_decay = lr_decay
+        self.lr_initial = float(model_params["learning_rate"])
+        self.lr_final = lr_final
+        self.cr_decay = cr_decay
+        self.cr_initial = float(model_params["cliprange"])
+        self.cr_final = cr_final
+
         # initialize control attributes
         self.model.last_eval, self.model.next_eval = None, 0
         self.model.last_switch, self.model.next_switch = None, self.switch_frequency
@@ -718,6 +774,16 @@ class FixedAndSelfPlayHybrid(TrainingSession):
     def _training_callback(self, _locals=None, _globals=None):
         model = self.model
         episodes_so_far = sum(self.env.get_attr("episodes"))
+
+        # Update decay schedules based on episode progress (exact — no timestep estimation needed)
+        if self.lr_decay == "linear" or self.cr_decay == "linear":
+            progress = min(episodes_so_far / self.train_episodes, 1.0)
+            if self.lr_decay == "linear":
+                current_lr = self.lr_initial + (self.lr_final - self.lr_initial) * progress
+                self.model.lr_schedule = lambda _, lr=current_lr: lr
+            if self.cr_decay == "linear":
+                current_cr = self.cr_initial + (self.cr_final - self.cr_initial) * progress
+                self.model.clip_range = lambda _, cr=current_cr: cr
 
         # if it is time to evaluate, do so
         if episodes_so_far >= model.next_eval:

@@ -18,6 +18,7 @@ DEFAULT_ACTOR_CRITICS = {
     "gnn": "typed",
 }
 
+
 def get_env_parameters(cfg: DictConfig):
     """Generate dict parameters for various environment configurations."""
     # Handle reward functions: could be a space-separated string or a list
@@ -138,6 +139,14 @@ def main(cfg: DictConfig):
             config=wandb_config,
         )
 
+    # Decay params passed to trainers, which apply them episode-by-episode in callbacks
+    decay_params = dict(
+        lr_decay=cfg.get("learning_rate_decay"),
+        lr_final=float(cfg.get("learning_rate_final", 0.0)),
+        cr_decay=cfg.get("clip_range_decay"),
+        cr_final=float(cfg.get("clip_range_final", 0.0)),
+    )
+
     # Initialize and execute the chosen adversary scheme
     if cfg.adversary.type == "self-play":
         trainer = SelfPlay(
@@ -155,6 +164,7 @@ def main(cfg: DictConfig):
             cfg.seed,
             cfg.concurrency,
             wandb_run=run,
+            **decay_params,
         )
     elif cfg.adversary.type == "fixed":
         trainer = FixedAdversary(
@@ -171,6 +181,7 @@ def main(cfg: DictConfig):
             cfg.seed,
             cfg.concurrency,
             wandb_run=run,
+            **decay_params,
         )
     elif cfg.adversary.type == "hybrid":
         trainer = FixedAndSelfPlayHybrid(
@@ -190,6 +201,7 @@ def main(cfg: DictConfig):
             cfg.adversary.num_self_play_envs,
             cfg.adversary.num_fixed_adversary_envs,
             wandb_run=run,
+            **decay_params,
         )
     else:
         raise ValueError(f"Invalid adversary setting: {cfg.adversary.type}")

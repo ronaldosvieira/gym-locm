@@ -19,6 +19,8 @@ Usage:
     )
 """
 
+from typing import Callable, Union
+
 from stable_baselines3 import PPO
 from sb3_contrib import RecurrentPPO
 

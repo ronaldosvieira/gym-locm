@@ -33,6 +33,14 @@ nminibatches_divider: 1
 noptepochs: 2
 vf_coef: 1.0
 
+# Linear decay for learning rate (null = no decay, "linear" = linear decay to learning_rate_final)
+learning_rate_decay: null
+learning_rate_final: 0.0
+
+# Linear decay for clip range (null = no decay, "linear" = linear decay to clip_range_final)
+clip_range_decay: null
+clip_range_final: 0.0
+
 # Logging & Paths
 no_tracking: true
 wandb_entity: "ronaldosvieira"
