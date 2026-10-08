@@ -320,7 +320,7 @@ class FixedAdversary(TrainingSession):
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger(self.wandb_run)
+            RolloutEndLogger(self.wandb_run, log_lr=self.lr_decay is not None)
         ]
 
         if self.wandb_run:
@@ -605,7 +605,7 @@ class SelfPlay(TrainingSession):
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger(self.wandb_run)
+            RolloutEndLogger(self.wandb_run, log_lr=self.lr_decay is not None)
         ]
 
         if self.wandb_run:
@@ -901,7 +901,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger(self.wandb_run)
+            RolloutEndLogger(self.wandb_run, log_lr=self.lr_decay is not None)
         ]
 
         if self.wandb_run:
@@ -1158,13 +1158,14 @@ class TrainingCallback(BaseCallback):
 
 
 class RolloutEndLogger(BaseCallback):
-    def __init__(self, wandb_run = None, verbose=0):
+    def __init__(self, wandb_run = None, log_lr=False, verbose=0):
         # initialize logger
         self.rollout_logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
         
         super(RolloutEndLogger, self).__init__(verbose)
 
         self.wandb_run = wandb_run
+        self.log_lr = log_lr
 
         self.episode_counter = 0
 
@@ -1184,9 +1185,14 @@ class RolloutEndLogger(BaseCallback):
         rollout_episodes = all_episodes - self.episode_counter
         self.episode_counter = all_episodes
 
+        lr_msg = ""
+        if self.log_lr:
+            lr_msg = f" with lr={self.model.lr_schedule(1.0)}"
+
         self.rollout_logger.debug(
             f"Rollout ended; updating policy ({rollout_episodes} episodes, "
-            f"{round(n_rollout_steps / rollout_episodes, 2)} steps/episode)."
+            f"{round(n_rollout_steps / rollout_episodes, 2)} steps/episode)"
+            f"{lr_msg}."
         )
         
     def log_training_rewards(self):
