@@ -41,6 +41,12 @@ learning_rate_final: 0.0
 clip_range_decay: null
 clip_range_final: 0.0
 
+# Resume an interrupted run (fixed adversary only). Set both or neither.
+resume:
+  checkpoint: null      # path to "<episodes>.zip", or "latest" for the highest-numbered one in `path`
+  wandb_run_id: null    # W&B run id to keep logging into
+
+
 # Logging & Paths
 no_tracking: true
 wandb_entity: "ronaldosvieira"

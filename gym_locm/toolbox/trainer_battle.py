@@ -113,10 +113,14 @@ class FixedAdversary(TrainingSession):
         cr_decay=None,
         cr_final=0.0,
         wandb_run=None,
+        resume_episodes=0,
     ):
         super(FixedAdversary, self).__init__(
             task, model_params, path, seed, wandb_run=wandb_run
         )
+
+        # episodes already done by the run being resumed (0 for fresh runs)
+        self.resume_episodes = resume_episodes
 
         # log start time
         start_time = time.perf_counter()
@@ -131,6 +135,8 @@ class FixedAdversary(TrainingSession):
             # no overlap between episodes at each concurrent env
             if seed is not None:
                 current_seed = seed + (train_episodes // num_envs) * i
+                # skip the games already played before the interruption
+                current_seed += resume_episodes // num_envs
             else:
                 current_seed = None
 
@@ -186,7 +192,18 @@ class FixedAdversary(TrainingSession):
         self.cr_final = cr_final
 
         # initialize control attributes
-        self.model.last_eval, self.model.next_eval = None, 0
+        if resume_episodes > 0:
+            # continue the episode counter and eval schedule from the checkpoint
+            self.env.set_attr("episodes", resume_episodes)
+            self.model.last_eval = resume_episodes
+            self.model.next_eval = resume_episodes + self.eval_frequency
+
+            # evals already recorded (checkpoint at 0 included) before the interruption
+            n_prior_evals = round(resume_episodes / self.eval_frequency) + 1
+            self._prior_win_rates = n_prior_evals * len(self.evaluators)
+        else:
+            self.model.last_eval, self.model.next_eval = None, 0
+            self._prior_win_rates = 0
 
         # log end time
         end_time = time.perf_counter()
@@ -314,13 +331,33 @@ class FixedAdversary(TrainingSession):
 
         return not training_is_finished
 
+    def _apply_decay_schedules(self, episodes_so_far):
+        """Set LR and clip range for the given episode count (used on resume, so
+        the first update after loading doesn't use the schedule pickled in the checkpoint)."""
+        progress = min(episodes_so_far / self.train_episodes, 1.0)
+        if self.lr_decay == "linear":
+            current_lr = self.lr_initial + (self.lr_final - self.lr_initial) * progress
+            self.model.lr_schedule = lambda _, lr=current_lr: lr
+        if self.cr_decay == "linear":
+            current_cr = self.cr_initial + (self.cr_final - self.cr_initial) * progress
+            self.model.clip_range = lambda _, cr=current_cr: cr
+
     def _train(self):
-        # save and evaluate starting model
-        self._training_callback()
+        if self.resume_episodes > 0:
+            # the checkpoint was already saved and evaluated before the interruption
+            self.logger.info(f"Resuming training from episode {self.resume_episodes}.")
+            self._apply_decay_schedules(self.resume_episodes)
+        else:
+            # save and evaluate starting model
+            self._training_callback()
 
         callbacks = [
             TrainingCallback(self._training_callback),
-            RolloutEndLogger(self.wandb_run, log_lr=self.lr_decay is not None)
+            RolloutEndLogger(
+                self.wandb_run,
+                log_lr=self.lr_decay is not None,
+                initial_episodes=self.resume_episodes,
+            )
         ]
 
         if self.wandb_run:
@@ -342,7 +379,7 @@ class FixedAdversary(TrainingSession):
         )
 
         # save and evaluate final model, if not done yet
-        if len(self.win_rates) < self.num_evals:
+        if self._prior_win_rates + len(self.win_rates) < self.num_evals:
             self._training_callback()
 
         # close all envs
@@ -1158,7 +1195,7 @@ class TrainingCallback(BaseCallback):
 
 
 class RolloutEndLogger(BaseCallback):
-    def __init__(self, wandb_run = None, log_lr=False, verbose=0):
+    def __init__(self, wandb_run = None, log_lr=False, initial_episodes=0, verbose=0):
         # initialize logger
         self.rollout_logger = logging.getLogger("{0}.{1}".format(__name__, type(self).__name__))
         
@@ -1167,7 +1204,7 @@ class RolloutEndLogger(BaseCallback):
         self.wandb_run = wandb_run
         self.log_lr = log_lr
 
-        self.episode_counter = 0
+        self.episode_counter = initial_episodes
 
     def _on_step(self) -> bool:
         return super()._on_step()

@@ -19,6 +19,7 @@ Usage:
     )
 """
 
+import logging
 from typing import Callable, Union
 
 from stable_baselines3 import PPO
@@ -172,6 +173,28 @@ def load_network(path, feature_extractor: str = None, actor_critic: str = None, 
     algo = RecurrentPPO if lstm else PPO
 
     def loaded_model_builder(env, seed, *args, **kwargs):
-        return algo.load(path + ".zip", env=env, force_reset=True, seed=seed)
+        model = algo.load(path + ".zip", env=env, force_reset=True, seed=seed)
 
-    return loaded_model_builder
+        # saved checkpoints don't keep the tensorboard dir; restore it so logs keep flowing
+        model.tensorboard_log = kwargs.get("tensorboard_log")
+
+        # hyperparameters come from the checkpoint; warn if the current config disagrees
+        saved_vs_cfg = {
+            "n_steps": ("n_steps", "n_steps"),
+            "batch_size": ("batch_size", "nminibatches"),
+            "n_epochs": ("n_epochs", "noptepochs"),
+            "gamma": ("gamma", "gamma"),
+            "gae_lambda": ("gae_lambda", "gae_lambda"),
+            "ent_coef": ("ent_coef", "ent_coef"),
+            "vf_coef": ("vf_coef", "vf_coef"),
+        }
+        for name, (attr, cfg_key) in saved_vs_cfg.items():
+            if cfg_key in kwargs and getattr(model, attr) != kwargs[cfg_key]:
+                logging.getLogger(__name__).warning(
+                    f"Checkpoint has {name}={getattr(model, attr)} but config has "
+                    f"{kwargs[cfg_key]}; using the checkpoint's value."
+                )
+
+        return model
+
+    return loaded_model_builder

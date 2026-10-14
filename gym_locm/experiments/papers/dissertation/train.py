@@ -1,4 +1,5 @@
 import os
+import re
 from functools import partial
 
 import hydra
@@ -8,6 +9,7 @@ import wandb
 from gym_locm.toolbox.trainer_battle import SelfPlay, FixedAdversary, FixedAndSelfPlayHybrid
 from gym_locm.toolbox.networks import build_network, load_network
 from gym_locm import agents
+import gym_locm
 
 # Default actor-critic pairing for each feature extractor
 DEFAULT_ACTOR_CRITICS = {
@@ -72,6 +74,36 @@ def get_env_parameters(cfg: DictConfig):
     return self_play, fixed, evals
 
 
+def resolve_resume(cfg: DictConfig):
+    """Return (checkpoint path without extension, episodes done, wandb run id), or None."""
+    resume_ckpt = cfg.get("resume", {}).get("checkpoint")
+    resume_id = cfg.get("resume", {}).get("wandb_run_id")
+
+    if not resume_ckpt and not resume_id:
+        return None
+    if not resume_ckpt or not resume_id:
+        raise ValueError("resume.checkpoint and resume.wandb_run_id must be set together")
+    if cfg.adversary.type != "fixed":
+        raise ValueError("Resuming is only supported for the fixed adversary")
+
+    if str(resume_ckpt) == "latest":
+        # same base directory the trainer uses for `path`
+        run_dir = os.path.join(os.path.dirname(gym_locm.__file__), "..", cfg.path)
+        episodes = [
+            int(m.group(1))
+            for f in os.listdir(run_dir)
+            if (m := re.fullmatch(r"(\d+)\.zip", f))
+        ]
+        if not episodes:
+            raise FileNotFoundError(f"No <episodes>.zip checkpoints found in {run_dir}")
+        resume_ckpt = os.path.join(run_dir, f"{max(episodes)}.zip")
+
+    m = re.fullmatch(r"(\d+)\.zip", os.path.basename(str(resume_ckpt)))
+    if not m or not os.path.isfile(resume_ckpt):
+        raise ValueError(f"Checkpoint must be an existing '<episodes>.zip' file: {resume_ckpt}")
+
+    return str(resume_ckpt)[: -len(".zip")], int(m.group(1)), str(resume_id)
+
 @hydra.main(config_path="conf", config_name="config", version_base="1.2")
 def main(cfg: DictConfig):
     # Print the resolved configuration layout
@@ -79,6 +111,9 @@ def main(cfg: DictConfig):
     print("Resolved Configuration:")
     print(OmegaConf.to_yaml(cfg))
     print("=" * 60)
+
+    resume = resolve_resume(cfg)
+    resume_episodes = resume[1] if resume else 0
 
     # Get env settings
     self_play_env_params, fixed_adversary_env_params, eval_env_params = get_env_parameters(cfg)
@@ -119,7 +154,7 @@ def main(cfg: DictConfig):
         raise ValueError(f"Unknown model architecture: {fe_name}")
 
     # Fetch builder or loader
-    load_path = cfg.model.get("load_path", None)
+    load_path = resume[0] if resume else cfg.model.get("load_path", None)
     if load_path:
         print(f"Loading pre-trained network from: {load_path}")
         model_builder = load_network(load_path, feature_extractor=fe_name, actor_critic=ac_name, lstm=cfg.model.lstm)
@@ -137,7 +172,13 @@ def main(cfg: DictConfig):
             group=cfg.get("wandb_group", None),
             sync_tensorboard=True,
             config=wandb_config,
+            **(dict(id=resume[2], resume="must") if resume else {}),
         )
+        if resume:
+            run.config.update(
+                dict(resumed_from_episodes=resume_episodes, resumed_from_checkpoint=resume[0]),
+                allow_val_change=True,
+            )
 
     # Decay params passed to trainers, which apply them episode-by-episode in callbacks
     decay_params = dict(
@@ -181,6 +222,7 @@ def main(cfg: DictConfig):
             cfg.seed,
             cfg.concurrency,
             wandb_run=run,
+            resume_episodes=resume_episodes,
             **decay_params,
         )
     elif cfg.adversary.type == "hybrid":
