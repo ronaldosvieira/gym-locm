@@ -483,7 +483,10 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
         last_opponent_action = None
 
         if not self.play_first:
-            while self.state.current_player.id != PlayerOrder.SECOND:
+            while (
+                self.state.current_player.id != PlayerOrder.SECOND
+                and self.state.winner is None
+            ):
                 action = self.battle_agent.act(self.state)
 
                 try:
@@ -494,6 +497,15 @@ class LOCMBattleSingleEnv(LOCMBattleEnv):
                         raise Exception(f"Opponent is repeating the same invalid action: {action}.")
 
                 last_opponent_action = action
+
+            # in case the opponent manages to win on its first turn, discard the match and start another
+            # (keeping the same role, so that alternating roles stay balanced)
+            if self.state.winner is not None:
+                if self.alternate_roles:
+                    self.play_first = not self.play_first
+
+                # retry without an explicit seed: the env advances its own seed on each reset
+                return self.reset(options=options)
 
         self.rewards_single_player.append(0.0)
 
