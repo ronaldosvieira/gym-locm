@@ -35,7 +35,7 @@ from gym_locm.toolbox.networks.policies import (
 # Valid combinations: simple FE can only be paired with simple AC
 _SIMPLE_ONLY_AC = {"simple"}
 _ENTITY_LEVEL_FE = {"deep_sets", "zone_attn", "full_attn", "gnn"}
-_ENTITY_LEVEL_AC = {"typed", "bilinear", "conditional", "autoreg"}
+_ENTITY_LEVEL_AC = {"enumerated", "typed", "unified"}
 
 
 def build_network(
@@ -71,7 +71,7 @@ def build_network(
         seed: Random seed.
         feature_extractor: One of "simple", "deep_sets", "zone_attn",
             "full_attn", "gnn".
-        actor_critic: One of "simple", "typed", "bilinear", "conditional".
+        actor_critic: One of "simple", "enumerated", "typed", "unified".
         n_steps: Number of steps per rollout.
         nminibatches: Batch size.
         noptepochs: Number of optimization epochs.

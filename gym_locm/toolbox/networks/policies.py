@@ -20,7 +20,46 @@ from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from gymnasium.spaces import Space
 
+from gym_locm.toolbox.networks.actor_critics.enumerated import EnumeratedLOCMNetwork
+from gym_locm.toolbox.networks.actor_critics.typed import TypedLOCMNetwork
 from gym_locm.toolbox.networks.utils import safely_compile
+
+
+def _adapt_legacy_typed_actor_critic(policy: ActorCriticPolicy, state_dict: dict) -> None:
+    """Switch TypedLOCMNetwork to EnumeratedLOCMNetwork when loading a pre-rename flat 'typed' checkpoint.
+
+    Before the decoder refactoring, the flat per-action-type decoder was named
+    TypedLOCMNetwork in gym_locm.toolbox.networks.actor_critics.typed. After
+    renaming that flat decoder to EnumeratedLOCMNetwork and repurposing
+    TypedLOCMNetwork for the sequential per-action-type decoder, older
+    checkpoints still unpickle with actor_critic_class=TypedLOCMNetwork.
+    We detect those legacy flat checkpoints by their `pass_action` layer keys
+    (the sequential TypedLOCMNetwork uses `type_head` instead) and rebuild
+    `mlp_extractor` as EnumeratedLOCMNetwork before loading the state_dict.
+    """
+    if policy._actor_critic_class is TypedLOCMNetwork and any(
+        k.startswith(("mlp_extractor.pass_action.", "mlp_extractor._orig_mod.pass_action."))
+        for k in state_dict
+    ):
+        device = next(policy.parameters()).device
+        old_mlp_param_ids = {id(p) for p in policy.mlp_extractor.parameters()}
+        policy._actor_critic_class = EnumeratedLOCMNetwork
+        policy._build_mlp_extractor()
+        policy.mlp_extractor = policy.mlp_extractor.to(device)
+        if getattr(policy, "optimizer", None) is not None:
+            new_mlp_params = list(policy.mlp_extractor.parameters())
+            for group in policy.optimizer.param_groups:
+                new_params = []
+                inserted = False
+                for p in group["params"]:
+                    if id(p) in old_mlp_param_ids:
+                        if not inserted:
+                            new_params.extend(new_mlp_params)
+                            inserted = True
+                    else:
+                        new_params.append(p)
+                group["params"] = new_params
+            policy.optimizer.state.clear()
 
 
 class LOCMActorCriticPolicy(ActorCriticPolicy):
@@ -135,6 +174,10 @@ class LOCMActorCriticPolicy(ActorCriticPolicy):
         log_prob = distribution.log_prob(actions)
         entropy = distribution.entropy()
         return values, log_prob, entropy
+
+    def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
+        _adapt_legacy_typed_actor_critic(self, state_dict)
+        return super().load_state_dict(state_dict, strict=strict, assign=assign)
 
 
 class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
@@ -353,3 +396,7 @@ class LOCMRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
             entropy = distribution.entropy()
 
         return values, log_prob, entropy
+
+    def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
+        _adapt_legacy_typed_actor_critic(self, state_dict)
+        return super().load_state_dict(state_dict, strict=strict, assign=assign)

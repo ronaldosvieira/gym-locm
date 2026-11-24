@@ -14,10 +14,10 @@ import gym_locm
 # Default actor-critic pairing for each feature extractor
 DEFAULT_ACTOR_CRITICS = {
     "simple": "simple",
-    "deep_sets": "bilinear",
-    "zone_attn": "typed",
-    "full_attn": "typed",
-    "gnn": "typed",
+    "deep_sets": "unified",
+    "zone_attn": "unified",
+    "full_attn": "unified",
+    "gnn": "unified",
 }
 
 

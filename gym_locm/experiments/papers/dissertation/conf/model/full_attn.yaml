@@ -1,5 +1,5 @@
 name: "full_attn"
-actor_critic: "typed"
+actor_critic: "unified"
 layers: 0
 neurons: 0
 lstm: false

@@ -1,8 +1,9 @@
 """
-Auto-regressive actor-critic for LOCM.
+Unified auto-regressive actor-critic for LOCM.
 
 Inspired by OpenAI Five's factored action decomposition. Decomposes the
-flat Discrete(145) action space into three sequential decisions:
+flat Discrete(145) action space into three sequential decisions with shared
+source and target scoring networks across action types:
 
     π(a|s) = π(type|s) · π(src|type,s) · π(tgt|type,src,s)
 
@@ -40,9 +41,10 @@ def _build_mlp(input_dim, hidden_dim, output_dim):
     )
 
 
-class AutoRegressiveLOCMNetwork(LOCMActorCriticNetwork):
+class UnifiedLOCMNetwork(LOCMActorCriticNetwork):
     """
-    OpenAI Five-style auto-regressive action decomposition actor-critic head.
+    OpenAI Five-style auto-regressive action decomposition actor-critic head
+    with unified source and target scoring networks across action types.
     
     Decomposes the flat 145 action space into 3 sequential decisions:
     1. Action TYPE (PASS=0, SUMMON=1, USE=2, ATTACK=3)
