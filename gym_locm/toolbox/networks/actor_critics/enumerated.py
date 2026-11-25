@@ -114,47 +114,31 @@ class EnumeratedLOCMNetwork(LOCMActorCriticNetwork):
         use_logits = self.use_action(use_input)  # [bs * 13 * max_hand_size, 1]
         use_logits = use_logits.squeeze(-1).reshape(use_logits.size(0), -1)  # [bs, max_hand_size * 13]
 
-        # ATTACK lane 0 logits
-        op_lane0_creatures = embeddings["op_lane0_creatures"]  # [bs, 3, creature_dim]
-        op_lane0_creatures = th.cat((null_target, op_lane0_creatures), dim=1)  # [bs, 4, creature_dim]
-        
-        p_lane0_creatures = embeddings["p_lane0_creatures"]  # [bs, 3, creature_dim]
-        
-        state = embeddings["state"]  # [bs, state_dim]
-        
-        attack_lane0_input = (
-            self.attack_source_creature(p_lane0_creatures)[:, :, None, :]  # [bs, 3, 1, hidden_dim]
-            + self.attack_target_creature(op_lane0_creatures)[:, None, :, :]  # [bs, 1, 4, hidden_dim]
-            + self.attack_state(state)[:, None, None, :]  # [bs, 1, 1, hidden_dim]
+        # ATTACK lane 0 & lane 1 logits in one batched call
+        p_both = th.stack(
+            (embeddings["p_lane0_creatures"], embeddings["p_lane1_creatures"]), dim=1
+        )  # [bs, 2, 3, creature_dim]
+        op_both = th.stack(
+            (
+                th.cat((null_target, embeddings["op_lane0_creatures"]), dim=1),
+                th.cat((null_target, embeddings["op_lane1_creatures"]), dim=1),
+            ),
+            dim=1,
+        )  # [bs, 2, 4, creature_dim]
+
+        attack_input = (
+            self.attack_source_creature(p_both)[:, :, :, None, :]  # [bs, 2, 3, 1, hidden_dim]
+            + self.attack_target_creature(op_both)[:, :, None, :, :]  # [bs, 2, 1, 4, hidden_dim]
+            + self.attack_state(state)[:, None, None, None, :]  # [bs, 1, 1, 1, hidden_dim]
         )
-
-        attack_lane0_logits = self.attack_action(attack_lane0_input)  # [bs, 3, 4, 1]
-        attack_lane0_logits = attack_lane0_logits.squeeze(-1).reshape(bs, -1)  # [bs, 3 * 4]
-        
-        # ATTACK lane 1 logits
-        op_lane1_creatures = embeddings["op_lane1_creatures"]  # [bs, 3, creature_dim]
-        op_lane1_creatures = th.cat((null_target, op_lane1_creatures), dim=1)  # [bs, 4, creature_dim]
-
-        p_lane1_creatures = embeddings["p_lane1_creatures"]  # [bs, 3, creature_dim]
-        
-        state = embeddings["state"]  # [bs, state_dim]
-
-        attack_lane1_input = (
-            self.attack_source_creature(p_lane1_creatures)[:, :, None, :]  # [bs, 3, 1, hidden_dim]
-            + self.attack_target_creature(op_lane1_creatures)[:, None, :, :]  # [bs, 1, 4, hidden_dim]
-            + self.attack_state(state)[:, None, None, :]  # [bs, 1, 1, hidden_dim]
-        )
-
-        attack_lane1_logits = self.attack_action(attack_lane1_input)  # [bs, 3, 4, 1]
-        attack_lane1_logits = attack_lane1_logits.squeeze(-1).reshape(bs, -1)  # [bs, 3 * 4]
+        attack_logits = self.attack_action(attack_input).reshape(bs, -1)  # [bs, 24]
 
         # concat all action logits
         logits = th.cat((
             pass_logit,
             summon_logits,
             use_logits,
-            attack_lane0_logits,
-            attack_lane1_logits,
+            attack_logits,
         ), dim=1)  # [bs, 145]
         action_mask = embeddings.get("action_mask")
         

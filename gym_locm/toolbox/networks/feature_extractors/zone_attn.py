@@ -95,9 +95,11 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
         return self._state_emb_dim
 
     def forward(self, observations) -> dict[str, th.Tensor]:
-        # embedding of both players
-        p = self.player_embedding(observations["player_stats"])
-        op = self.player_embedding(observations["opponent_stats"])
+        # embedding of both players in one batched call
+        both_players = th.cat(
+            (observations["player_stats"], observations["opponent_stats"]), dim=0
+        )
+        p, op = self.player_embedding(both_players).chunk(2, dim=0)
         
         p_deck_cards = observations["player_deck"]
         
@@ -117,41 +119,23 @@ class ZoneAttnFeaturesExtractor(LOCMFeaturesExtractor):
         # embedding of the whole hand
         p_hand = self.card_zone_pool(p_hand_cards).squeeze(1)
         
-        p_lane0_creatures = observations["player_lane0"]
-        
-        # embedding of individual player lane 0 creatures
-        p_lane0_creatures = self.creature_embedding(p_lane0_creatures)
-        p_lane0_creatures = self.lane_embedding(p_lane0_creatures)
+        # batch all 4 lanes [4 * bs, 3, creature_dim] through creature_embedding, SAB, and PMA at once
+        all_lanes_in = th.cat((
+            observations["player_lane0"],
+            observations["player_lane1"],
+            observations["opponent_lane0"],
+            observations["opponent_lane1"],
+        ), dim=0)
+        all_lanes_creatures = self.lane_embedding(self.creature_embedding(all_lanes_in))
+        all_lanes_pooled = self.lane_pool(all_lanes_creatures).squeeze(1)
 
-        # embedding of the whole player lane 0
-        p_lane0 = self.lane_pool(p_lane0_creatures).squeeze(1)
-
-        p_lane1_creatures = observations["player_lane1"]
-        
-        # embedding of individual player lane 1 creatures
-        p_lane1_creatures = self.creature_embedding(p_lane1_creatures)
-        p_lane1_creatures = self.lane_embedding(p_lane1_creatures)
-
-        # embedding of the whole player lane 1
-        p_lane1 = self.lane_pool(p_lane1_creatures).squeeze(1)
-
-        op_lane0_creatures = observations["opponent_lane0"]
-        
-        # embedding of individual opponent lane 0 creatures
-        op_lane0_creatures = self.creature_embedding(op_lane0_creatures)
-        op_lane0_creatures = self.lane_embedding(op_lane0_creatures)
-
-        # embedding of the whole opponent lane 0
-        op_lane0 = self.lane_pool(op_lane0_creatures).squeeze(1)
-
-        op_lane1_creatures = observations["opponent_lane1"]
-        
-        # embedding of individual opponent lane 1 creatures
-        op_lane1_creatures = self.creature_embedding(op_lane1_creatures)
-        op_lane1_creatures = self.lane_embedding(op_lane1_creatures)
-
-        # embedding of the whole opponent lane 1
-        op_lane1 = self.lane_pool(op_lane1_creatures).squeeze(1)
+        (
+            p_lane0_creatures,
+            p_lane1_creatures,
+            op_lane0_creatures,
+            op_lane1_creatures,
+        ) = all_lanes_creatures.chunk(4, dim=0)
+        p_lane0, p_lane1, op_lane0, op_lane1 = all_lanes_pooled.chunk(4, dim=0)
         
         # embedding of the whole state
         state_input = th.cat((
