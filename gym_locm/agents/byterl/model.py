@@ -2,10 +2,18 @@ import numpy as np
 import pickle
 
 
+_WEIGHTS_CACHE = {}
+
+
 def model_import(weights_path, weights_name):
+    key = (weights_path, tuple(weights_name))
+    cached = _WEIGHTS_CACHE.get(key)
+    if cached is not None:
+        return cached
     with open(weights_path, "rb") as f:
         weights_value = pickle.load(f)
     weights = {name: value for name, value in zip(weights_name, weights_value)}
+    _WEIGHTS_CACHE[key] = weights
     return weights
 
 
@@ -94,6 +102,7 @@ class Conv1d:
     ) -> None:
         self.kernel_weight = kernel_weight
         self.kernel_size, self.n_features, self.out_channels = kernel_weight.shape
+        self._kernel_sq = kernel_weight.squeeze(0) if self.kernel_size == 1 else None
         self.bias = bias
         self.strides = strides
         self.padding = padding
@@ -127,7 +136,7 @@ class Conv1d:
                     )
         else:
             output = self.activation(
-                np.matmul(inputs, self.kernel_weight.squeeze(0)) + self.bias
+                np.matmul(inputs, self._kernel_sq) + self.bias
             )
         return output
 

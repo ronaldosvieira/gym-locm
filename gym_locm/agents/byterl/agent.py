@@ -118,6 +118,29 @@ class SubmitInterface:
         self.now_phase = Phase.DECK_BUILDING
         self.card_set = None
         self.cards_selected_mask = None
+        self._card_set_source = None
+
+        self._cb_phase_0 = np.array([0.0], dtype=np.float32)
+        self._cb_phase_1 = np.array([1.0], dtype=np.float32)
+        self._zero_can_sel_mask = np.zeros((self.cards_num,), dtype=np.float32)
+        self._zero_hand = np.zeros((self.cards_in_hand, self.card_features), dtype=np.float32)
+        self._zero_me_lane = np.zeros((3, self.friendly_board_card_features), dtype=np.float32)
+        self._zero_oppo_lane = np.zeros((3, self.enemy_board_card_features), dtype=np.float32)
+        self._zero_player = np.zeros(self.player_features, dtype=np.float32)
+
+    def _encode_card_list_from_pool(self, cards, up_to):
+        out = np.zeros((up_to, self.card_features), dtype=np.float32)
+        n = min(len(cards), up_to)
+        if n == 0:
+            return out
+        if self.card_set is not None and len(self.card_set) == self.cards_num:
+            ids = [cards[i].id for i in range(n)]
+            if max(ids) < self.cards_num and min(ids) >= 0:
+                out[:n] = self.card_set[ids]
+                return out
+        for i in range(n):
+            out[i] = encode_card(cards[i])
+        return out
 
     def env_to_agt_trans_observation(self, observation):
         """
@@ -141,26 +164,29 @@ class SubmitInterface:
             return card_list + [[0.0] * features for _ in range(remaining_cards)]
 
         self.now_phase = state.phase
-        player = encode_current_player(p0)
-        oppo_player = encode_opposing_player(p1)
-        deck_cards = np.array(
-            fill_cards(
-                list(map(encode_card, p0.deck)), up_to=30, features=self.card_features
-            ),
-            dtype=np.float32,
-        )
         # set obs None according to whose turn it is
         if self.now_phase == Phase.BATTLE:
+            player = encode_current_player(p0)
+            oppo_player = encode_opposing_player(p1)
+            # note: gym-locm addition - if the first use of the agent is in battle (other agent has played the deck building phase)
+            if self.card_set is None:
+                constructed = state.deck_building_phase._constructed_cards
+                card_set_list = list(map(encode_card, constructed))
+                self.card_set = np.array(card_set_list, dtype=np.float32)
+                self._card_set_source = constructed[0] if constructed else None
+
+            if self.cards_selected_mask is None:
+                self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
+                choices = state.deck_building_phase._choices[state.current_player.id]
+                for i in range(state.deck_building_phase.k):
+                    if choices[i] > 0:
+                        self.cards_selected_mask[i] = 1
+            # note: end of gym-locm addition
+
             # get action mask, which has been made as for the current player (me player)
-            action_mask = np.asarray(deepcopy(state.action_mask), np.float32)
-            hand_cards = np.array(
-                fill_cards(
-                    list(map(encode_card, p0.hand)),
-                    up_to=self.cards_in_hand,
-                    features=self.card_features,
-                ),
-                dtype=np.float32,
-            )
+            action_mask = np.asarray(state.action_mask, dtype=np.float32)
+            deck_cards = self._encode_card_list_from_pool(p0.deck, up_to=30)
+            hand_cards = self._encode_card_list_from_pool(p0.hand, up_to=self.cards_in_hand)
             me_lane0_cards = np.array(
                 fill_cards(
                     list(map(encode_friendly_card_on_board, p0.lanes[0])),
@@ -193,35 +219,13 @@ class SubmitInterface:
                 ),
                 dtype=np.float32,
             )
-
-            # note: gym-locm addition - if the first use of the agent is in battle (other agent has played the deck building phase)
-            if self.card_set is None:
-                card_set_list = list(map(encode_card, state.deck_building_phase._constructed_cards))
-                self.card_set = np.array(card_set_list, dtype=np.float32)
-
-            # commented this out - this works only if it's first turn of the battle phase, but not for subsequent turns
-            # general case code added below
-            # if len(p0.deck) + len(p0.hand) == 30:  # find mask for last card
-            #     self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
-            #     for card in p0.hand + p0.deck:
-            #         self.cards_selected_mask[card.id] = 1
-                  
-            if self.cards_selected_mask is None:
-                self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
-                for i in range(state.deck_building_phase.k):
-                    if state.deck_building_phase._choices[state.current_player.id][i] > 0:
-                        self.cards_selected_mask[i] = 1
-            # note: end of gym-locm addition
                     
             cur_player_obs = OrderedDict(
                 [
-                    ("cb_phase_mask", np.array([0], dtype=np.float32)),
+                    ("cb_phase_mask", self._cb_phase_0),
                     ("card_set", self.card_set),
                     ("cards_selected_mask", self.cards_selected_mask),
-                    (
-                        "cards_can_select_mask",
-                        np.zeros((self.cards_num,), dtype=np.float32),
-                    ),
+                    ("cards_can_select_mask", self._zero_can_sel_mask),
                     ("hand_cards", hand_cards),
                     ("deck_cards", deck_cards),
                     ("me_lane0_cards", me_lane0_cards),
@@ -234,50 +238,37 @@ class SubmitInterface:
                 ]
             )
         else:
-            cards_can_select_mask = np.asarray(deepcopy(state.action_mask), np.float32)
-            action_mask = np.asarray(deepcopy([False] + list(state.action_mask)), np.float32)
-            card_set_list = list(map(encode_card, p0.hand))
-            self.card_set = np.array(card_set_list, dtype=np.float32)
+            raw_mask = state.action_mask
+            cards_can_select_mask = np.asarray(raw_mask, dtype=np.float32)
+            action_mask = np.empty(len(raw_mask) + 1, dtype=np.float32)
+            action_mask[0] = 0.0
+            action_mask[1:] = cards_can_select_mask
+
+            first_card = p0.hand[0] if p0.hand else None
+            if self.card_set is None or self._card_set_source is not first_card:
+                card_set_list = list(map(encode_card, p0.hand))
+                self.card_set = np.array(card_set_list, dtype=np.float32)
+                self._card_set_source = first_card
+
             self.cards_selected_mask = np.zeros((self.cards_num,), dtype=np.float32)
             for card in p0.deck:
                 self.cards_selected_mask[card.id] = 1
+            deck_cards = self._encode_card_list_from_pool(p0.deck, up_to=30)
             cur_player_obs = OrderedDict(
                 [
-                    ("cb_phase_mask", np.array([1.0], dtype=np.float32)),
+                    ("cb_phase_mask", self._cb_phase_1),
                     ("card_set", self.card_set),
                     ("cards_selected_mask", self.cards_selected_mask),
                     ("cards_can_select_mask", cards_can_select_mask),
                     ("deck_cards", deck_cards),
                     ("cb_action_mask", action_mask),
-                    (
-                        "hand_cards",
-                        np.zeros(
-                            (self.cards_in_hand, self.card_features), dtype=np.float32
-                        ),
-                    ),
-                    ("deck_cards", deck_cards),
-                    (
-                        "me_lane0_cards",
-                        np.zeros(
-                            (3, self.friendly_board_card_features), dtype=np.float32
-                        ),
-                    ),
-                    (
-                        "me_lane1_cards",
-                        np.zeros(
-                            (3, self.friendly_board_card_features), dtype=np.float32
-                        ),
-                    ),
-                    (
-                        "oppo_lane0_cards",
-                        np.zeros((3, self.enemy_board_card_features), dtype=np.float32),
-                    ),
-                    (
-                        "oppo_lane1_cards",
-                        np.zeros((3, self.enemy_board_card_features), dtype=np.float32),
-                    ),
-                    ("player", np.zeros(self.player_features, dtype=np.float32)),
-                    ("oppo_player", np.zeros(self.player_features, dtype=np.float32)),
+                    ("hand_cards", self._zero_hand),
+                    ("me_lane0_cards", self._zero_me_lane),
+                    ("me_lane1_cards", self._zero_me_lane),
+                    ("oppo_lane0_cards", self._zero_oppo_lane),
+                    ("oppo_lane1_cards", self._zero_oppo_lane),
+                    ("player", self._zero_player),
+                    ("oppo_player", self._zero_player),
                 ]
             )
 
@@ -447,8 +438,44 @@ class ByterlAgent(Agent):
             weights["self/bt_action_head/action/logits/biases:0"],
         )
         self.cb_hs_new = None
-        self.bt_hs_new = None
+        self._bt_hs_new = None
+        self._pending_draft_bt_inputs = []
         self.intf = SubmitInterface()
+        self._cached_card_set = None
+        self._cached_cards_fm = None
+        self._cached_sel_mask = None
+        self._cached_sel_cards_emb = None
+
+        # Precompute constant embeddings for zeroed battle fields during DECK_BUILDING
+        _z_hand_emb = np.reshape(self._raw_card_feature_map(np.expand_dims(self.intf._zero_hand, axis=0)), (1, -1))
+        _z_me_l = np.reshape(self.shared_me_lane_card_embed_cv(np.expand_dims(self.intf._zero_me_lane, axis=0)), (1, -1))
+        _z_op_l = np.reshape(self.shared_oppo_lane_card_embed_cv(np.expand_dims(self.intf._zero_oppo_lane, axis=0)), (1, -1))
+        _z_p_emb = self.shared_player_embed_fc(np.expand_dims(self.intf._zero_player, axis=0))
+        self._draft_const_bt_mid = np.concatenate(
+            [_z_hand_emb, _z_me_l, _z_me_l, _z_op_l, _z_op_l, _z_p_emb, _z_p_emb],
+            axis=-1,
+        )
+        self._zero_card_fm = self._raw_card_feature_map(np.zeros((1, 1, self.intf.card_features), dtype=np.float32))[0, 0]
+
+    @property
+    def bt_hs_new(self):
+        if self._pending_draft_bt_inputs:
+            hs = self._bt_hs_new
+            for deck_cards_embed, selected_cards_embed in self._pending_draft_bt_inputs:
+                bt_embed = np.concatenate(
+                    [deck_cards_embed, self._draft_const_bt_mid, selected_cards_embed],
+                    axis=-1,
+                )
+                bt_embed = self.bt_fc2(self.bt_fc1(self.bt_fc0(bt_embed)))
+                _, hs = self.bt_lstm_embed(bt_embed, hs)
+            self._bt_hs_new = hs
+            self._pending_draft_bt_inputs.clear()
+        return self._bt_hs_new
+
+    @bt_hs_new.setter
+    def bt_hs_new(self, val):
+        self._pending_draft_bt_inputs.clear()
+        self._bt_hs_new = val
 
     def _raw_card_feature_map(self, inputs):
         x = self.shared_raw_card_embed_cv0(inputs)
@@ -460,104 +487,117 @@ class ByterlAgent(Agent):
 
     def reset(self, **kwargs):
         self.cb_hs_new = None
-        self.bt_hs_new = None
+        self._bt_hs_new = None
+        self._pending_draft_bt_inputs.clear()
         self.intf = SubmitInterface()
+        self._cached_card_set = None
+        self._cached_cards_fm = None
+        self._cached_sel_mask = None
+        self._cached_sel_cards_emb = None
+
+    def _deck_embed_from_cards_fm(self, state, cards_fm, obs):
+        p0_deck = state.current_player.deck
+        n = min(len(p0_deck), 30)
+        if cards_fm.shape[1] == self.intf.cards_num:
+            buf = np.empty((1, 30, 32), dtype=cards_fm.dtype)
+            if n > 0:
+                ids = [p0_deck[i].id for i in range(n)]
+                buf[0, :n] = cards_fm[0, ids]
+            if n < 30:
+                buf[0, n:] = self._zero_card_fm
+            return np.mean(buf, axis=1)
+        deck_cards = np.expand_dims(obs["deck_cards"], axis=0)
+        return np.mean(self._raw_card_feature_map(deck_cards), axis=1)
 
     def act(self, state):
 
         obs = self.intf.env_to_agt_trans_observation(state)
 
-        card_set = np.expand_dims(obs["card_set"], axis=0)
-        cards_fm = self._raw_card_feature_map(card_set)
+        if obs["card_set"] is self._cached_card_set:
+            cards_fm = self._cached_cards_fm
+        else:
+            card_set = np.expand_dims(obs["card_set"], axis=0)
+            cards_fm = self._raw_card_feature_map(card_set)
+            self._cached_card_set = obs["card_set"]
+            self._cached_cards_fm = cards_fm
 
-        selected_mask = np.expand_dims(obs["cards_selected_mask"], axis=-1)
-        selected_mask = np.tile(selected_mask, [1, 1, 32])
-
-        sel_cards_fm = cards_fm * selected_mask
-        sel_cards_emb = np.mean(sel_cards_fm, axis=1, keepdims=True)
-        sel_cards_emb_to_return = np.squeeze(sel_cards_emb, axis=1)
-
-        n_cards = obs["cards_selected_mask"].shape[0]
-        sel_cards_emb = np.tile(sel_cards_emb, [1, n_cards, 1])
-        x = np.concatenate([cards_fm, sel_cards_emb], axis=-1)
-        x = self.cb_embed_cv_att0(x)
-
-        can_sel_mask = np.expand_dims(obs["cards_can_select_mask"], axis=-1)
-        can_sel_mask = np.tile(can_sel_mask, [1, 1, 64])
-        cb_fm = x * can_sel_mask  # (bs, n_cards, 2*card_dim)
-        selected_cards_embed = sel_cards_emb_to_return
-
-        # (bs, 30, card_dim)
-        deck_cards = np.expand_dims(obs["deck_cards"], axis=0)
-        deck_cards_embed = self._raw_card_feature_map(deck_cards)
-        deck_cards_embed = np.mean(deck_cards_embed, axis=1)  # (bs, card_dim)
-
-        # (bs, 8, card_dim)
-        hand_cards = np.expand_dims(obs["hand_cards"], axis=0)
-        hand_cards_embed = self._raw_card_feature_map(hand_cards)
-        hand_cards_embed = np.reshape(
-            hand_cards_embed, shape=(1, -1)
-        )  # (bs, 8*card_dim)
-
-        # (bs, 3, dim)
-        me_lane0_cards = np.expand_dims(obs["me_lane0_cards"], axis=0)
-        me_lane0_cards_embed = self.shared_me_lane_card_embed_cv(me_lane0_cards)
-        me_lane0_cards_embed = np.reshape(
-            me_lane0_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
-
-        # (bs, 3, dim)
-        me_lane1_cards = np.expand_dims(obs["me_lane1_cards"], axis=0)
-        me_lane1_cards_embed = self.shared_me_lane_card_embed_cv(me_lane1_cards)
-        me_lane1_cards_embed = np.reshape(
-            me_lane1_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
-
-        # (bs, 3, dim)
-        oppo_lane0_cards = np.expand_dims(obs["oppo_lane0_cards"], axis=0)
-        oppo_lane0_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane0_cards)
-        oppo_lane0_cards_embed = np.reshape(
-            oppo_lane0_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
-
-        # (bs, 3, dim)
-        oppo_lane1_cards = np.expand_dims(obs["oppo_lane1_cards"], axis=0)
-        oppo_lane1_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane1_cards)
-        oppo_lane1_cards_embed = np.reshape(
-            oppo_lane1_cards_embed, shape=(1, -1)
-        )  # (bs, 3*dim)
-
-        # (bs, dim)
-        player = np.expand_dims(obs["player"], axis=0)
-        player_embed = self.shared_player_embed_fc(player)
-
-        # (bs, dim)
-        oppo_player = np.expand_dims(obs["oppo_player"], axis=0)
-        oppo_player_embed = self.shared_player_embed_fc(oppo_player)
-
-        #  # (bs, 10*card_dim+14*bt_base_dim)
-        bt_embed = np.concatenate(
-            [
-                deck_cards_embed,
-                hand_cards_embed,
-                me_lane0_cards_embed,
-                me_lane1_cards_embed,
-                oppo_lane0_cards_embed,
-                oppo_lane1_cards_embed,
-                player_embed,
-                oppo_player_embed,
-            ],
-            axis=-1,
-        )
-
-        bt_embed = np.concatenate([bt_embed, selected_cards_embed], axis=-1)
-
-        bt_embed = self.bt_fc0(bt_embed)
-        bt_embed = self.bt_fc1(bt_embed)
-        bt_embed = self.bt_fc2(bt_embed)
-
-        bt_lstm_embed, self.bt_hs_new = self.bt_lstm_embed(bt_embed, self.bt_hs_new)
         if state.phase == Phase.BATTLE:
+            if obs["cards_selected_mask"] is self._cached_sel_mask:
+                selected_cards_embed = self._cached_sel_cards_emb
+            else:
+                selected_mask = obs["cards_selected_mask"][None, :, None]
+                sel_cards_fm = cards_fm * selected_mask
+                selected_cards_embed = np.mean(sel_cards_fm, axis=1)
+                self._cached_sel_mask = obs["cards_selected_mask"]
+                self._cached_sel_cards_emb = selected_cards_embed
+
+            # (bs, 30, card_dim)
+            deck_cards_embed = self._deck_embed_from_cards_fm(state, cards_fm, obs)
+
+            # (bs, 8, card_dim)
+            hand_cards = np.expand_dims(obs["hand_cards"], axis=0)
+            hand_cards_embed = self._raw_card_feature_map(hand_cards)
+            hand_cards_embed = np.reshape(
+                hand_cards_embed, shape=(1, -1)
+            )  # (bs, 8*card_dim)
+
+            # (bs, 3, dim)
+            me_lane0_cards = np.expand_dims(obs["me_lane0_cards"], axis=0)
+            me_lane0_cards_embed = self.shared_me_lane_card_embed_cv(me_lane0_cards)
+            me_lane0_cards_embed = np.reshape(
+                me_lane0_cards_embed, shape=(1, -1)
+            )  # (bs, 3*dim)
+
+            # (bs, 3, dim)
+            me_lane1_cards = np.expand_dims(obs["me_lane1_cards"], axis=0)
+            me_lane1_cards_embed = self.shared_me_lane_card_embed_cv(me_lane1_cards)
+            me_lane1_cards_embed = np.reshape(
+                me_lane1_cards_embed, shape=(1, -1)
+            )  # (bs, 3*dim)
+
+            # (bs, 3, dim)
+            oppo_lane0_cards = np.expand_dims(obs["oppo_lane0_cards"], axis=0)
+            oppo_lane0_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane0_cards)
+            oppo_lane0_cards_embed = np.reshape(
+                oppo_lane0_cards_embed, shape=(1, -1)
+            )  # (bs, 3*dim)
+
+            # (bs, 3, dim)
+            oppo_lane1_cards = np.expand_dims(obs["oppo_lane1_cards"], axis=0)
+            oppo_lane1_cards_embed = self.shared_oppo_lane_card_embed_cv(oppo_lane1_cards)
+            oppo_lane1_cards_embed = np.reshape(
+                oppo_lane1_cards_embed, shape=(1, -1)
+            )  # (bs, 3*dim)
+
+            # (bs, dim)
+            player = np.expand_dims(obs["player"], axis=0)
+            player_embed = self.shared_player_embed_fc(player)
+
+            # (bs, dim)
+            oppo_player = np.expand_dims(obs["oppo_player"], axis=0)
+            oppo_player_embed = self.shared_player_embed_fc(oppo_player)
+
+            # (bs, 10*card_dim+14*bt_base_dim)
+            bt_embed = np.concatenate(
+                [
+                    deck_cards_embed,
+                    hand_cards_embed,
+                    me_lane0_cards_embed,
+                    me_lane1_cards_embed,
+                    oppo_lane0_cards_embed,
+                    oppo_lane1_cards_embed,
+                    player_embed,
+                    oppo_player_embed,
+                    selected_cards_embed,
+                ],
+                axis=-1,
+            )
+
+            bt_embed = self.bt_fc0(bt_embed)
+            bt_embed = self.bt_fc1(bt_embed)
+            bt_embed = self.bt_fc2(bt_embed)
+
+            bt_lstm_embed, self.bt_hs_new = self.bt_lstm_embed(bt_embed, self.bt_hs_new)
             bt_action_logit = self.bt_action_head(bt_lstm_embed, obs["bt_action_mask"])
             
             if self.temperature == 0.0:
@@ -565,13 +605,29 @@ class ByterlAgent(Agent):
             else:
                 action_prob = bt_action_logit / self.temperature
                 action_prob = softmax(action_prob, -1)
-                # action_prob = np.nan_to_num(action_prob, nan=0.0)
 
                 bt_action_num = self.np_random.choice(len(action_prob), p=action_prob)
 
             return self.intf.convert_to_locm_action(state, bt_action_num)
 
         else:
+            selected_mask = obs["cards_selected_mask"][None, :, None]
+            sel_cards_fm = cards_fm * selected_mask
+            sel_cards_emb = np.mean(sel_cards_fm, axis=1, keepdims=True)
+            selected_cards_embed = np.squeeze(sel_cards_emb, axis=1)
+
+            n_cards = obs["cards_selected_mask"].shape[0]
+            sel_cards_emb = np.tile(sel_cards_emb, [1, n_cards, 1])
+            x = np.concatenate([cards_fm, sel_cards_emb], axis=-1)
+            x = self.cb_embed_cv_att0(x)
+
+            can_sel_mask = obs["cards_can_select_mask"][None, :, None]
+            cb_fm = x * can_sel_mask  # (bs, n_cards, 2*card_dim)
+
+            # Queue draft inputs for lazy bt_hs_new evaluation (only computed if bt_hs_new is read before reset)
+            deck_cards_embed = self._deck_embed_from_cards_fm(state, cards_fm, obs)
+            self._pending_draft_bt_inputs.append((deck_cards_embed, selected_cards_embed))
+
             cb_action_logit = self.cb_action_head(
                 cb_fm, obs["cb_action_mask"], obs["cards_can_select_mask"]
             )
@@ -581,7 +637,6 @@ class ByterlAgent(Agent):
             else:
                 action_prob = cb_action_logit / self.temperature
                 action_prob = softmax(action_prob, -1)
-                # action_prob = np.nan_to_num(action_prob, nan=0.0)
                 
                 cb_action_num = self.np_random.choice(len(action_prob), p=action_prob)
             

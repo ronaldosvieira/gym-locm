@@ -65,13 +65,13 @@ class ByteRL(Agent):
         
         ensure_weights_are_available()
 
+        self.agent = ByterlAgent()
         self.reset()
 
     def seed(self, seed):
         pass
 
     def reset(self):
-        self.agent = ByterlAgent()
         self.agent.reset()
         
     def act(self, state):
@@ -92,9 +92,15 @@ class ByteRL(Agent):
         elif state.phase == Phase.BATTLE:
             card_recorder.recorder_battle(state)
 
-            state = card_recorder.full_missing_cards(state.clone())
-
-            return self.agent.act(state)
+            orig_deck = state.current_player.deck
+            assert len(card_recorder.my_deck) == len(orig_deck), (
+                f"{len(card_recorder.my_deck)} != {len(orig_deck)}"
+            )
+            try:
+                state.current_player.deck = card_recorder.my_deck
+                return self.agent.act(state)
+            finally:
+                state.current_player.deck = orig_deck
 
 
 class NoisyByteRL(ByteRL):
