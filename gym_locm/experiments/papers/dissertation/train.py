@@ -125,7 +125,7 @@ def main(cfg: DictConfig):
     model_params = {
         "layers": cfg.model.layers,
         "neurons": cfg.model.neurons,
-        "n_steps": cfg.n_steps,
+        "n_steps": cfg.n_steps // int(cfg.concurrency),
         "nminibatches": nminibatches,
         "noptepochs": cfg.noptepochs,
         "cliprange": cfg.cliprange,

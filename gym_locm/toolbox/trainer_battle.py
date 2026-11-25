@@ -22,6 +22,7 @@ from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.vec_env import (
     VecEnv as VecEnv3,
     DummyVecEnv as DummyVecEnv3,
+    SubprocVecEnv as SubprocVecEnv3,
 )
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from stable_baselines3 import PPO
@@ -140,9 +141,10 @@ class FixedAdversary(TrainingSession):
             else:
                 current_seed = None
 
-            # create the env
+            # create the env (bind current_seed by value so each worker gets its distinct seed)
             env.append(
-                lambda: env_class(
+                partial(
+                    env_class,
                     seed=current_seed,
                     play_first=role == "first",
                     alternate_roles=role == "alternate",
@@ -150,8 +152,10 @@ class FixedAdversary(TrainingSession):
                 )
             )
 
-        # wrap envs in a vectorized env
-        self.env: VecEnv3 = DummyVecEnv3(env)
+        # wrap envs in a vectorized env (use SubprocVecEnv when num_envs > 1)
+        vec_cls = SubprocVecEnv3 if num_envs > 1 else DummyVecEnv3
+        self.env: VecEnv3 = vec_cls(env)
+        self._episodes_so_far = resume_episodes
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
@@ -215,7 +219,9 @@ class FixedAdversary(TrainingSession):
 
     def _training_callback(self, _locals=None, _globals=None):
         model = self.model
-        episodes_so_far = sum(self.env.get_attr("episodes"))
+        if _locals is None or np.any(_locals.get("dones")):
+            self._episodes_so_far = sum(self.env.get_attr("episodes"))
+        episodes_so_far = self._episodes_so_far
 
         # Update decay schedules based on episode progress (exact — no timestep estimation needed)
         if self.lr_decay == "linear" or self.cr_decay == "linear":
@@ -431,9 +437,10 @@ class SelfPlay(TrainingSession):
             else:
                 current_seed = None
 
-            # create the env
+            # create the env (bind current_seed by value so each worker gets its distinct seed)
             env.append(
-                lambda: env_class(
+                partial(
+                    env_class,
                     seed=current_seed,
                     play_first=role == "first",
                     alternate_roles=role == "alternate",
@@ -441,8 +448,9 @@ class SelfPlay(TrainingSession):
                 )
             )
 
-        # wrap envs in a vectorized env
+        # wrap envs in a vectorized env (SelfPlay uses in-process adversary_policy closure)
         self.env: VecEnv3 = DummyVecEnv3(env)
+        self._episodes_so_far = 0
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
@@ -514,7 +522,9 @@ class SelfPlay(TrainingSession):
 
     def _training_callback(self, _locals=None, _globals=None):
         model = self.model
-        episodes_so_far = sum(self.env.get_attr("episodes"))
+        if _locals is None or np.any(_locals.get("dones")):
+            self._episodes_so_far = sum(self.env.get_attr("episodes"))
+        episodes_so_far = self._episodes_so_far
 
         # Update decay schedules based on episode progress (exact — no timestep estimation needed)
         if self.lr_decay == "linear" or self.cr_decay == "linear":
@@ -739,6 +749,7 @@ class FixedAndSelfPlayHybrid(TrainingSession):
 
         # wrap envs in a vectorized env
         self.env: VecEnv3 = DummyVecEnv3(env)
+        self._episodes_so_far = 0
 
         # initialize evaluator
         self.logger.debug("Initializing evaluator...")
@@ -810,7 +821,9 @@ class FixedAndSelfPlayHybrid(TrainingSession):
 
     def _training_callback(self, _locals=None, _globals=None):
         model = self.model
-        episodes_so_far = sum(self.env.get_attr("episodes"))
+        if _locals is None or np.any(_locals.get("dones")):
+            self._episodes_so_far = sum(self.env.get_attr("episodes"))
+        episodes_so_far = self._episodes_so_far
 
         # Update decay schedules based on episode progress (exact — no timestep estimation needed)
         if self.lr_decay == "linear" or self.cr_decay == "linear":
@@ -983,9 +996,10 @@ class Evaluator:
 
         env_class = LOCMBattleSingleEnv
 
-        self.env = [lambda: env_class(**env_params) for _ in range(num_envs)]
+        self.env = [partial(env_class, **env_params) for _ in range(num_envs)]
 
-        self.env: VecEnv3 = DummyVecEnv3(self.env)
+        vec_cls = SubprocVecEnv3 if num_envs > 1 else DummyVecEnv3
+        self.env: VecEnv3 = vec_cls(self.env)
 
         # save parameters
         self.episodes = episodes
@@ -1048,12 +1062,10 @@ class Evaluator:
         episode_skipped_dominant_actions = [[0] for _ in range(self.env.num_envs)]
 
         # run the episodes
+        roles = [
+            0 if pf else 1 for pf in self.env.get_attr("play_first")
+        ]
         while True:
-            # get current role info
-            roles = [
-                0 if play_first else 1 for play_first in self.env.get_attr("play_first")
-            ]
-
             # get the agent's action for all parallel envs
             # todo: do this in a more elegant way
             if isinstance(agent, RLDraftAgent):
@@ -1099,6 +1111,8 @@ class Evaluator:
                         episode_wins_1p[i].append(win)
                     else:
                         episode_wins_2p[i].append(win)
+                    if alternate_roles:
+                        roles[i] = 1 - roles[i]
 
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
@@ -1191,7 +1205,7 @@ class TrainingCallback(BaseCallback):
         self.callback_func = callback_func
 
     def _on_step(self):
-        return self.callback_func()
+        return self.callback_func(self.locals)
 
 
 class RolloutEndLogger(BaseCallback):
@@ -1217,7 +1231,7 @@ class RolloutEndLogger(BaseCallback):
     def log_rollout_stats(self):
         # log the number of episodes and steps per episode in the rollout that just ended
         all_episodes = sum(self.training_env.get_attr("episodes"))
-        n_rollout_steps = self.locals["n_rollout_steps"]
+        n_rollout_steps = self.locals["n_rollout_steps"] * self.training_env.num_envs
         
         rollout_episodes = all_episodes - self.episode_counter
         self.episode_counter = all_episodes
