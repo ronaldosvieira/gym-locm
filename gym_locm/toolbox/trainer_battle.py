@@ -1111,8 +1111,6 @@ class Evaluator:
                         episode_wins_1p[i].append(win)
                     else:
                         episode_wins_2p[i].append(win)
-                    if alternate_roles:
-                        roles[i] = 1 - roles[i]
 
                     episode_rewards[i].append(0.0)
                     episode_lengths[i].append(0)
@@ -1123,6 +1121,9 @@ class Evaluator:
                     episode_creature_attacks[i].append(0)
                     episode_favorable_trades[i].append(0)
                     episode_skipped_dominant_actions[i].append(0)
+
+                    if alternate_roles:
+                        roles[i] = 1 - roles[i]
 
                     episodes_so_far += 1
 
